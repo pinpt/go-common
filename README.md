@@ -8,4 +8,4 @@
 
 ## License
 
-All of this code is proprietary and Copyright &copy; 2018 by PinPT, Inc.
+All of this code is Copyright &copy; 2018 by PinPT, Inc. and licensed under the MIT License.
