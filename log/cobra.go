@@ -26,7 +26,7 @@ func RegisterFlags(rootCmd *cobra.Command) {
 }
 
 // NewCommandLogger returns a new Logger for a given command
-func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) Logger {
+func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 	pkg := cmd.Name()
 	if opts == nil {
 		opts = make([]WithLogOptions, 0)
