@@ -182,7 +182,7 @@ func TestCallSite(t *testing.T) {
 	var w wc
 	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "callsite")
 	Debug(log, "hi")
-	assert.Equal("caller=log_test.go:182 pkg=callsite level=debug msg=hi\n", string(w.b))
+	assert.Equal("caller=log_test.go:184 pkg=callsite level=debug msg=hi\n", string(w.b))
 }
 
 func TestLevelFromString(t *testing.T) {

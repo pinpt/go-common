@@ -26,9 +26,11 @@ func RegisterFlags(rootCmd *cobra.Command) {
 }
 
 // NewCommandLogger returns a new Logger for a given command
-func NewCommandLogger(cmd *cobra.Command) Logger {
+func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) Logger {
 	pkg := cmd.Name()
-	opts := make([]WithLogOptions, 0)
+	if opts == nil {
+		opts = make([]WithLogOptions, 0)
+	}
 	var isContainer bool
 	if runtime.GOOS == "linux" {
 		if fileutil.FileExists(dockerCGroup) {
