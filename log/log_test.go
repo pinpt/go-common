@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pinpt/go-common/fileutil"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -242,4 +244,19 @@ func TestCrashLogger(t *testing.T) {
 	log2 := NewLogger(&w2, JSONLogFormat, DarkLogColorTheme, DebugLevel, "test", WithCrashLogger())
 	Debug(log2, "testlog")
 	assert.Equal(mylog, string(w2.b))
+}
+
+func TestBackgroundLogger(t *testing.T) {
+	assert := assert.New(t)
+	var w wc
+	var called string
+	callback := func(fn string) {
+		called = fn
+	}
+	log := NewLogger(&w, JSONLogFormat, DarkLogColorTheme, DebugLevel, "test", WithBackgroundLogger(callback))
+	Debug(log, "testlog")
+	log.Close()
+	assert.NotEmpty(called)
+	assert.True(fileutil.FileExists(called))
+	os.Remove(called)
 }

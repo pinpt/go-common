@@ -395,9 +395,10 @@ type LoggerCloser interface {
 }
 
 type logcloser struct {
-	w io.WriteCloser
-	l Logger
-	o sync.Once
+	w       io.WriteCloser
+	l       Logger
+	o       sync.Once
+	loggers []Logger
 }
 
 // Log will dispatch the log to the next logger
@@ -410,6 +411,13 @@ func (l *logcloser) Close() error {
 	l.o.Do(func() {
 		if w, ok := l.l.(LoggerCloser); ok {
 			w.Close()
+		}
+		if l.loggers != nil && len(l.loggers) > 0 {
+			for _, logger := range l.loggers {
+				if w, ok := logger.(LoggerCloser); ok {
+					w.Close()
+				}
+			}
 		}
 		// don't close the main process stdout/stderr
 		if l.w == os.Stdout || l.w == os.Stderr {
@@ -447,20 +455,36 @@ func WithDefaultTimestampLogOption() WithLogOptions {
 	}
 }
 
+// BackgroundLoggerCallback is a callback function that will get invoked when the log needs to be fetched
+type BackgroundLoggerCallback func(fn string)
+
 // crashlogger will log to a file
 type crashlogger struct {
-	next Logger
-	ch   chan string
+	next     Logger
+	ch       chan string
+	callback BackgroundLoggerCallback
+	wg       sync.WaitGroup
+}
+
+func (l *crashlogger) Close() error {
+	close(l.ch)
+	l.wg.Wait()
+	if l.callback != nil {
+		l.callback(os.Getenv("PP_LOGFILE"))
+	}
+	return nil
 }
 
 func (l *crashlogger) Log(keyvals ...interface{}) error {
 	l.next.Log(keyvals...)
-	pumpLogsIntoChan(l.ch, keyvals...)
-	return nil
+	return pumpLogsIntoChan(l.ch, keyvals...)
 }
 
+// ErrLogQueueFull will return when the log queue is full
+var ErrLogQueueFull = errors.New("error: log queue full, dropping log message")
+
 // pumpLogsIntoChan cleans up the keyvals before pumping it into the chan
-func pumpLogsIntoChan(pipe chan string, keyvals ...interface{}) {
+func pumpLogsIntoChan(pipe chan string, keyvals ...interface{}) error {
 	n := (len(keyvals) + 1) / 2 // +1 to handle case when len is odd
 	m := make(map[string]interface{}, n)
 	for i := 0; i < len(keyvals); i += 2 {
@@ -471,12 +495,19 @@ func pumpLogsIntoChan(pipe chan string, keyvals ...interface{}) {
 		}
 		merge(m, k, v)
 	}
-	pipe <- pjson.Stringify(m)
+	select {
+	case pipe <- pjson.Stringify(m):
+		return nil
+	default:
+		return ErrLogQueueFull
+	}
 }
 
 // run will spin up a goroutine that pumps logs to a file
 func (l *crashlogger) run() {
+	l.wg.Add(1)
 	go func() {
+		defer l.wg.Done()
 		lf := byte('\n')
 		var failedLastTime bool
 		var numFailedInARow int
@@ -507,6 +538,20 @@ func (l *crashlogger) run() {
 	}()
 }
 
+// WithBackgroundLogger will return a logger which will collect log file and call the callback upon exit
+// with the name of the logfile for further processing when the process is completed
+func WithBackgroundLogger(callback BackgroundLoggerCallback) WithLogOptions {
+	return func(logger Logger) Logger {
+		l := &crashlogger{
+			next:     logger,
+			ch:       make(chan string, 1000),
+			callback: callback,
+		}
+		l.run()
+		return l
+	}
+}
+
 // WithCrashLogger will tell the logger to create a logfile and log to it, in
 // the event of a crash it will send the logfile to our analytics api. At the end
 // of execution the log file will be deleted
@@ -515,10 +560,9 @@ func WithCrashLogger() WithLogOptions {
 		DeleteLogFile()
 	})
 	return func(logger Logger) Logger {
-		ch := make(chan string, 1000)
 		l := &crashlogger{
-			logger,
-			ch,
+			next: logger,
+			ch:   make(chan string, 1000),
 		}
 		l.run()
 		return l
@@ -531,11 +575,12 @@ func getLogFd() *os.File {
 	path := os.Getenv("PP_LOGFILE")
 	if path == "" {
 		path = NewRandomLogPath()
+		os.Setenv("PP_LOGFILE", path)
 	}
 	if fileutil.FileExists(path) {
 		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_EXCL, 0600)
 		if err != nil {
-			panic(fmt.Errorf("Error openning log file %v", err))
+			panic(fmt.Errorf("Error opening log file %v", err))
 		}
 		return f
 	}
@@ -878,7 +923,7 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 	// if the writer implements the io.WriteCloser we wrap the
 	// return value in a write closer interface
 	if w, ok := writer.(io.WriteCloser); ok {
-		return &logcloser{w: w, l: logger}
+		return &logcloser{w: w, l: logger, loggers: loggers}
 	}
 
 	// wrap in a type that suppresses the call to Close
