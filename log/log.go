@@ -464,14 +464,17 @@ type crashlogger struct {
 	ch       chan string
 	callback BackgroundLoggerCallback
 	wg       sync.WaitGroup
+	once     sync.Once
 }
 
 func (l *crashlogger) Close() error {
-	close(l.ch)
-	l.wg.Wait()
-	if l.callback != nil {
-		l.callback(os.Getenv("PP_LOGFILE"))
-	}
+	l.once.Do(func() {
+		close(l.ch)
+		l.wg.Wait()
+		if l.callback != nil {
+			l.callback(os.Getenv("PP_LOGFILE"))
+		}
+	})
 	return nil
 }
 
