@@ -7,9 +7,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/log"
 )
 
 // DB wraps a sql.DB to remember the DSN setting
@@ -549,3 +555,52 @@ yKlMv+VgmzSw7o4Hbxy1WVrA6zQsTHHSGf+vkQn2PHvnFMUEu/ZLbTDYFNmTLK91
 K6o4nMsEvhBKgo4z7H1EqqxXhvN2
 -----END CERTIFICATE-----
 `
+
+// SQLJoin will take an array of ids (of any type) and return them as quoted strings
+func SQLJoin(ids interface{}) string {
+	s := make([]string, 0)
+	array := reflect.ValueOf(ids)
+	for index := 0; index < array.Len(); index++ {
+		elem := array.Index(index)
+		s = append(s, fmt.Sprintf("'%v'", elem.Interface()))
+	}
+	return strings.Join(s, ",")
+}
+
+var sqlreplaceRE = regexp.MustCompile("\\?")
+var sqlspaceRE = regexp.MustCompile("\\s{2,}")
+var sqlTightRE = regexp.MustCompile("(\\s?)([\\(\\),!<>=])(\\s?)")
+
+// FormatSQL will make a query compact and one-liner
+func FormatSQL(q string, args ...interface{}) string {
+	var pos int
+	return sqlTightRE.ReplaceAllString(strings.TrimSpace(sqlspaceRE.ReplaceAllString(strings.Replace(strings.Replace(sqlreplaceRE.ReplaceAllStringFunc(q, func(needle string) string {
+		arg := args[pos]
+		pos++
+		return json.Stringify(arg)
+	}), "\n", " ", -1), "\t", " ", -1), " ")), "$2")
+}
+
+var printTimedQuery = os.Getenv("SQL_DEBUG") == "1"
+
+// TimedQuery will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
+func TimedQuery(ctx context.Context, logger log.Logger, db *sql.DB, label string, sql string, args ...interface{}) (*sql.Rows, error) {
+	if printTimedQuery {
+		started := time.Now()
+		rows, err := db.QueryContext(ctx, sql, args...)
+		log.Debug(logger, fmt.Sprintf("sql=%s", FormatSQL(sql, args...)), "label", label, "duration", fmt.Sprintf("%v", time.Since(started)))
+		return rows, err
+	}
+	return db.QueryContext(ctx, sql, args...)
+}
+
+// TimedQueryRow will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
+func TimedQueryRow(ctx context.Context, logger log.Logger, db *sql.DB, label string, sql string, args ...interface{}) *sql.Row {
+	if printTimedQuery {
+		started := time.Now()
+		row := db.QueryRowContext(ctx, sql, args...)
+		log.Debug(logger, fmt.Sprintf("sql=%s", FormatSQL(sql, args...)), "label", label, "duration", fmt.Sprintf("%v", time.Since(started)))
+		return row
+	}
+	return db.QueryRowContext(ctx, sql, args...)
+}

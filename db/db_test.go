@@ -90,3 +90,29 @@ func TestDSNOverrideTLS(t *testing.T) {
 	dsn := GetDSN("username", "password", "hostname", 3306, "name", "tls=true")
 	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true", dsn)
 }
+
+type testTest string
+
+func TestSQLJoin(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("'1','2'", SQLJoin([]string{"1", "2"}))
+	assert.Equal("'1','2'", SQLJoin([]int{1, 2}))
+	assert.Equal("'1','2'", SQLJoin([]testTest{testTest("1"), testTest("2")}))
+}
+
+func TestFormatSQL(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("SELECT * FROM foo", FormatSQL("SELECT   * FROM foo"))
+	assert.Equal("SELECT * FROM foo", FormatSQL("SELECT\n* FROM foo"))
+	assert.Equal("SELECT * FROM foo", FormatSQL("SELECT\t* FROM foo"))
+	assert.Equal("SELECT * FROM foo", FormatSQL("SELECT * FROM foo\n"))
+	assert.Equal("SELECT * FROM foo", FormatSQL(`
+		SELECT * FROM foo
+`))
+	assert.Equal("SELECT * FROM foo where foo=1", FormatSQL("SELECT * FROM foo where foo = 1"))
+	assert.Equal("SELECT * FROM foo where foo>=1", FormatSQL("SELECT * FROM foo where foo >= 1"))
+	assert.Equal("SELECT * FROM foo where foo=(SELECT id from bar)", FormatSQL("SELECT * FROM foo where foo = ( SELECT id from bar )"))
+	assert.Equal("SELECT * FROM foo GROUP BY foo,bar", FormatSQL("SELECT * FROM foo GROUP BY foo, bar"))
+	assert.Equal("SELECT * FROM foo where bar!=1", FormatSQL("SELECT * FROM foo where bar != 1"))
+	assert.Equal("SELECT * FROM foo where bar<>1", FormatSQL("SELECT * FROM foo where bar <> 1"))
+}
