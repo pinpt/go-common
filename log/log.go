@@ -875,7 +875,7 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 		{
 			logger = level.NewFilter(logger, level.AllowDebug())
 			if allowCaller {
-				logger = log.With(logger, "caller", log.Caller(callStackDepth))
+				logger = log.With(logger, "caller", log.Caller(callStackDepth+len(opts)*2))
 			}
 		}
 	case InfoLevel:
@@ -886,7 +886,7 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 		{
 			logger = level.NewFilter(logger, level.AllowError())
 			if allowCaller {
-				logger = log.With(logger, "caller", log.Caller(callStackDepth))
+				logger = log.With(logger, "caller", log.Caller(callStackDepth+len(opts)*2))
 			}
 		}
 	case WarnLevel:
