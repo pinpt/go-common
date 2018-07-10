@@ -836,9 +836,6 @@ func (l *dedupelogger) Close() error {
 	return nil
 }
 
-// track the depth from which the call stack should track the call site
-const callStackDepth = 9
-
 // NewLogger will create a new logger
 func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel Level, pkg string, opts ...WithLogOptions) LoggerCloser {
 	// short circuit it all if log level is none
@@ -867,16 +864,10 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 
 	loggers = append(loggers, logger)
 
-	// turn off caller for test package
-	allowCaller := pkg != "test"
-
 	switch minLevel {
 	case DebugLevel:
 		{
 			logger = level.NewFilter(logger, level.AllowDebug())
-			if allowCaller {
-				logger = log.With(logger, "caller", log.Caller(callStackDepth+len(opts)*2))
-			}
 		}
 	case InfoLevel:
 		{
@@ -885,9 +876,6 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 	case ErrorLevel:
 		{
 			logger = level.NewFilter(logger, level.AllowError())
-			if allowCaller {
-				logger = log.With(logger, "caller", log.Caller(callStackDepth+len(opts)*2))
-			}
 		}
 	case WarnLevel:
 		{

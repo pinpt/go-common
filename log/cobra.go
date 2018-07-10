@@ -69,19 +69,23 @@ func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 		}
 	default:
 		{
-			// write to a file
-			f, err := os.Create(o)
-			if err != nil {
-				fmt.Printf("Cannot open %s. %v\n", o, err)
-				os.Exit(1)
+			if o != "" {
+				// write to a file
+				f, err := os.Create(o)
+				if err != nil {
+					fmt.Printf("Cannot open %s. %v\n", o, err)
+					os.Exit(1)
+				}
+				w := os.Stdout
+				if isContainer {
+					w = os.Stderr
+				}
+				// write to both the normal output as well as the file
+				writer = io.MultiWriter(f, w)
+				isfile = true
+			} else {
+				writer = os.Stdout
 			}
-			w := os.Stdout
-			if isContainer {
-				w = os.Stderr
-			}
-			// write to both the normal output as well as the file
-			writer = io.MultiWriter(f, w)
-			isfile = true
 		}
 	}
 	var logFormat OutputFormat

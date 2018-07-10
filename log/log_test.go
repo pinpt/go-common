@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pinpt/go-common/fileutil"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -175,24 +174,6 @@ func TestMasking(t *testing.T) {
 	assert.Equal("pkg=test level=debug msg=hi apikey=12**\n", string(w.b))
 	Debug(log, "hi", "api_key", "1234")
 	assert.Equal("pkg=test level=debug msg=hi api_key=12**\n", string(w.b))
-}
-
-func TestCallSite(t *testing.T) {
-	assert := assert.New(t)
-	var w wc
-	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "callsite")
-	Debug(log, "hi")
-	assert.Equal("caller=log_test.go:184 pkg=callsite level=debug msg=hi\n", string(w.b))
-}
-
-func TestCallSiteWithOpts(t *testing.T) {
-	assert := assert.New(t)
-	var w wc
-	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "callsite", func(l Logger) Logger {
-		return With(l, "a", "b")
-	})
-	Debug(log, "hi")
-	assert.Equal("caller=log_test.go:194 a=b pkg=callsite level=debug msg=hi\n", string(w.b))
 }
 
 func TestLevelFromString(t *testing.T) {
