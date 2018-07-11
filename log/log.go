@@ -465,13 +465,17 @@ type crashlogger struct {
 	callback BackgroundLoggerCallback
 	wg       sync.WaitGroup
 	once     sync.Once
+	started  bool
 }
 
 func (l *crashlogger) Close() error {
 	l.once.Do(func() {
 		close(l.ch)
 		l.ch = nil
-		l.wg.Wait()
+		if l.started {
+			l.started = false
+			l.wg.Wait()
+		}
 		if l.callback != nil {
 			l.callback(os.Getenv("PP_LOGFILE"))
 		}
@@ -512,6 +516,7 @@ func pumpLogsIntoChan(pipe chan string, keyvals ...interface{}) error {
 
 // run will spin up a goroutine that pumps logs to a file
 func (l *crashlogger) run() {
+	l.started = true
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
@@ -521,24 +526,38 @@ func (l *crashlogger) run() {
 		f := getLogFd()
 		defer f.Close()
 		ch := l.ch
-		for buf := range ch {
-			// don't write empty strings
-			if len(buf) == 0 || buf[0] == lf {
-				continue
-			}
-			n, err := fmt.Fprintln(f, buf)
-			if n < 0 || err != nil {
-				if failedLastTime {
-					numFailedInARow++
-				} else {
-					failedLastTime = true
-					numFailedInARow = 1
+		var closed bool
+		for !closed {
+			select {
+			case buf := <-ch:
+				{
+					// don't write empty strings
+					if len(buf) == 0 || buf[0] == lf {
+						closed = true
+						break
+					}
+					n, err := fmt.Fprintln(f, buf)
+					if n < 0 || err != nil {
+						if err == io.EOF {
+							closed = true
+							continue
+						}
+						if failedLastTime {
+							numFailedInARow++
+						} else {
+							failedLastTime = true
+							numFailedInARow = 1
+						}
+						if numFailedInARow > 5 && err != nil {
+							fmt.Println("error writing to log file five times in a row", err)
+						}
+					} else {
+						failedLastTime = false
+					}
 				}
-				if numFailedInARow > 5 && err != nil {
-					fmt.Println("error writing to log file five times in a row", err)
-				}
-			} else {
-				failedLastTime = false
+			default:
+				closed = true
+				break
 			}
 		}
 		f.Sync()
@@ -653,7 +672,6 @@ type maskingLogger struct {
 var maskedKeys = map[string]bool{
 	"password":              true,
 	"passwd":                true,
-	"email":                 true,
 	"access_key":            true,
 	"secret":                true,
 	"token":                 true,
@@ -665,6 +683,8 @@ var maskedKeys = map[string]bool{
 
 var maskedPattern = regexp.MustCompile("(?i)(password|passwd|secret|access_key|token|apikey|api_key)")
 var awsKeyPattern = regexp.MustCompile("AKIA[A-Z0-9]{16}")
+var emailPattern = regexp.MustCompile("[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*")
+var emailGroupPattern = regexp.MustCompile("(.*?)([a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)(.*?)")
 
 func mask(v interface{}) string {
 	s := pstring.Value(v)
@@ -680,6 +700,35 @@ func mask(v interface{}) string {
 	buf.WriteString(s[0:h])
 	buf.WriteString(strings.Repeat("*", l-h))
 	return buf.String()
+}
+
+func maskEmail(email string) string {
+	tok := strings.Split(email, "@")
+	dotok := strings.Split(tok[1], ".")
+	return mask(tok[0]) + "@" + mask(dotok[0]) + "." + dotok[1]
+}
+
+func maskEmailObject(v interface{}) interface{} {
+	if s, ok := v.(string); ok {
+		if emailPattern.MatchString(s) {
+			return emailGroupPattern.ReplaceAllStringFunc(s, func(line string) string {
+				matches := emailGroupPattern.FindAllStringSubmatch(line, -1)
+				var buf strings.Builder
+				for _, toks := range matches {
+					before, email, after := toks[1], toks[2], toks[3]
+					if before != "" {
+						buf.WriteString(before)
+					}
+					buf.WriteString(maskEmail(email))
+					if after != "" {
+						buf.WriteString(after)
+					}
+				}
+				return buf.String()
+			})
+		}
+	}
+	return v
 }
 
 // Close will close the underlying channel
@@ -714,7 +763,11 @@ func (l *maskingLogger) Log(keyvals ...interface{}) error {
 		k := newvals[i]
 		var v interface{} = log.ErrMissingValue
 		if i+1 < len(newvals) {
-			v = newvals[i+1]
+			nv := maskEmailObject(newvals[i+1])
+			if nv != v {
+				newvals[i+1] = nv
+				v = nv
+			}
 		}
 		if s, ok := k.(string); ok && v != log.ErrMissingValue {
 			if keyMatches(s) {

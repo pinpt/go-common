@@ -129,6 +129,16 @@ func TestLogKVNil(t *testing.T) {
 	assert.True(w.c)
 }
 
+func TestMaskEmail(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("", maskEmailObject(""))
+	assert.Equal("hi", maskEmailObject("hi"))
+	assert.Equal("jha****@f**.bar", maskEmailObject("jhaynie@foo.bar"))
+	assert.Equal("your email is jha****@f**.bar", maskEmailObject("your email is jhaynie@foo.bar"))
+	assert.Equal("your email is jha****@f**.bar and your other one is jha****@b**.com", maskEmailObject("your email is jhaynie@foo.bar and your other one is jhaynie@bar.com"))
+	assert.Equal("your email is jha****@f**.bar and your other one is jha****@b**.com and hi", maskEmailObject("your email is jhaynie@foo.bar and your other one is jhaynie@bar.com and hi"))
+}
+
 func TestMasking(t *testing.T) {
 	assert := assert.New(t)
 	assert.Equal("", mask(""))
@@ -145,7 +155,11 @@ func TestMasking(t *testing.T) {
 	Debug(log, "hi", "secret", "password")
 	assert.Equal("pkg=test level=debug msg=hi secret=pass****\n", string(w.b))
 	Debug(log, "hi", "email", "foo@bar.com")
-	assert.Equal("pkg=test level=debug msg=hi email=foo@b******\n", string(w.b))
+	assert.Equal("pkg=test level=debug msg=hi email=f**@b**.com\n", string(w.b))
+	Debug(log, "hi", "otherkey", "foo@bar.com")
+	assert.Equal("pkg=test level=debug msg=hi otherkey=f**@b**.com\n", string(w.b))
+	Debug(log, "your email is foo@bar.com")
+	assert.Equal("pkg=test level=debug msg=\"your email is f**@b**.com\"\n", string(w.b))
 	Debug(log, "hi", "access_key", "secret")
 	assert.Equal("pkg=test level=debug msg=hi access_key=sec***\n", string(w.b))
 	Debug(log, "hi", "passwd", "1")
@@ -230,11 +244,6 @@ func TestCrashLogger(t *testing.T) {
 	s, err := ioutil.ReadFile(os.Getenv("PP_LOGFILE"))
 	assert.NoError(err)
 	assert.Equal(mylog, string(s))
-	DeleteLogFile()
-	var w2 wc
-	log2 := NewLogger(&w2, JSONLogFormat, DarkLogColorTheme, DebugLevel, "test", WithCrashLogger())
-	Debug(log2, "testlog")
-	assert.Equal(mylog, string(w2.b))
 }
 
 func TestBackgroundLogger(t *testing.T) {
