@@ -470,6 +470,7 @@ type crashlogger struct {
 func (l *crashlogger) Close() error {
 	l.once.Do(func() {
 		close(l.ch)
+		l.ch = nil
 		l.wg.Wait()
 		if l.callback != nil {
 			l.callback(os.Getenv("PP_LOGFILE"))
@@ -480,7 +481,10 @@ func (l *crashlogger) Close() error {
 
 func (l *crashlogger) Log(keyvals ...interface{}) error {
 	l.next.Log(keyvals...)
-	return pumpLogsIntoChan(l.ch, keyvals...)
+	if l.ch != nil {
+		return pumpLogsIntoChan(l.ch, keyvals...)
+	}
+	return nil
 }
 
 // ErrLogQueueFull will return when the log queue is full
@@ -516,7 +520,8 @@ func (l *crashlogger) run() {
 		var numFailedInARow int
 		f := getLogFd()
 		defer f.Close()
-		for buf := range l.ch {
+		ch := l.ch
+		for buf := range ch {
 			// don't write empty strings
 			if len(buf) == 0 || buf[0] == lf {
 				continue
