@@ -705,7 +705,7 @@ func mask(v interface{}) string {
 func maskEmail(email string) string {
 	tok := strings.Split(email, "@")
 	dotok := strings.Split(tok[1], ".")
-	return mask(tok[0]) + "@" + mask(dotok[0]) + "." + dotok[1]
+	return mask(tok[0]) + "@" + mask(dotok[0]) + "." + strings.Join(dotok[1:], ".")
 }
 
 func maskEmailObject(v interface{}) interface{} {

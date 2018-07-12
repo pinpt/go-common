@@ -134,6 +134,7 @@ func TestMaskEmail(t *testing.T) {
 	assert.Equal("", maskEmailObject(""))
 	assert.Equal("hi", maskEmailObject("hi"))
 	assert.Equal("jha****@f**.bar", maskEmailObject("jhaynie@foo.bar"))
+	assert.Equal("jha****@subd*****.foo.bar", maskEmailObject("jhaynie@subdomain.foo.bar"))
 	assert.Equal("your email is jha****@f**.bar", maskEmailObject("your email is jhaynie@foo.bar"))
 	assert.Equal("your email is jha****@f**.bar and your other one is jha****@b**.com", maskEmailObject("your email is jhaynie@foo.bar and your other one is jhaynie@bar.com"))
 	assert.Equal("your email is jha****@f**.bar and your other one is jha****@b**.com and hi", maskEmailObject("your email is jhaynie@foo.bar and your other one is jhaynie@bar.com and hi"))
