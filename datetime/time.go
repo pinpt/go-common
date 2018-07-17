@@ -112,6 +112,11 @@ func TimeToEpoch(tv time.Time) int64 {
 	return tv.UTC().UnixNano() / 1000000
 }
 
+// EpochNow will return the current time in epoch (in UTC) with millisecond precision
+func EpochNow(tv time.Time) int64 {
+	return tv.UTC().UnixNano() / 1000000
+}
+
 // ISODateFromTimestamp returns a a RFC 3339 formatted string from a protobuf timestamp
 func ISODateFromTimestamp(t *timestamp.Timestamp) string {
 	tv, err := ptypes.Timestamp(t)
