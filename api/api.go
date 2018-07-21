@@ -131,7 +131,7 @@ func isAbsURL(urlstr string) bool {
 }
 
 // Get will invoke api for channel and basepath
-func Get(channel string, basepath string, apiKey string) (*http.Response, error) {
+func Get(ctx context.Context, channel string, basepath string, apiKey string) (*http.Response, error) {
 	bu := BackendURL(channel)
 	var urlstr string
 	if isAbsURL(basepath) {
@@ -146,6 +146,7 @@ func Get(channel string, basepath string, apiKey string) (*http.Response, error)
 		req.Header.Add("x-api-key", apiKey)
 	}
 	req.Header.Set("Accept", "application/json")
+	req = req.WithContext(ctx)
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
 		return nil, err
@@ -158,7 +159,7 @@ func Get(channel string, basepath string, apiKey string) (*http.Response, error)
 }
 
 // Post will invoke api for channel and basepath as JSON post
-func Post(channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
+func Post(ctx context.Context, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
 	bu := BackendURL(channel)
 	var urlstr string
 	if isAbsURL(basepath) {
@@ -173,6 +174,7 @@ func Post(channel string, basepath string, apiKey string, obj interface{}) (*htt
 		req.Header.Add("x-api-key", apiKey)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
 		return nil, err

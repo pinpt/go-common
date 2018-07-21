@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 
@@ -25,14 +26,14 @@ func TestBackendURL(t *testing.T) {
 
 func TestBackendURLPing(t *testing.T) {
 	assert := assert.New(t)
-	resp, err := Get("edge", "/frontend/ping", "")
+	resp, err := Get(context.Background(), "edge", "/frontend/ping", "")
 	assert.NoError(err)
 	buf, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	assert.NoError(err)
 	assert.Equal("OK", string(buf))
 
-	resp, err = Get("stable", "/frontend/ping", "")
+	resp, err = Get(context.Background(), "stable", "/frontend/ping", "")
 	assert.NoError(err)
 	buf, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
