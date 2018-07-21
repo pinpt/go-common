@@ -89,6 +89,12 @@
   version = "v0.0.3"
 
 [[projects]]
+  name = "github.com/pinpt/httpclient"
+  packages = ["."]
+  revision = "f8d8c73a0a9fd207b1f3dade42e480907024ce90"
+  version = "1.1.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -127,6 +133,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8cf1d78809b7656f9a58526d1390aaf9370436ed614d5173f8ff6eb265955a75"
+  inputs-digest = "1b8c9577f108fb59261244a1d6f351639668745ace54ff444f6b1281b5807f14"
   solver-name = "gps-cdcl"
   solver-version = 1
