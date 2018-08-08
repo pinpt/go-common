@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 )
 
 // baseURL is the url to the Pinpoint Cloud API
-const baseURL = "api.pinpt.io"
+const baseURL = "pinpt.io/api/"
 
 var (
 	// domainRegex are the only domains that we trust
@@ -59,11 +60,11 @@ func isDNSNameTrusted(names ...string) bool {
 }
 
 // BackendURL return the base url to the API server
-func BackendURL(channel string) string {
-	if channel == "" {
-		channel = "stable"
+func BackendURL(customer string, channel string) string {
+	if channel == "" || channel == "stable" {
+		return fmt.Sprintf("https://%s.%s", customer, baseURL)
 	}
-	return fmt.Sprintf("https://api.%s.%s", channel, baseURL)
+	return fmt.Sprintf("https://%s.%s.%s", customer, channel, baseURL)
 }
 
 // NewHTTPAPIClient will return a new HTTP client for talking with the Pinpoint API
@@ -131,14 +132,14 @@ func isAbsURL(urlstr string) bool {
 }
 
 // Get will invoke api for channel and basepath
-func Get(ctx context.Context, channel string, basepath string, apiKey string) (*http.Response, error) {
-	bu := BackendURL(channel)
+func Get(ctx context.Context, customer string, channel string, basepath string, apiKey string) (*http.Response, error) {
+	bu := BackendURL(customer, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
 	} else {
 		u, _ := url.Parse(bu)
-		u.Path = basepath
+		u.Path = path.Join(u.Path, basepath)
 		urlstr = u.String()
 	}
 	req, _ := http.NewRequest(http.MethodGet, urlstr, nil)
@@ -159,8 +160,8 @@ func Get(ctx context.Context, channel string, basepath string, apiKey string) (*
 }
 
 // Post will invoke api for channel and basepath as JSON post
-func Post(ctx context.Context, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
-	bu := BackendURL(channel)
+func Post(ctx context.Context, customer string, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
+	bu := BackendURL(customer, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
