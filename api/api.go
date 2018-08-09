@@ -59,12 +59,22 @@ func isDNSNameTrusted(names ...string) bool {
 	return false
 }
 
+var (
+	subdomainRegexp  = regexp.MustCompile("[^\\w]+")
+	subdomainRegexp2 = regexp.MustCompile("\\s")
+)
+
+func getCustomerSubdomain(customerName string) string {
+	return strings.ToLower(subdomainRegexp2.ReplaceAllString(subdomainRegexp.ReplaceAllString(customerName, ""), ""))
+}
+
 // BackendURL return the base url to the API server
-func BackendURL(customer string, channel string) string {
+func BackendURL(customerName string, channel string) string {
+	subdomain := getCustomerSubdomain(customerName)
 	if channel == "" || channel == "stable" {
-		return fmt.Sprintf("https://%s.%s", customer, baseURL)
+		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
 	}
-	return fmt.Sprintf("https://%s.%s.%s", customer, channel, baseURL)
+	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
 }
 
 // NewHTTPAPIClient will return a new HTTP client for talking with the Pinpoint API

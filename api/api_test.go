@@ -40,3 +40,14 @@ func TestBackendURLPing(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("OK", string(buf))
 }
+
+func TestDomainName(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("foobar", getCustomerSubdomain("foo bar"))
+	assert.Equal("foobar", getCustomerSubdomain("foo\tbar"))
+	assert.Equal("foobar", getCustomerSubdomain("foo+bar"))
+	assert.Equal("foobar", getCustomerSubdomain("foo,bar"))
+	assert.Equal("foobar", getCustomerSubdomain("foo.bar"))
+	assert.Equal("foobar", getCustomerSubdomain("foobar"))
+	assert.Equal("foobarinc", getCustomerSubdomain("Foo Bar, Inc."))
+}
