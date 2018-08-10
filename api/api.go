@@ -177,7 +177,7 @@ func Post(ctx context.Context, customer string, channel string, basepath string,
 		urlstr = basepath
 	} else {
 		u, _ := url.Parse(bu)
-		u.Path = basepath
+		u.Path = path.Join(u.Path, basepath)
 		urlstr = u.String()
 	}
 	req, _ := http.NewRequest(http.MethodPost, urlstr, strings.NewReader(json.Stringify(obj)))
