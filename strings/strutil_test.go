@@ -5,6 +5,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResize(t *testing.T) {
@@ -41,6 +43,12 @@ func TestPrettyTime(t *testing.T) {
 	if got != "---" {
 		t.Fatal("want", "---", "got", got)
 	}
+}
+
+func TestJoinURL(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("http://pinpt.com/hello/world", JoinURL("http://pinpt.com", "/hello", "world/"))
+	assert.Equal("https://pinpt.com/hello/world", JoinURL("https://pinpt.com/", "hello", "/world"))
 }
 
 var (
