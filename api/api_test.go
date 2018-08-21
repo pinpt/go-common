@@ -51,9 +51,3 @@ func TestDomainName(t *testing.T) {
 	assert.Equal("foobar", getCustomerSubdomain("foobar"))
 	assert.Equal("foobarinc", getCustomerSubdomain("Foo Bar, Inc."))
 }
-
-func TestJoinURL(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal("http://pinpt.com/hello/world", JoinURL("http://pinpt.com", "/hello", "world/"))
-	assert.Equal("https://pinpt.com/hello/world", JoinURL("https://pinpt.com/", "hello", "/world"))
-}

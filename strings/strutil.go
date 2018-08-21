@@ -3,6 +3,7 @@ package strings
 
 import (
 	"bytes"
+	"strings"
 	"time"
 )
 
@@ -58,4 +59,20 @@ func PrettyTime(t time.Duration) string {
 		return "---"
 	}
 	return (t - (t % time.Second)).String()
+}
+
+// JoinURL Creates a URL string from parts
+func JoinURL(elem ...string) string {
+	parts := []string{}
+	for _, e := range elem {
+		if strings.HasSuffix(e, "/") {
+			e = strings.TrimSuffix(e, "/")
+		}
+		if strings.HasPrefix(e, "/") {
+			e = strings.TrimPrefix(e, "/")
+		}
+		parts = append(parts, e)
+	}
+	res := strings.Join(parts, "/")
+	return res
 }
