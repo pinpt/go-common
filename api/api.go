@@ -68,6 +68,22 @@ func getCustomerSubdomain(customerName string) string {
 	return strings.ToLower(subdomainRegexp2.ReplaceAllString(subdomainRegexp.ReplaceAllString(customerName, ""), ""))
 }
 
+// JoinURL Creates a URL string from parts
+func JoinURL(elem ...string) string {
+	parts := []string{}
+	for _, e := range elem {
+		if strings.HasSuffix(e, "/") {
+			e = strings.TrimSuffix(e, "/")
+		}
+		if strings.HasPrefix(e, "/") {
+			e = strings.TrimPrefix(e, "/")
+		}
+		parts = append(parts, e)
+	}
+	res := strings.Join(parts, "/")
+	return res
+}
+
 // BackendURL return the base url to the API server
 func BackendURL(customerName string, channel string) string {
 	subdomain := getCustomerSubdomain(customerName)
