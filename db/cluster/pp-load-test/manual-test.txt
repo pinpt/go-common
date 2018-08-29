@@ -1,0 +1,28 @@
+The problem
+
+Running queries are not properly distributed across multiple read only slaves.
+
+Repro (10mins)
+
+Insert ~100k records
+go install github.com/pinpt/wip/rds-load-test; and time rds-load-test
+
+Start read queries
+go test github.com/pinpt/wip/rds-load-test -bench=Queries -benchtime=60m
+
+Confirm that read replica is using up 100% cpu
+select * from information_schema.replica_host_status where last_update_timestamp > NOW() - 60;
+
+Wait for replica to start (10mins)
+
+Confirm that both replicas have cpu loaded equally
+select * from information_schema.replica_host_status where last_update_timestamp > NOW() - 60;
+
+BUG: the load is not equal the new server is idle while old is 100% loaded
+master ~16% slave 1 ~99% slave 2 ~20%  
+
+Confirm that it works if there are 2 slaves at the beginning
+No it does not, only one instance is used
+The traffic does not seem to get routed to new instances
+
+FIX: cluster package maintains sql.DB internally
