@@ -34,3 +34,25 @@ func TestStringPointerJSON(t *testing.T) {
 	}
 	assert.Equal(`{"a":"foo"}`, Stringify(s))
 }
+
+// Create a file called test.json, place it in your desktop, and add the following:
+// {
+// 	"name": "Pedro",
+// 	"hairColor": "Dark",
+// 	"eyesColor": "Brown"
+// }
+func TestReadFile(t *testing.T) {
+	assert := assert.New(t)
+	type person struct {
+		Name      string `json:"name"`
+		HairColor string `json:"hairColor"`
+		EyesColor string `json:"eyesColor"`
+	}
+
+	pedro := person{}
+	err := ReadFile("/Users/pedro/Desktop/test.json", &pedro)
+	assert.NoError(err)
+	assert.Equal(pedro.Name, "Pedro")
+	assert.Equal(pedro.HairColor, "Dark")
+	assert.Equal(pedro.EyesColor, "Brown")
+}
