@@ -1,6 +1,6 @@
 package slice
 
-//RemoveStringDups returns a new slice without duplicate items
+// RemoveStringDups returns a new slice without duplicate items
 func RemoveStringDups(intSlice []string) []string {
 	keys := make(map[string]bool)
 	list := []string{}
