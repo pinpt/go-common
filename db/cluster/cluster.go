@@ -1,8 +1,3 @@
-// TODO:
-// Remove servers when they are turned off due to low load
-// (maybe) Prioritize based on CPU usage
-// (maybe) Slow down queries if CPU at 100% on all servers
-
 package cluster
 
 import (
@@ -10,71 +5,212 @@ import (
 	"crypto/x509"
 	"database/sql"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"math/rand"
+	"net/url"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
 
+// Opts are options needed for creating a new RDSReadCluster.
 type Opts struct {
-	User             string
-	Pass             string
-	ReadEndpoint     string
+	// User is the database user
+	User string
+	// Pass is the password
+	Pass string
+	// Port is the port to use for connections. If not specified 3306 is used.
+	Port int
+	// Database name to select.
+	Database string
+
+	// ExtraDriverOpts are concatenated and added to the string used to initialize the driver connection. Used by underlying driver. Merged to DefaultDriverOpts and tls.
+	ExtraDriverOpts url.Values
+
+	// ReadEndpointURL url used to connect to any read replica to retrive the current cluster state from information_schema.replica_host_status table
+	ReadEndpointURL string
+
+	// ClusterURLSuffix is added to server_id retrieved from information_schema.replica_host_status. The resulting string is used to connect to specific replica.
 	ClusterURLSuffix string
+
+	// UpdateTopologyEvery specifies how often should topology be updated. If zero 30s is used.
+	UpdateTopologyEvery time.Duration
+
+	// MaxConnectionsPerServer sets the maximum number of open connection per read replica.
+	// Make sure to set a reasonable amount.
+	MaxConnectionsPerServer int
+
+	// Log outputs log of RDSReadCluster
+	Log func(args ...interface{})
 }
 
-type Cluster struct {
-	user             string
-	pass             string
-	readEndpoint     string
-	clusterURLSuffix string
+// defaultPort is used when no Port is specified in Opts.
+const defaultPort = 3306
 
-	readEndpointDB *sql.DB
+// DefaultDriverOpts are the options passed to mysql driver by default. Adjust ExtraDriverOpts if you want to add or modify.
+var DefaultDriverOpts = url.Values{
+	"collation": {"utf8_unicode_ci"},
+	"charset":   {"utf8mb4"},
+	"parseTime": {"true"},
+}
 
-	topology   []string
+// defaultUpdateTopology specifies how often the client should query the sql server for current servers list
+const defaultUpdateTopology = 5 * time.Second
+
+// RDSReadCluster provides db instances on demand. In comparison to default sql.DB with go-sql-driver/mysql it load balances across all read replicas.
+type RDSReadCluster interface {
+	// DB retrieves the DB instance to use for next read request. Do not store or re-use.
+	DB() (*sql.DB, error)
+
+	// DBCtx is the same as DB, but provides cancellation capabilities.
+	//DBCtx(context.Context) (*sql.DB, error)
+
+	// Close frees all resources. Make sure to finish all queries before calling Close.
+	Close() error
+}
+
+// rdsReadCluster is an implementaion of RDSReadCluster
+type rdsReadCluster struct {
+	opts Opts
+
+	// topology is the list of currently available server ids
+	topology   *topology
 	topologyMu sync.Mutex
 
-	// dbs are the currently connected db instances
-	dbs   map[string]*sql.DB
+	topologyUpdates *ticker
+
+	// dbs is a map of db instances connecting to specific server
+	// map[server_id]*sql.DB
+	dbs map[string]*sql.DB
+	// db move to dbsInvalid when they no longer in topology. We wait 1 min before closing to allow any existing queries to finish.
+	//dbsInvalid []dbInvalid
+	// dbsMu for dbs, dbsInvalid
 	dbsMu sync.Mutex
+
+	topologyDB *sql.DB
 }
 
-func New(opts Opts) *Cluster {
-	s := &Cluster{}
-	s.user = opts.User
-	s.pass = opts.Pass
-	s.readEndpoint = opts.ReadEndpoint
-	s.clusterURLSuffix = opts.ClusterURLSuffix
-
-	s.readEndpointDB = s.newDB(s.readEndpoint)
-	s.updateTopology()
+// New creates a new rdsReadCluster
+func New(opts Opts) *rdsReadCluster {
+	if opts.Port == 0 {
+		opts.Port = defaultPort
+	}
+	if opts.UpdateTopologyEvery == 0 {
+		opts.UpdateTopologyEvery = defaultUpdateTopology
+	}
+	if opts.User == "" || opts.Pass == "" || opts.Port == 0 || opts.Database == "" || opts.ReadEndpointURL == "" || opts.ClusterURLSuffix == "" || opts.UpdateTopologyEvery == 0 || opts.MaxConnectionsPerServer == 0 || opts.Log == nil {
+		panic("provide all options")
+	}
+	s := &rdsReadCluster{}
+	s.opts = opts
 
 	s.dbs = map[string]*sql.DB{}
 
-	ticker := time.NewTicker(30 * time.Second)
-	go func() {
-		for {
-			<-ticker.C
-			s.updateTopology()
-		}
-	}()
+	s.topology = newTopology(topologyOpts{
+		MaxTimeLeaving: maxTimeLeaving,
+		OnLeave: func(id string) {
+			s.dbsMu.Lock()
+			defer s.dbsMu.Lock()
+			s.dbs[id].Close()
+			delete(s.dbs, id)
+		},
+		Log: s.opts.Log,
+	})
 
+	s.updateTopologyLogError()
+	s.setupTopologyTicker()
 	return s
 }
 
-func (s *Cluster) updateTopology() error {
-	// TODO: also check cpu values
-	q := `
-		SELECT server_id, if(session_id = 'MASTER_SESSION_ID', 'writer', 'reader') as role
-		FROM information_schema.replica_host_status
-		WHERE last_update_timestamp > NOW() - 60
-		HAVING role = 'reader'
-	`
-	rows, err := s.readEndpointDB.Query(q)
+const maxTimeLeaving = 60 * time.Second
+
+func (s *rdsReadCluster) setupTopologyTicker() {
+
+	s.topologyUpdates = newTicker(s.opts.UpdateTopologyEvery)
+	go func() {
+	LOOP:
+		for {
+			select {
+			case <-s.topologyUpdates.ticker.C:
+				s.updateTopologyLogError()
+				s.topology.Tick(time.Now())
+			case <-s.topologyUpdates.stop:
+				break LOOP
+			}
+		}
+
+		s.opts.Log("stopped topology update goroutine")
+		s.topologyUpdates.stopped <- true
+	}()
+}
+
+func (s *rdsReadCluster) getDB(connURL string) (*sql.DB, error) {
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM([]byte(mysqlRDSCACert)) {
+		panic("can't add certs")
+	}
+	config := &tls.Config{
+		ServerName: connURL,
+		RootCAs:    caCertPool,
+	}
+	profile := hex.EncodeToString([]byte(connURL))
+	err := mysql.RegisterTLSConfig(profile, config)
 	if err != nil {
 		panic(err)
+	}
+
+	args := url.Values{}
+	args.Set("tls", profile)
+	for k, v := range DefaultDriverOpts {
+		args[k] = v
+	}
+	for k, v := range s.opts.ExtraDriverOpts {
+		args[k] = v
+	}
+	port := strconv.Itoa(s.opts.Port)
+	db, err := sql.Open("mysql", s.opts.User+":"+s.opts.Pass+"@tcp("+connURL+":"+port+")/"+s.opts.Database+"?"+args.Encode())
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(s.opts.MaxConnectionsPerServer)
+	return db, nil
+}
+
+const maxReplicaLastUpdateTimestampSec = 30
+
+func (s *rdsReadCluster) getTopologyDB() (*sql.DB, error) {
+	if s.topologyDB != nil {
+		return s.topologyDB, nil
+	}
+	s.opts.Log("connecting to new topology db")
+	db, err := s.getDB(s.opts.ReadEndpointURL)
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	s.topologyDB = db
+	return db, nil
+}
+
+func (s *rdsReadCluster) retrieveTopology() ([]string, error) {
+	db, err := s.getTopologyDB()
+	if err != nil {
+		return nil, err
+	}
+
+	q := `
+		SELECT
+			server_id,
+			if(session_id = 'MASTER_SESSION_ID', 'writer', 'reader') as role
+		FROM information_schema.replica_host_status
+		WHERE last_update_timestamp > NOW() - ?
+		HAVING role = 'reader'
+	`
+	rows, err := db.Query(q, maxReplicaLastUpdateTimestampSec)
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -84,52 +220,82 @@ func (s *Cluster) updateTopology() error {
 		var role string
 		err := rows.Scan(&serverID, &role)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		res = append(res, serverID)
+	}
+	return res, nil
+}
+
+func (s *rdsReadCluster) updateTopologyLogError() {
+	err := s.updateTopology()
+	if err != nil {
+		s.opts.Log("ERROR! Could not update RDSReadCluster topology, err: ", err)
+	}
+}
+
+func (s *rdsReadCluster) updateTopology() error {
+	res, err := s.retrieveTopology()
+	if err != nil {
+		return err
 	}
 
 	s.topologyMu.Lock()
 	defer s.topologyMu.Unlock()
 
-	fmt.Println("new topology", res)
-	s.topology = res
+	s.topology.Update(time.Now(), res)
 
 	return nil
-
 }
 
-const maxInstances = 3
+// Replica represents one read replica
+type Replica interface {
+	// Conn returns the db connection
+	Conn() *sql.DB
+	// MarkAsFailed marks the db connection as failed, so the cluster can ignore it. Ignores it for a fixed duration.
+	MarkAsFailed()
+}
 
-// DB returns a db instance that should be used for next select request. Do no store or reuse.
-func (s *Cluster) DB() *sql.DB {
+type replica struct {
+	host    string
+	cluster *rdsReadCluster
+	conn    *sql.DB
+}
+
+func (s *rdsReadCluster) DB() (*sql.DB, error) {
 	s.dbsMu.Lock()
 	defer s.dbsMu.Unlock()
+	s.topologyMu.Lock()
+	defer s.topologyMu.Unlock()
 
-	if len(s.dbs) < maxInstances {
-		notConnected := []string{}
-		for _, host := range s.topology {
-			if _, ok := s.dbs[host]; !ok {
-				notConnected = append(notConnected, host)
-			}
-		}
-		fmt.Println("not connected", notConnected)
-		if len(notConnected) == 0 {
-			// all connected
-			// return random db
-		} else {
-			host := notConnected[randn(len(notConnected))]
-			db := s.newDB(host + "." + s.clusterURLSuffix)
-			s.dbs[host] = db
-			if db == nil {
-				panic("db == nil")
-			}
-			fmt.Println("not reusing db")
-			return db
+	notConnected := []string{}
+	for host := range s.topology.Available {
+		_, connected := s.dbs[host]
+		if !connected {
+			notConnected = append(notConnected, host)
 		}
 	}
-	fmt.Println("reusing db")
-	return randomDB(s.dbs)
+
+	if len(notConnected) == 0 {
+		// all connected
+		// return random db
+	} else {
+		// connect a new db
+		host := notConnected[randn(len(notConnected))]
+		db, err := s.getDB(host + "." + s.opts.ClusterURLSuffix)
+		if err != nil {
+			return nil, err
+		}
+		s.opts.Log("connected to a new db", host)
+		s.dbs[host] = db
+		return db, nil
+	}
+
+	if len(s.dbs) == 0 {
+		return nil, errors.New("no servers available")
+	}
+
+	return randomDB(s.dbs), nil
 }
 
 func randomDB(dbs map[string]*sql.DB) *sql.DB {
@@ -144,34 +310,11 @@ func randomDB(dbs map[string]*sql.DB) *sql.DB {
 	panic("not possible")
 }
 
-func (s *Cluster) newDB(url string) *sql.DB {
-	db := dbByURL(s.user, s.pass, url)
-	db.SetMaxOpenConns(20)
-	return db
-}
-
-func dbByURL(user, pass, url string) *sql.DB {
-	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM([]byte(mysqlRDSCACert)) {
-		panic("can't add certs")
-	}
-	config := &tls.Config{
-		ServerName: url,
-		RootCAs:    caCertPool,
-	}
-	profile := hex.EncodeToString([]byte(url))
-	err := mysql.RegisterTLSConfig(profile, config)
-	if err != nil {
-		panic(err)
-	}
-
-	db, err := sql.Open("mysql", user+":"+pass+"@tcp("+url+":3306)/testdb?tls="+profile)
-	if err != nil {
-		panic(err)
-	}
-	return db
-}
-
 func randn(maxNotInclusive int) int {
 	return rand.Intn(maxNotInclusive)
+}
+
+func (s *rdsReadCluster) Close() error {
+	s.topologyUpdates.Stop()
+	return nil
 }

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	mysql "github.com/go-sql-driver/mysql"
-	"github.com/pinpt/go-common/db/cluster2"
+	"github.com/pinpt/go-common/db/cluster"
 )
 
 func main() {
