@@ -83,10 +83,7 @@ type rdsReadCluster struct {
 
 	// dbs is a map of db instances connecting to specific server
 	// map[server_id]*sql.DB
-	dbs map[string]*sql.DB
-	// db move to dbsInvalid when they no longer in topology. We wait 1 min before closing to allow any existing queries to finish.
-	//dbsInvalid []dbInvalid
-	// dbsMu for dbs, dbsInvalid
+	dbs   map[string]*sql.DB
 	dbsMu sync.Mutex
 
 	topologyDB *sql.DB
