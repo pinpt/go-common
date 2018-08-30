@@ -13,7 +13,7 @@ import (
 	"time"
 
 	mysql "github.com/go-sql-driver/mysql"
-	"github.com/pinpt/go-common/db/cluster"
+	"github.com/pinpt/go-common/db/cluster2"
 )
 
 func main() {
@@ -49,7 +49,18 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 	//ro := dbRO(user, pass, url)
 	//ro.SetMaxOpenConns(10)
 
-	cl := cluster.New(cluster.Opts{User: user, Pass: pass, ReadEndpoint: url, ClusterURLSuffix: clusterURLSuffix})
+	opts := cluster.Opts{
+		User:                    user,
+		Pass:                    pass,
+		Database:                "testdb",
+		ReadEndpointURL:         url,
+		ClusterURLSuffix:        clusterURLSuffix,
+		MaxConnectionsPerServer: 5,
+		Log: func(args ...interface{}) {
+			fmt.Println(args...)
+		}}
+	cl := cluster.New(opts)
+	defer cl.Close()
 
 	wg := sync.WaitGroup{}
 	count := int64p()
@@ -63,9 +74,9 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 				query(cl)
 
 				v := atomic.AddInt64(count, 1)
-				//if v%5 == 0 {
-				fmt.Println("queries completed", v)
-				//}
+				if v%5 == 0 {
+					fmt.Println("queries completed", v)
+				}
 
 			}
 		}(c)
@@ -74,7 +85,7 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 	wg.Wait()
 }
 
-func query(cl *cluster.Cluster) {
+func query(cl cluster.RDSReadCluster) {
 	q := `
 	SELECT t1.f1 FROM table1 AS t1
 	INNER JOIN table1 AS t2 ON t2.parent = t1.id
@@ -87,7 +98,11 @@ func query(cl *cluster.Cluster) {
 	ORDER BY t1.id DESC
 	LIMIT 100
 	`
-	rows, err := cl.DB().Query(q, random(16, LatinAndNumbers))
+	db, err := cl.DB()
+	if err != nil {
+		panic(err)
+	}
+	rows, err := db.Query(q, random(16, LatinAndNumbers))
 	if err != nil {
 		panic(err)
 	}
