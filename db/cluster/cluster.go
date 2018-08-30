@@ -248,20 +248,6 @@ func (s *rdsReadCluster) updateTopology() error {
 	return nil
 }
 
-// Replica represents one read replica
-type Replica interface {
-	// Conn returns the db connection
-	Conn() *sql.DB
-	// MarkAsFailed marks the db connection as failed, so the cluster can ignore it. Ignores it for a fixed duration.
-	MarkAsFailed()
-}
-
-type replica struct {
-	host    string
-	cluster *rdsReadCluster
-	conn    *sql.DB
-}
-
 func (s *rdsReadCluster) DB() (*sql.DB, error) {
 	s.dbsMu.Lock()
 	defer s.dbsMu.Unlock()
