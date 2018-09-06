@@ -99,7 +99,7 @@ func GetDB(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfN
 				log.Info(logger, "Attempting to create database", "db", database)
 				db, err = OpenDB(username, password, hostname, port, "", dbAttrs...)
 				if err == nil {
-					if _, derr := db.ExecContext(tmpctx, fmt.Sprintf("create database %s", database)); derr == nil {
+					if _, derr := db.ExecContext(tmpctx, fmt.Sprintf("create database `%s`", database)); derr == nil {
 						log.Info(logger, "Successfully created database", "db", database)
 						db.Close()
 						continue
