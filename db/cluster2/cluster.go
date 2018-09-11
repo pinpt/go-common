@@ -148,7 +148,7 @@ func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ..
 	maxRetries := 10
 	for i := 0; i < maxRetries; i++ {
 		if i > 0 {
-			s.opts.Log("query retry to another server", i)
+			s.opts.Log("query retry", i)
 		}
 
 		db, host, err := s.loadBalancedDB()
