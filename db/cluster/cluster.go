@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/rand"
 	"net/url"
 	"strconv"
@@ -156,7 +155,6 @@ func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ..
 			return nil, err
 		}
 
-		fmt.Println("executing query to host", host)
 		rows, err := db.QueryContext(ctx, query, args...)
 		if err != nil {
 			if i == 0 {
