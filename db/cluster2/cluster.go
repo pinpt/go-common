@@ -145,19 +145,24 @@ var ErrCantConnect = errors.New("cluster: can't connect to any read replica")
 
 func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 
-	maxRetries := 3
+	maxRetries := 10
 	for i := 0; i < maxRetries; i++ {
 		if i > 0 {
-			s.opts.Log("query retry", i)
+			s.opts.Log("query retry to another server", i)
 		}
 
 		db, host, err := s.loadBalancedDB()
 		if err != nil {
 			return nil, err
 		}
+
 		fmt.Println("executing query to host", host)
 		rows, err := db.QueryContext(ctx, query, args...)
 		if err != nil {
+			if i == 0 {
+				// retry once without marking the server as failed
+				continue
+			}
 			//if isConnErr(err) { does not cover all possible errors
 			s.topologyMu.Lock()
 			s.topology.MarkFailed(host)

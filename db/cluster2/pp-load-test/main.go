@@ -44,7 +44,7 @@ func main() {
 func cmdSelect(user, pass, url, clusterURLSuffix string) {
 	fmt.Println("selecting data")
 
-	concurrency := 4
+	concurrency := 1
 
 	//ro := dbRO(user, pass, url)
 	//ro.SetMaxOpenConns(10)
@@ -72,7 +72,7 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 			time.Sleep(time.Duration(c*10) * time.Second)
 			for {
 				query(cl)
-				//time.Sleep(2 * time.Second)
+				time.Sleep(1 * time.Second)
 
 				v := atomic.AddInt64(count, 1)
 				if v%5 == 0 {
