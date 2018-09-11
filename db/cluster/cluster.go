@@ -1,11 +1,13 @@
 package cluster
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/url"
 	"strconv"
@@ -35,7 +37,7 @@ type Opts struct {
 	// ClusterURLSuffix is added to server_id retrieved from information_schema.replica_host_status. The resulting string is used to connect to specific replica.
 	ClusterURLSuffix string
 
-	// UpdateTopologyEvery specifies how often should topology be updated. If zero 30s is used.
+	// UpdateTopologyEvery specifies how often should topology be updated. If zero defaultUpdateTopology (30s) is used.
 	UpdateTopologyEvery time.Duration
 
 	// MaxConnectionsPerServer sets the maximum number of open connection per read replica.
@@ -57,15 +59,22 @@ var DefaultDriverOpts = url.Values{
 }
 
 // defaultUpdateTopology specifies how often the client should query the sql server for current servers list
-const defaultUpdateTopology = 5 * time.Second
+const defaultUpdateTopology = 30 * time.Second // 30 * time.Second
+
+const maxTimeLeaving = 20 * time.Second
+const failDuration = 60 * time.Second
 
 // RDSReadCluster provides db instances on demand. In comparison to default sql.DB with go-sql-driver/mysql it load balances across all read replicas.
 type RDSReadCluster interface {
-	// DB retrieves the DB instance to use for next read request. Do not store or re-use.
-	DB() (*sql.DB, error)
 
-	// DBCtx is the same as DB, but provides cancellation capabilities.
-	//DBCtx(context.Context) (*sql.DB, error)
+	// QueryContext executes a query that returns rows, typically a SELECT.
+	// The args are for any placeholder parameters in the query.
+	// Does automatic load balancing and retries on broken connection.
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+
+	// Query executes a query that returns rows, typically a SELECT.
+	// The args are for any placeholder parameters in the query.
+	Query(query string, args ...interface{}) (*sql.Rows, error)
 
 	// Close frees all resources. Make sure to finish all queries before calling Close.
 	Close() error
@@ -85,8 +94,6 @@ type rdsReadCluster struct {
 	// map[server_id]*sql.DB
 	dbs   map[string]*sql.DB
 	dbsMu sync.Mutex
-
-	topologyDB *sql.DB
 }
 
 // New creates a new rdsReadCluster
@@ -109,19 +116,85 @@ func New(opts Opts) *rdsReadCluster {
 		MaxTimeLeaving: maxTimeLeaving,
 		OnLeave: func(id string) {
 			s.dbsMu.Lock()
-			defer s.dbsMu.Lock()
-			s.dbs[id].Close()
+			defer s.dbsMu.Unlock()
+			if _, ok := s.dbs[id]; !ok {
+				// already left
+				return
+			}
+			go func(db *sql.DB) {
+				// do not block
+				db.Close()
+			}(s.dbs[id])
 			delete(s.dbs, id)
 		},
-		Log: s.opts.Log,
+		FailDuration: failDuration,
+		Log:          s.opts.Log,
+		Now:          time.Now,
 	})
 
-	s.updateTopologyLogError()
+	err := s.updateTopologyInitial()
+	if err != nil {
+		panic(err)
+	}
+
 	s.setupTopologyTicker()
 	return s
 }
 
-const maxTimeLeaving = 60 * time.Second
+var ErrCantConnect = errors.New("cluster: can't connect to any read replica")
+
+func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+
+	maxRetries := 10
+	for i := 0; i < maxRetries; i++ {
+		if i > 0 {
+			s.opts.Log("query retry", i)
+		}
+
+		db, host, err := s.loadBalancedDB()
+		if err != nil {
+			return nil, err
+		}
+
+		fmt.Println("executing query to host", host)
+		rows, err := db.QueryContext(ctx, query, args...)
+		if err != nil {
+			if i == 0 {
+				// retry once without marking the server as failed
+				continue
+			}
+			//if isConnErr(err) { does not cover all possible errors
+			s.topologyMu.Lock()
+			s.topology.MarkFailed(host)
+			s.topologyMu.Unlock()
+			continue
+		}
+		return rows, err
+	}
+
+	return nil, ErrCantConnect
+}
+
+/*
+does not cover all possible errors
+
+func isConnErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == mysql.ErrInvalidConn {
+		return true
+	}
+	if _, ok := err.(*net.OpError); ok {
+		return true
+	}
+	return false
+}
+*/
+
+func (s *rdsReadCluster) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	return s.QueryContext(context.Background(), query, args...)
+}
 
 func (s *rdsReadCluster) setupTopologyTicker() {
 
@@ -132,7 +205,9 @@ func (s *rdsReadCluster) setupTopologyTicker() {
 			select {
 			case <-s.topologyUpdates.ticker.C:
 				s.updateTopologyLogError()
-				s.topology.Tick(time.Now())
+				s.topologyMu.Lock()
+				s.topology.ExecuteOnLeaveIfNeeded()
+				s.topologyMu.Unlock()
 			case <-s.topologyUpdates.stop:
 				break LOOP
 			}
@@ -175,28 +250,13 @@ func (s *rdsReadCluster) getDB(connURL string) (*sql.DB, error) {
 	return db, nil
 }
 
-const maxReplicaLastUpdateTimestampSec = 30
+const maxReplicaLastUpdateTimestampSec = 60
 
-func (s *rdsReadCluster) getTopologyDB() (*sql.DB, error) {
-	if s.topologyDB != nil {
-		return s.topologyDB, nil
-	}
-	s.opts.Log("connecting to new topology db")
-	db, err := s.getDB(s.opts.ReadEndpointURL)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
-	s.topologyDB = db
-	return db, nil
+type querier interface {
+	Query(query string, args ...interface{}) (*sql.Rows, error)
 }
 
-func (s *rdsReadCluster) retrieveTopology() ([]string, error) {
-	db, err := s.getTopologyDB()
-	if err != nil {
-		return nil, err
-	}
-
+func (s *rdsReadCluster) retrieveTopology(db querier) ([]string, error) {
 	q := `
 		SELECT
 			server_id,
@@ -231,62 +291,73 @@ func (s *rdsReadCluster) updateTopologyLogError() {
 	}
 }
 
-func (s *rdsReadCluster) updateTopology() error {
-	res, err := s.retrieveTopology()
+func (s *rdsReadCluster) updateTopologyInitial() error {
+	s.opts.Log("initial topology db connection")
+	db, err := s.getDB(s.opts.ReadEndpointURL)
 	if err != nil {
 		return err
 	}
-
+	defer db.Close()
+	res, err := s.retrieveTopology(db)
+	if err != nil {
+		return err
+	}
 	s.topologyMu.Lock()
 	defer s.topologyMu.Unlock()
+	s.topology.SetAvailableFromReplicaHostStatus(res)
+	return nil
+}
 
-	s.topology.Update(time.Now(), res)
+func (s *rdsReadCluster) updateTopology() error {
+	res, err := s.retrieveTopology(s)
+	if err != nil {
+		return err
+	}
+	s.topologyMu.Lock()
+	defer s.topologyMu.Unlock()
+	s.topology.SetAvailableFromReplicaHostStatus(res)
 
 	return nil
 }
 
-func (s *rdsReadCluster) DB() (*sql.DB, error) {
+var errNoServersAvailable = errors.New("cluster: no servers available")
+
+func (s *rdsReadCluster) loadBalancedDB() (db *sql.DB, host string, _ error) {
+	s.topologyMu.Lock()
+	available := s.topology.GetAvailable()
+	s.topologyMu.Unlock()
+
+	if len(available) == 0 {
+		return nil, "", errNoServersAvailable
+	}
+
+	host = available[randn(len(available))]
+
 	s.dbsMu.Lock()
 	defer s.dbsMu.Unlock()
-	s.topologyMu.Lock()
-	defer s.topologyMu.Unlock()
+	db, ok := s.dbs[host]
+	if !ok {
+		var err error
 
-	notConnected := []string{}
-	for host := range s.topology.Available {
-		_, connected := s.dbs[host]
-		if !connected {
-			notConnected = append(notConnected, host)
-		}
-	}
-
-	if len(notConnected) == 0 {
-		// all connected
-		// return random db
-	} else {
-		// connect a new db
-		host := notConnected[randn(len(notConnected))]
-		db, err := s.getDB(host + "." + s.opts.ClusterURLSuffix)
+		// need to create db instance first
+		s.opts.Log("creating new db instance", host)
+		db, err = s.getDB(host + "." + s.opts.ClusterURLSuffix)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		s.opts.Log("connected to a new db", host)
+		s.opts.Log("created new db instance", host)
 		s.dbs[host] = db
-		return db, nil
 	}
 
-	if len(s.dbs) == 0 {
-		return nil, errors.New("no servers available")
-	}
-
-	return randomDB(s.dbs), nil
+	return
 }
 
-func randomDB(dbs map[string]*sql.DB) *sql.DB {
+func randomDB(dbs map[string]*sql.DB) (db *sql.DB, host string) {
 	i := 0
 	n := randn(len(dbs))
-	for _, db := range dbs {
+	for host, db := range dbs {
 		if i == n {
-			return db
+			return db, host
 		}
 		i++
 	}

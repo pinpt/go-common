@@ -8,6 +8,7 @@ import (
 
 func TestTopologyLeft(t *testing.T) {
 	var left []string
+	var now time.Time
 	s := newTopology(topologyOpts{
 		MaxTimeLeaving: time.Second,
 		OnLeave: func(id string) {
@@ -16,26 +17,34 @@ func TestTopologyLeft(t *testing.T) {
 		Log: func(args ...interface{}) {
 			fmt.Println(args...)
 		},
+		Now: func() time.Time {
+			return now
+		},
 	})
-	s.Update(date(1, 1), []string{"a", "b", "c"})
+	now = date(1, 1)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b", "c"})
 	assertEq(t,
-		map[string]bool{"a": true, "b": true, "c": true},
-		s.Available)
+		[]string{"a", "b", "c"},
+		s.GetAvailable())
 
-	s.Update(date(1, 2), []string{"a", "b"})
+	now = date(1, 2)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b"})
 	assertEq(t,
-		map[string]bool{"a": true, "b": true},
-		s.Available)
+		[]string{"a", "b"},
+		s.GetAvailable())
 
-	s.Tick(date(1, 3))
+	now = date(1, 3)
+	s.ExecuteOnLeaveIfNeeded()
 	assertEq(t, 0, len(left), "none left")
 
-	s.Tick(date(1, 5))
+	now = date(1, 5)
+	s.ExecuteOnLeaveIfNeeded()
 	assertEq(t, []string{"c"}, left, "left")
 }
 
 func TestTopologyLeavingAndBack(t *testing.T) {
 	var left []string
+	var now time.Time
 	s := newTopology(topologyOpts{
 		MaxTimeLeaving: time.Second,
 		OnLeave: func(id string) {
@@ -44,25 +53,101 @@ func TestTopologyLeavingAndBack(t *testing.T) {
 		Log: func(args ...interface{}) {
 			fmt.Println(args...)
 		},
+		Now: func() time.Time {
+			return now
+		},
 	})
-	s.Update(date(1, 1), []string{"a", "b", "c"})
+	now = date(1, 1)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b", "c"})
 	assertEq(t,
-		map[string]bool{"a": true, "b": true, "c": true},
-		s.Available)
+		[]string{"a", "b", "c"},
+		s.GetAvailable())
 
-	s.Update(date(1, 2), []string{"a", "b"})
+	now = date(1, 2)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b"})
 	assertEq(t,
-		map[string]bool{"a": true, "b": true},
-		s.Available)
+		[]string{"a", "b"},
+		s.GetAvailable())
 
-	s.Tick(date(1, 3))
+	now = date(1, 3)
+	s.ExecuteOnLeaveIfNeeded()
 	assertEq(t, 0, len(left), "none left")
 
-	s.Update(date(1, 4), []string{"a", "b", "c"})
+	now = date(1, 4)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b", "c"})
 	assertEq(t,
-		map[string]bool{"a": true, "b": true, "c": true},
-		s.Available)
+		[]string{"a", "b", "c"},
+		s.GetAvailable())
 
-	s.Tick(date(1, 10))
+	now = date(1, 10)
+	s.ExecuteOnLeaveIfNeeded()
 	assertEq(t, 0, len(left), "none left")
+}
+
+func TestTopologyMarkFailedAndBack1(t *testing.T) {
+	var left []string
+	var now time.Time
+	s := newTopology(topologyOpts{
+		MaxTimeLeaving: time.Second,
+		FailDuration:   10 * time.Second,
+		OnLeave: func(id string) {
+			left = append(left, id)
+		},
+		Log: func(args ...interface{}) {
+			fmt.Println(args...)
+		},
+		Now: func() time.Time {
+			return now
+		},
+	})
+
+	now = date(1, 1)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b", "c"})
+	assertEq(t,
+		[]string{"a", "b", "c"},
+		s.GetAvailable())
+
+	now = date(1, 2)
+	s.MarkFailed("c")
+
+	now = date(1, 4)
+	s.ExecuteOnLeaveIfNeeded()
+	assertEq(t, []string{"c"}, left, "left")
+
+	assertEq(t,
+		[]string{"a", "b"},
+		s.GetAvailable())
+
+	now = date(1, 12)
+
+	assertEq(t,
+		[]string{"a", "b", "c"},
+		s.GetAvailable())
+}
+
+func TestTopologyMarkFailedAndBack2(t *testing.T) {
+	var left []string
+	var now time.Time
+	s := newTopology(topologyOpts{
+		MaxTimeLeaving: time.Second,
+		FailDuration:   10 * time.Second,
+		OnLeave: func(id string) {
+			left = append(left, id)
+		},
+		Log: func(args ...interface{}) {
+			fmt.Println(args...)
+		},
+		Now: func() time.Time {
+			return now
+		},
+	})
+
+	now = date(1, 1)
+	s.SetAvailableFromReplicaHostStatus([]string{"a"})
+	s.MarkFailed("a")
+	now = date(1, 2)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b"})
+	assertEq(t,
+		[]string{"b"},
+		s.GetAvailable())
 }

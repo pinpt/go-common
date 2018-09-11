@@ -1,11 +1,9 @@
-Allow load balancing of read-only queries across multiple database instances. Designed to work with AWS RDS read slave autoscaling.
+Cluster package allows load balancing of read-only queries across multiple database instances. Designed to work with AWS RDS read slave autoscaling.
 
-Has the following features:
+Details
 
 - queries information_schema.replica_host_status table discovering new or removing no longer available replicas
 
-- TODO: since replica could be terminated at any time when the cluster is scaling down, automatically retries failed query against a different instance
+- since replica could be removed at any time or restarted, retries failed connections against a diffferent instance
 
-- TODO: query retries in general increase availability, without need of changing application layer
-
-- TODO: marks unresponsive replicas as down for a specific time period
+- does not retry queries that failed while in progress, due to hard server shutdown and similar

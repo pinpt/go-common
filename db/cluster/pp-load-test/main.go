@@ -44,7 +44,7 @@ func main() {
 func cmdSelect(user, pass, url, clusterURLSuffix string) {
 	fmt.Println("selecting data")
 
-	concurrency := 20
+	concurrency := 1
 
 	//ro := dbRO(user, pass, url)
 	//ro.SetMaxOpenConns(10)
@@ -72,6 +72,7 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 			time.Sleep(time.Duration(c*10) * time.Second)
 			for {
 				query(cl)
+				time.Sleep(1 * time.Second)
 
 				v := atomic.AddInt64(count, 1)
 				if v%5 == 0 {
@@ -98,11 +99,7 @@ func query(cl cluster.RDSReadCluster) {
 	ORDER BY t1.id DESC
 	LIMIT 100
 	`
-	db, err := cl.DB()
-	if err != nil {
-		panic(err)
-	}
-	rows, err := db.Query(q, random(16, LatinAndNumbers))
+	rows, err := cl.Query(q, random(16, LatinAndNumbers))
 	if err != nil {
 		panic(err)
 	}
