@@ -15,20 +15,16 @@ import (
 
 var argRunClusterTests = false
 
-var argAction = ""
 var argUser = ""
 var argPass = ""
 var argURLRw = ""
-var argURLRo = ""
 var argURLSuffix = ""
 
 func init() {
 	flag.BoolVar(&argRunClusterTests, "cluster-tests-run", false, "set to true and provide all options to run tests against real db")
-	flag.StringVar(&argAction, "cluster-action", "", "insert|select")
 	flag.StringVar(&argUser, "cluster-user", "", "")
 	flag.StringVar(&argPass, "cluster-pass", "", "")
 	flag.StringVar(&argURLRw, "cluster-url-rw", "", "")
-	flag.StringVar(&argURLRo, "cluster-url-ro", "", "")
 	flag.StringVar(&argURLSuffix, "cluster-url-suffix", "", "")
 }
 
@@ -37,7 +33,7 @@ func getOpts() Opts {
 	res.User = argUser
 	res.Pass = argPass
 	res.Database = "testdb"
-	res.InitialConnectionURL = argURLRo
+	res.InitialConnectionURL = argURLRw
 	res.ClusterURLSuffix = argURLSuffix
 	res.MaxConnectionsPerServer = 1
 	res.Log = func(args ...interface{}) {
