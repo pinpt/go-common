@@ -182,3 +182,39 @@ func TestEmptyResult(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Check that request with invalid query return correct error
+func TestInvalidQuery(t *testing.T) {
+	if !argRunClusterTests {
+		t.Skip("pass cluster-tests-run to enable")
+		return
+	}
+
+	opts := getOpts()
+	cl := New(opts)
+
+	defer func() {
+		err := cl.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	rows, err := cl.Query("SELECTXXXX id FROM test_invalid_query")
+	if err == nil {
+		defer rows.Close()
+	}
+	if err == nil {
+		t.Fatal("should return error")
+	}
+	if err == ErrNoServersAvailable {
+		t.Fatal("should return invalid query err, got ErrNoServersAvailable instead")
+	}
+	err2, ok := err.(*mysql.MySQLError)
+	if !ok {
+		t.Fatal("expected MySQLError")
+	}
+	if err2.Number != 1064 {
+		t.Fatal("syntax error")
+	}
+}

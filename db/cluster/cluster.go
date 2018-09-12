@@ -157,6 +157,10 @@ func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ..
 
 		rows, err := db.QueryContext(ctx, query, args...)
 		if err != nil {
+			// on syntax errors and similar errors returned by database directly do not retry and return immediately
+			if _, ok := err.(*mysql.MySQLError); ok {
+				return nil, err
+			}
 			if i == 0 {
 				// retry once without marking the server as failed
 				continue
@@ -318,7 +322,7 @@ func (s *rdsReadCluster) updateTopology() error {
 	return nil
 }
 
-var errNoServersAvailable = errors.New("cluster: no servers available")
+var ErrNoServersAvailable = errors.New("cluster: no servers available")
 
 func (s *rdsReadCluster) loadBalancedDB() (db *sql.DB, host string, _ error) {
 	s.topologyMu.Lock()
@@ -326,7 +330,8 @@ func (s *rdsReadCluster) loadBalancedDB() (db *sql.DB, host string, _ error) {
 	s.topologyMu.Unlock()
 
 	if len(available) == 0 {
-		return nil, "", errNoServersAvailable
+
+		return nil, "", ErrNoServersAvailable
 	}
 
 	host = available[randn(len(available))]
