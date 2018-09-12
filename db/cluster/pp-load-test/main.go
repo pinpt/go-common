@@ -53,7 +53,7 @@ func cmdSelect(user, pass, url, clusterURLSuffix string) {
 		User:                    user,
 		Pass:                    pass,
 		Database:                "testdb",
-		ReadEndpointURL:         url,
+		InitialConnectionURL:    url,
 		ClusterURLSuffix:        clusterURLSuffix,
 		MaxConnectionsPerServer: 5,
 		Log: func(args ...interface{}) {

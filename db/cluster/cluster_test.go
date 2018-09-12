@@ -37,7 +37,7 @@ func getOpts() Opts {
 	res.User = argUser
 	res.Pass = argPass
 	res.Database = "testdb"
-	res.ReadEndpointURL = argURLRo
+	res.InitialConnectionURL = argURLRo
 	res.ClusterURLSuffix = argURLSuffix
 	res.MaxConnectionsPerServer = 1
 	res.Log = func(args ...interface{}) {

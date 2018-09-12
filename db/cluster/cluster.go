@@ -30,8 +30,9 @@ type Opts struct {
 	// ExtraDriverOpts are concatenated and added to the string used to initialize the driver connection. Used by underlying driver. Merged to DefaultDriverOpts and tls.
 	ExtraDriverOpts url.Values
 
-	// ReadEndpointURL is the url used initially to connect to any replica to retrive the current cluster state from information_schema.replica_host_status table.
-	ReadEndpointURL string
+	// InitialConnectionURL is the url used initially to connect to any replica to retrive the current cluster state from information_schema.replica_host_status table.
+	// Warning! Do not use Reader endpoint url as it could return a node that is currently offline (at least when using certain dns configration). Either use one fixed node or Cluster endpoint url returning write replica. This connection is only used to retrieve the list of replicas once.
+	InitialConnectionURL string
 
 	// ClusterURLSuffix is added to server_id retrieved from information_schema.replica_host_status. The resulting string is used to connect to specific replica.
 	ClusterURLSuffix string
@@ -116,7 +117,7 @@ func New(opts Opts) *rdsReadCluster {
 	if opts.UpdateTopologyEvery == 0 {
 		opts.UpdateTopologyEvery = defaultUpdateTopology
 	}
-	if opts.User == "" || opts.Pass == "" || opts.Port == 0 || opts.Database == "" || opts.ReadEndpointURL == "" || opts.ClusterURLSuffix == "" || opts.UpdateTopologyEvery == 0 || opts.MaxConnectionsPerServer == 0 || opts.Log == nil {
+	if opts.User == "" || opts.Pass == "" || opts.Port == 0 || opts.Database == "" || opts.InitialConnectionURL == "" || opts.ClusterURLSuffix == "" || opts.UpdateTopologyEvery == 0 || opts.MaxConnectionsPerServer == 0 || opts.Log == nil {
 		panic("provide all options")
 	}
 	s := &rdsReadCluster{}
@@ -333,7 +334,7 @@ func (s *rdsReadCluster) updateTopologyLogError() {
 
 func (s *rdsReadCluster) updateTopologyInitial() error {
 	s.opts.Log("initial topology db connection")
-	db, err := s.getDB(s.opts.ReadEndpointURL)
+	db, err := s.getDB(s.opts.InitialConnectionURL)
 	if err != nil {
 		return err
 	}
