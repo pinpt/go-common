@@ -151,3 +151,50 @@ func TestTopologyMarkFailedAndBack2(t *testing.T) {
 		[]string{"b"},
 		s.GetAvailable())
 }
+
+// When query fails cluster marks the node as failed. Because multiple queries can happen at the same time, this can cause MarkFailed to be called multiple times. Make sure that last timestamp is used for failed and leaving.
+func TestTopologyMarkFailedMultiple(t *testing.T) {
+	var left []string
+	var now time.Time
+	s := newTopology(topologyOpts{
+		MaxTimeLeaving: 10 * time.Second,
+		FailDuration:   20 * time.Second,
+		OnLeave: func(id string) {
+			left = append(left, id)
+		},
+		Log: func(args ...interface{}) {
+			fmt.Println(args...)
+		},
+		Now: func() time.Time {
+			return now
+		},
+	})
+
+	now = date(1, 0)
+	s.SetAvailableFromReplicaHostStatus([]string{"a", "b"})
+	now = date(1, 1)
+	s.MarkFailed("b")
+	now = date(1, 5)
+	s.MarkFailed("b")
+
+	now = date(1, 12)
+	s.ExecuteOnLeaveIfNeeded()
+	assertEq(t, 0, len(left),
+		"OnLeave should not be called for node yet, since we use last mark failed time for this")
+	assertEq(t,
+		[]string{"a"},
+		s.GetAvailable(), "node b should not be marked as available yet")
+
+	now = date(1, 16)
+	s.ExecuteOnLeaveIfNeeded()
+	assertEq(t, []string{"b"}, left,
+		"OnLeave should have been called")
+	assertEq(t,
+		[]string{"a"},
+		s.GetAvailable(), "node b should not be marked as available yet")
+
+	now = date(1, 26)
+	assertEq(t,
+		[]string{"a", "b"},
+		s.GetAvailable(), "node b should not be back")
+}

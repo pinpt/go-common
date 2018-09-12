@@ -30,7 +30,7 @@ type Opts struct {
 	// ExtraDriverOpts are concatenated and added to the string used to initialize the driver connection. Used by underlying driver. Merged to DefaultDriverOpts and tls.
 	ExtraDriverOpts url.Values
 
-	// ReadEndpointURL url used to connect to any read replica to retrive the current cluster state from information_schema.replica_host_status table
+	// ReadEndpointURL is the url used initially to connect to any replica to retrive the current cluster state from information_schema.replica_host_status table.
 	ReadEndpointURL string
 
 	// ClusterURLSuffix is added to server_id retrieved from information_schema.replica_host_status. The resulting string is used to connect to specific replica.
@@ -60,8 +60,21 @@ var DefaultDriverOpts = url.Values{
 // defaultUpdateTopology specifies how often the client should query the sql server for current servers list
 const defaultUpdateTopology = 30 * time.Second
 
-const maxTimeLeaving = 20 * time.Second
-const failDuration = 60 * time.Second
+// maxTimeLeaving is the delay after node was removed from replica_host_status or query failed and db.Close is called. Also required for long running queries to allow interrupting iterating rows.
+//
+// Shorter time cleans up resources faster.
+// Longer time reuses db instance and connection for temporary errors.
+//
+// Keep shorter than failDuration to be able to test it on node restarts, otherwise it will only be executed on node deletes (it would still work, but better to test more often to avoid bugs in code).
+const maxTimeLeaving = 3 * 60 * time.Second
+
+// failDuration is the duration the node is marked as failed after failing query. The node is ignored for this duration.
+//
+// Shorter time re-connects faster for restarts and temporary errors.
+// Longer time avoids unnecessary re-tries for shutdowns.
+//
+// It takes about ~4 min to a host to be removed  from information_schema.replica_host_status after shutdown and first failed query.
+const failDuration = 4 * 60 * time.Second
 
 // RDSReadCluster provides db instances on demand. In comparison to default sql.DB with go-sql-driver/mysql it load balances across all read replicas.
 type RDSReadCluster interface {
@@ -142,36 +155,61 @@ func New(opts Opts) *rdsReadCluster {
 
 var ErrCantConnect = errors.New("cluster: can't connect to any read replica")
 
+const maxServersTriedForQuery = 3
+
 func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 
-	maxRetries := 10
-	for i := 0; i < maxRetries; i++ {
+	var db *sql.DB
+	host := ""
+
+	// connects to random db first
+	// on getting an error, retries connection to the same db without marking it as failed
+	//     not required for load balancing, but increases availability in my tests (probably because of unstable internet connection)
+	// for other retries, marks as failed immediately
+	// repeats up to maxServersTriedForQuery times
+
+	for i := 0; i < maxServersTriedForQuery+1; i++ {
+
+		if i != 1 {
+			// on a second retry use the same database connection
+			var err error
+			db, host, err = s.loadBalancedDB()
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		if i > 0 {
 			s.opts.Log("query retry", i)
 		}
 
-		db, host, err := s.loadBalancedDB()
-		if err != nil {
-			return nil, err
-		}
-
 		rows, err := db.QueryContext(ctx, query, args...)
+
 		if err != nil {
 			// on syntax errors and similar errors returned by database directly do not retry and return immediately
 			if _, ok := err.(*mysql.MySQLError); ok {
 				return nil, err
 			}
+
 			if i == 0 {
-				// retry once without marking the server as failed
+				// do not mark the server as failed on the first try
+				// retry once to the same database connection
 				continue
 			}
+
 			//if isConnErr(err) { does not cover all possible errors
 			s.topologyMu.Lock()
 			s.topology.MarkFailed(host)
 			s.topologyMu.Unlock()
+
 			continue
 		}
-		return rows, err
+
+		if i == 1 {
+			s.opts.Log("query retry to the same server fixed the connection problem (check network status and server configuration)")
+		}
+
+		return rows, nil
 	}
 
 	return nil, ErrCantConnect
