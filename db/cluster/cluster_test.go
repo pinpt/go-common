@@ -1,20 +1,17 @@
 package cluster
 
 import (
-	"reflect"
-	"testing"
-	"time"
-)
-
-/*
-import (
+	"crypto/tls"
+	"crypto/x509"
+	"database/sql"
+	"encoding/hex"
 	"flag"
 	"fmt"
-	"reflect"
+	"strings"
 	"testing"
-	"time"
-)
 
+	"github.com/go-sql-driver/mysql"
+)
 
 var argRunClusterTests = false
 
@@ -49,51 +46,139 @@ func getOpts() Opts {
 	return res
 }
 
-func TestBasic(t *testing.T) {
+func dbByURL(user, pass, url string) *sql.DB {
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM([]byte(mysqlRDSCACert)) {
+		panic("can't add certs")
+	}
+	config := &tls.Config{
+		ServerName: url,
+		RootCAs:    caCertPool,
+	}
+	profile := hex.EncodeToString([]byte(url))
+	err := mysql.RegisterTLSConfig(profile, config)
+	if err != nil {
+		panic(err)
+	}
+
+	db, err := sql.Open("mysql", user+":"+pass+"@tcp("+url+":3306)/testdb?tls="+profile)
+	if err != nil {
+		panic(err)
+	}
+	return db
+}
+
+func dbRW(user, pass, url string) *sql.DB {
+	return dbByURL(user, pass, url)
+}
+
+func dbRO(user, pass, url string) *sql.DB {
+	return dbByURL(user, pass, url)
+}
+
+func execm(db *sql.DB, queries string) {
+	for _, q := range strings.Split(queries, ";") {
+		q := strings.TrimSpace(q)
+		if q == "" {
+			continue
+		}
+		exec(db, q)
+	}
+}
+
+func exec(db *sql.DB, query string, args ...interface{}) {
+	_, err := db.Exec(query, args...)
+	if err != nil {
+		panic(err)
+	}
+}
+
+type basicRow struct {
+	id string
+	f1 string
+}
+
+// Basic check that retriving data from live database works
+func TestBasicRowData(t *testing.T) {
 	if !argRunClusterTests {
 		t.Skip("pass cluster-tests-run to enable")
 		return
 	}
+	dbRW := dbRW(argUser, argPass, argURLRw)
+	defer dbRW.Close()
+
+	execm(dbRW, `
+		DROP TABLE IF EXISTS test_basic_row_data;
+		CREATE TABLE test_basic_row_data(id varchar(16) primary key, f1 text);
+		INSERT INTO test_basic_row_data(id, f1) VALUES ('id1','text1'), ('id2','text2');
+	`)
+
 	opts := getOpts()
-	cluster := New(opts)
+	cl := New(opts)
+
 	defer func() {
-		err := cluster.Close()
+		err := cl.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	_, err := cluster.DB()
+	rows, err := cl.Query("SELECT id, f1 FROM test_basic_row_data ORDER BY id")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer rows.Close()
+	var res []basicRow
+	for rows.Next() {
+		var row basicRow
+		err := rows.Scan(&row.id, &row.f1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res = append(res, row)
+	}
+	err = rows.Err()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, []basicRow{{id: "id1", f1: "text1"}, {id: "id2", f1: "text2"}}, res)
 }
 
-func TestBasicRun(t *testing.T) {
+// Check that querying empty result set works
+func TestEmptyResult(t *testing.T) {
 	if !argRunClusterTests {
 		t.Skip("pass cluster-tests-run to enable")
 		return
 	}
+	dbRW := dbRW(argUser, argPass, argURLRw)
+	defer dbRW.Close()
+
+	execm(dbRW, `
+		DROP TABLE IF EXISTS test_empty_result;
+		CREATE TABLE test_empty_result(id varchar(16) primary key);
+	`)
+
 	opts := getOpts()
-	cluster := New(opts)
+	cl := New(opts)
+
 	defer func() {
-		err := cluster.Close()
+		err := cl.Close()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
-	fmt.Println("waiting for log messages")
-	time.Sleep(10 * time.Second)
-}
-*/
 
-func assertEq(t *testing.T, want, got interface{}, labels ...string) {
-	t.Helper()
-	if !reflect.DeepEqual(want, got) {
-		t.Errorf("wanted %v, got %v, labels %v", want, got, labels)
+	rows, err := cl.Query("SELECT id FROM test_empty_result ORDER BY id")
+	if err != nil {
+		t.Fatal(err)
 	}
-}
-
-func date(m, s int) time.Time {
-	return time.Date(2018, 8, 29, 23, m, s, 1, time.UTC)
+	defer rows.Close()
+	for rows.Next() {
+		t.Fatal("rows.Next() should not have been called for empty result set")
+	}
+	err = rows.Err()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
