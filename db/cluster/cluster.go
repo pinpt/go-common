@@ -58,7 +58,7 @@ var DefaultDriverOpts = url.Values{
 }
 
 // defaultUpdateTopology specifies how often the client should query the sql server for current servers list
-const defaultUpdateTopology = 30 * time.Second // 30 * time.Second
+const defaultUpdateTopology = 30 * time.Second
 
 const maxTimeLeaving = 20 * time.Second
 const failDuration = 60 * time.Second

@@ -2,7 +2,7 @@ package cluster
 
 import "time"
 
-// ticker is an abstraction over time.Ticker that allows blocking Stop call that waits for ticker gorouting cleanup
+// ticker is an abstraction over time.Ticker that allows blocking Stop call that waits for ticker goroutine cleanup
 type ticker struct {
 	ticker  *time.Ticker
 	stop    chan bool
