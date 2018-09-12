@@ -27,20 +27,33 @@ type Opts struct {
 	// Database name to select.
 	Database string
 
-	// ExtraDriverOpts are concatenated and added to the string used to initialize the driver connection. Used by underlying driver. Merged to DefaultDriverOpts and tls.
+	// ExtraDriverOpts are concatenated and added to the string used to
+	// initialize the driver connection. Used by underlying driver.
+	// Merged to DefaultDriverOpts and tls.
 	ExtraDriverOpts url.Values
 
-	// InitialConnectionURL is the url used initially to connect to any replica to retrive the current cluster state from information_schema.replica_host_status table.
-	// Warning! Do not use Reader endpoint url as it could return a node that is currently offline (at least when using certain dns configration). Either use one fixed node or Cluster endpoint url returning write replica. This connection is only used to retrieve the list of replicas once.
+	// InitialConnectionURL is the url used initially to connect to any
+	// replica to retrive the current cluster state from
+	// information_schema.replica_host_status table.
+	//
+	// Warning! Do not use Reader endpoint url as it could return a node
+	// that is currently offline (at least when using certain dns configration).
+	// Either use one fixed node or Cluster endpoint url returning write
+	// replica. This connection is only used to retrieve the list of
+	// replicas once.
 	InitialConnectionURL string
 
-	// ClusterURLSuffix is added to server_id retrieved from information_schema.replica_host_status. The resulting string is used to connect to specific replica.
+	// ClusterURLSuffix is added to server_id retrieved from
+	// information_schema.replica_host_status.
+	// The resulting string is used to connect to specific replica.
 	ClusterURLSuffix string
 
-	// UpdateTopologyEvery specifies how often should topology be updated. If zero defaultUpdateTopology (30s) is used.
+	// UpdateTopologyEvery specifies how often should topology be updated.
+	// If zero defaultUpdateTopology (30s) is used.
 	UpdateTopologyEvery time.Duration
 
-	// MaxConnectionsPerServer sets the maximum number of open connection per read replica.
+	// MaxConnectionsPerServer sets the maximum number of open connection
+	// per read replica.
 	// Make sure to set a reasonable amount.
 	MaxConnectionsPerServer int
 
@@ -77,19 +90,18 @@ const maxTimeLeaving = 3 * 60 * time.Second
 // It takes about ~4 min to a host to be removed  from information_schema.replica_host_status after shutdown and first failed query.
 const failDuration = 4 * 60 * time.Second
 
-// RDSReadCluster provides db instances on demand. In comparison to default sql.DB with go-sql-driver/mysql it load balances across all read replicas.
+// RDSReadCluster provides Query methods that are load balanced.
 type RDSReadCluster interface {
 
 	// QueryContext executes a query that returns rows, typically a SELECT.
-	// The args are for any placeholder parameters in the query.
 	// Does automatic load balancing and retries on broken connection.
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 
 	// Query executes a query that returns rows, typically a SELECT.
-	// The args are for any placeholder parameters in the query.
+	// Does automatic load balancing and retries on broken connection.
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 
-	// Close frees all resources. Make sure to finish all queries before calling Close.
+	// Close frees all resources. Make sure to complete all queries before calling Close.
 	Close() error
 }
 
@@ -154,9 +166,14 @@ func New(opts Opts) *rdsReadCluster {
 	return s
 }
 
-var ErrCantConnect = errors.New("cluster: can't connect to any read replica")
+// MaxServersTriedForQuery is the max number of servers tried for a query. The actual number of retries is +1 since it tries to connect to initial instance twice.
+const MaxServersTriedForQuery = 3
 
-const maxServersTriedForQuery = 3
+// ErrConnectMaxRetriesExceeded is returned from Query when query tried more than MaxServersTriedForQuery servers, and all of them failed. There could be more available instances.
+var ErrConnectMaxRetriesExceeded = errors.New("cluster: tried MaxServersTriedForQuery servers to connect, all failed")
+
+// ErrNoServersAvailable is returned from Query when no servers are available. All servers returned from information_schema.replica_host_status failed.
+var ErrNoServersAvailable = errors.New("cluster: no servers available")
 
 func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 
@@ -167,9 +184,9 @@ func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ..
 	// on getting an error, retries connection to the same db without marking it as failed
 	//     not required for load balancing, but increases availability in my tests (probably because of unstable internet connection)
 	// for other retries, marks as failed immediately
-	// repeats up to maxServersTriedForQuery times
+	// repeats up to MaxServersTriedForQuery times
 
-	for i := 0; i < maxServersTriedForQuery+1; i++ {
+	for i := 0; i < MaxServersTriedForQuery+1; i++ {
 
 		if i != 1 {
 			// on a second retry use the same database connection
@@ -213,7 +230,7 @@ func (s *rdsReadCluster) QueryContext(ctx context.Context, query string, args ..
 		return rows, nil
 	}
 
-	return nil, ErrCantConnect
+	return nil, ErrConnectMaxRetriesExceeded
 }
 
 /*
@@ -360,8 +377,6 @@ func (s *rdsReadCluster) updateTopology() error {
 
 	return nil
 }
-
-var ErrNoServersAvailable = errors.New("cluster: no servers available")
 
 func (s *rdsReadCluster) loadBalancedDB() (db *sql.DB, host string, _ error) {
 	s.topologyMu.Lock()
