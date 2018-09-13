@@ -9,7 +9,7 @@ import (
 // QueryRowContext executes a query that is expected to return at most one row.
 func (s *rdsReadCluster) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
 	rows, err := s.QueryContext(ctx, query, args...)
-	return &row{rows: rows, err: err}
+	return RowFromQueryRes(rows, err)
 }
 
 // QueryRow executes a query that is expected to return at most one row.
@@ -29,6 +29,11 @@ type row struct {
 	// One of these two will be non-nil:
 	err  error // deferred error for easy chaining
 	rows *sql.Rows
+}
+
+// RowFromQueryRes creates a Row similar to *sql.Row returned from QueryRow based on query rows and query error.
+func RowFromQueryRes(rows *sql.Rows, queryErr error) Row {
+	return &row{rows: rows, err: queryErr}
 }
 
 // Scan copies the columns from the matched row into the values
