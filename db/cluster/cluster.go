@@ -129,6 +129,8 @@ type rdsReadCluster struct {
 	dbsMu sync.Mutex
 }
 
+var _ RDSReadCluster = (*rdsReadCluster)(nil)
+
 // New creates a new rdsReadCluster
 func New(opts Opts) *rdsReadCluster {
 	if opts.Port == 0 {

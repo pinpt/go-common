@@ -3,9 +3,13 @@ package db
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/pinpt/go-common/db/cluster"
+	"github.com/pinpt/go-common/db/cluster/single"
 
 	"github.com/pinpt/go-common/log"
 	"github.com/pinpt/go-common/number"
@@ -21,6 +25,9 @@ func RegisterDBFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("databaseUsername", pos.Getenv("PP_DB_USER", pos.Getenv("PP_MYSQL_USERNAME", "root")), "Database username")
 	cmd.PersistentFlags().String("databasePassword", pos.Getenv("PP_DB_PASS", pos.Getenv("PP_MYSQL_PASSWORD", "")), "Database password")
 	cmd.PersistentFlags().String("databaseTLS", pos.Getenv("PP_DB_TLS", "false"), "Database TLS setting")
+	cmd.PersistentFlags().String("databaseClusterInitialConnectionURL", pos.Getenv("PP_DB_CLUSTER_INITIAL_CONNECTION_URL", ""), "RDS host name of write cluster to be used for initial connection to get topology")
+	cmd.PersistentFlags().String("databaseClusterURLSuffix", pos.Getenv("PP_DB_CLUSTER_URL_SUFFIC", ""), "Cluster URL suffix to append to replica host name to get full name")
+	cmd.PersistentFlags().Int("databaseClusterMaxConnectionsPerServer", pos.GetenvInt("PP_DB_CLUSTER_MAX_CONNECTIONS_PER_SERVER", 0), "Max number of connections per server. Depends on the aws node size.")
 }
 
 func setDBEnv(username string, password string, hostname string, database string, port int, tls string) {
@@ -114,4 +121,95 @@ func GetDB(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfN
 		break
 	}
 	return
+}
+
+// GetDBCluster will setup the command for database, including clustered reader.
+func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfNotExist bool, dbAttrs ...string) (db *DBs, _ error) {
+	db0, err := GetDB(ctx, cmd, logger, createIfNotExist, dbAttrs...)
+	if err != nil {
+		return nil, err
+	}
+
+	initialConnectionURL, err := cmd.Flags().GetString("databaseClusterInitialConnectionURL")
+	if err != nil {
+		return nil, err
+	}
+
+	var readDB cluster.RDSReadCluster
+
+	if initialConnectionURL == "" {
+		// use non-clustered driver
+
+		readDB = single.New(db0.DB)
+
+	} else {
+		// use clustered driver
+
+		username, err := cmd.Flags().GetString("databaseUsername")
+		if err != nil {
+			return nil, err
+		}
+		password, err := cmd.Flags().GetString("databasePassword")
+		if err != nil {
+			return nil, err
+		}
+		database, err := cmd.Flags().GetString("databaseName")
+		if err != nil {
+			return nil, err
+		}
+		port, err := cmd.Flags().GetInt("databasePort")
+		if err != nil {
+			return nil, err
+		}
+
+		clusterURLSuffix, err := cmd.Flags().GetString("databaseClusterURLSuffix")
+		if err != nil {
+			return nil, err
+		}
+		maxConnectionsPerServer, err := cmd.Flags().GetInt("databaseClusterMaxConnectionsPerServer")
+		if err != nil {
+			return nil, err
+		}
+
+		extraDriverOpts := url.Values{}
+		for _, attr := range dbAttrs {
+			kv := strings.Split(attr, "=")
+			if len(kv) != 2 {
+				return nil, fmt.Errorf("invalid db attrs passed, expecting format k=v %v", dbAttrs)
+			}
+			extraDriverOpts.Add(kv[0], kv[1])
+		}
+
+		// do not log by default
+		logFn := func(args ...interface{}) {
+
+		}
+
+		if strings.Contains(os.Getenv("PP_DEBUG"), "mysql") {
+			logFn = func(args ...interface{}) {
+				args2 := []string{}
+				for _, v := range args {
+					args2 = append(args2, fmt.Sprint(v))
+				}
+				line := "db: cluster: " + strings.Join(args2, " ")
+				logger.Log(line)
+			}
+		}
+
+		opts := cluster.Opts{
+			User:                    username,
+			Pass:                    password,
+			Port:                    port,
+			Database:                database,
+			ExtraDriverOpts:         extraDriverOpts,
+			InitialConnectionURL:    initialConnectionURL,
+			ClusterURLSuffix:        clusterURLSuffix,
+			MaxConnectionsPerServer: maxConnectionsPerServer,
+			Log: logFn,
+		}
+
+		readDB = cluster.New(opts)
+	}
+
+	return &DBs{Wr: db0.DB, Ro: readDB}, nil
 }
