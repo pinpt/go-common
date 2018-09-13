@@ -101,6 +101,14 @@ type RDSReadCluster interface {
 	// Does automatic load balancing and retries on broken connection.
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 
+	// QueryRowContext executes a query that is expected to return at most one row.
+	// Does automatic load balancing and retries on broken connection.
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
+
+	// QueryRow executes a query that is expected to return at most one row.
+	// Does automatic load balancing and retries on broken connection.
+	QueryRow(query string, args ...interface{}) Row
+
 	// Close frees all resources. Make sure to complete all queries before calling Close.
 	Close() error
 }

@@ -214,3 +214,104 @@ func TestInvalidQuery(t *testing.T) {
 		t.Fatal("syntax error")
 	}
 }
+
+// Checks that query row from live database works
+func TestQueryRowSuccess(t *testing.T) {
+	if !argRunClusterTests {
+		t.Skip("pass cluster-tests-run to enable")
+		return
+	}
+	dbRW := dbRW(argUser, argPass, argURLRw)
+	defer dbRW.Close()
+
+	execm(dbRW, `
+		DROP TABLE IF EXISTS test_basic_row_data;
+		CREATE TABLE test_basic_row_data(id varchar(16) primary key, f1 text);
+		INSERT INTO test_basic_row_data(id, f1) VALUES ('id1','text1'), ('id2','text2');
+	`)
+
+	opts := getOpts()
+	cl := New(opts)
+
+	defer func() {
+		err := cl.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	row := cl.QueryRow("SELECT id, f1 FROM test_basic_row_data WHERE id = 'id1'")
+	var res basicRow
+	err := row.Scan(&res.id, &res.f1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, basicRow{id: "id1", f1: "text1"}, res)
+}
+
+// Check that querying empty result set works
+func TestQueryRowEmptyResult(t *testing.T) {
+	if !argRunClusterTests {
+		t.Skip("pass cluster-tests-run to enable")
+		return
+	}
+	dbRW := dbRW(argUser, argPass, argURLRw)
+	defer dbRW.Close()
+
+	execm(dbRW, `
+		DROP TABLE IF EXISTS test_empty_result;
+		CREATE TABLE test_empty_result(id varchar(16) primary key);
+	`)
+
+	opts := getOpts()
+	cl := New(opts)
+
+	defer func() {
+		err := cl.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	row := cl.QueryRow("SELECT id FROM test_empty_result")
+	var id string
+	err := row.Scan(&id)
+	if err != sql.ErrNoRows {
+		t.Fatal("expected ErrNoRows, got", err)
+	}
+}
+
+func TestQueryRowInvalidQuery(t *testing.T) {
+	if !argRunClusterTests {
+		t.Skip("pass cluster-tests-run to enable")
+		return
+	}
+
+	opts := getOpts()
+	cl := New(opts)
+
+	defer func() {
+		err := cl.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	row := cl.QueryRow("SELECTXXXX id FROM test_invalid_query")
+	var id string
+	err := row.Scan(&id)
+	if err == nil {
+		t.Fatal("should return error")
+	}
+	if err == ErrNoServersAvailable {
+		t.Fatal("should return invalid query err, got ErrNoServersAvailable instead")
+	}
+	err2, ok := err.(*mysql.MySQLError)
+	if !ok {
+		t.Fatal("expected MySQLError")
+	}
+	if err2.Number != 1064 {
+		t.Fatal("syntax error")
+	}
+}
