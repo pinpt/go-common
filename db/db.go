@@ -22,15 +22,16 @@ import (
 
 // DBs contains separate references for write and read only database.
 type DBs struct {
-	// Wr is the master write database. Use this for writes.
-	Wr *sql.DB
-	// Ro is the cluster of read replicas. Use for most reads, keep in mind that it has a replication lag to master.
-	Ro cluster.RDSReadCluster
+	// Master is the master database. Use it for writes.
+	Master *sql.DB
+
+	// Replicas is the cluster of read replicas. Use it for most reads, but keep in mind that it has a replication lag compared to master. It is possible that if you issue write to master and then read replica immediately, the record will not be there.
+	Replicas cluster.RDSReadCluster
 }
 
 func (s *DBs) Close() error {
-	err1 := s.Wr.Close()
-	err2 := s.Ro.Close()
+	err1 := s.Master.Close()
+	err2 := s.Replicas.Close()
 	if err1 != nil {
 		return err1
 	}

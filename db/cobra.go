@@ -211,5 +211,5 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 		readDB = cluster.New(opts)
 	}
 
-	return &DBs{Wr: db0.DB, Ro: readDB}, nil
+	return &DBs{Master: db0.DB, Replicas: readDB}, nil
 }
