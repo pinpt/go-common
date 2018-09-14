@@ -27,7 +27,7 @@ func RegisterDBFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("databasePassword", pos.Getenv("PP_DB_PASS", pos.Getenv("PP_MYSQL_PASSWORD", "")), "Database password")
 	cmd.PersistentFlags().String("databaseTLS", pos.Getenv("PP_DB_TLS", "false"), "Database TLS setting")
 	cmd.PersistentFlags().String("databaseClusterInitialConnectionURL", pos.Getenv("PP_DB_CLUSTER_INITIAL_CONNECTION_URL", ""), "RDS host name of write cluster to be used for initial connection to get topology")
-	cmd.PersistentFlags().String("databaseClusterURLSuffix", pos.Getenv("PP_DB_CLUSTER_URL_SUFFIC", ""), "Cluster URL suffix to append to replica host name to get full name. Looks similar to this: xxxxxx.us-east-1.rds.amazonaws.com")
+	cmd.PersistentFlags().String("databaseClusterURLSuffix", pos.Getenv("PP_DB_CLUSTER_URL_SUFFIX", ""), "Cluster URL suffix to append to replica host name to get full name. Looks similar to this: xxxxxx.us-east-1.rds.amazonaws.com")
 	cmd.PersistentFlags().Int("databaseClusterMaxConnectionsPerServer", pos.GetenvInt("PP_DB_CLUSTER_MAX_CONNECTIONS_PER_SERVER", 0), "Max number of connections per server. Depends on the aws node size.")
 }
 
