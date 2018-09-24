@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ func RegisterDBFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().Int("databaseClusterMaxConnectionsPerServer", pos.GetenvInt("PP_DB_CLUSTER_MAX_CONNECTIONS_PER_SERVER", 0), "Max number of connections per server. Depends on the aws node size.")
 }
 
-func setDBEnv(username string, password string, hostname string, database string, port int, tls string) {
+func setDBEnv(username string, password string, hostname string, database string, port int, tls string, initialConnectionURL string, URLSuffix string, maxConnectionsPerServer int) {
 	if tls == "" {
 		tls = "false"
 	}
@@ -45,6 +46,9 @@ func setDBEnv(username string, password string, hostname string, database string
 	os.Setenv("PP_DB_USER", username)
 	os.Setenv("PP_DB_PASS", password)
 	os.Setenv("PP_DB_TLS", tls)
+	os.Setenv("PP_DB_CLUSTER_INITIAL_CONNECTION_URL", initialConnectionURL)
+	os.Setenv("PP_DB_CLUSTER_URL_SUFFIX", URLSuffix)
+	os.Setenv("PP_DB_CLUSTER_MAX_CONNECTIONS_PER_SERVER", strconv.Itoa(maxConnectionsPerServer))
 }
 
 // GetDB will setup the command for database
@@ -73,16 +77,35 @@ func GetDB(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfN
 	if err != nil {
 		return nil, err
 	}
-	if strings.Contains(os.Getenv("PP_DEBUG"), "mysql") {
-		fmt.Printf("trying to connect to DB using username=%v, password=%v, hostname=%v, port=%d, database=%v, tls=%s\n", username, MaskDSN(password, password), hostname, port, database, tls)
-	}
 	if len(dbAttrs) == 0 {
 		dbAttrs = []string{}
 	}
 	if tls == "" {
 		tls = "false"
 	}
-	setDBEnv(username, password, hostname, database, port, tls)
+
+	initialConnectionURL, err := cmd.Flags().GetString("databaseClusterInitialConnectionURL")
+	if err != nil {
+		return nil, err
+	}
+
+	URLSuffix, err := cmd.Flags().GetString("databaseClusterURLSuffix")
+	if err != nil {
+		return nil, err
+	}
+
+	maxConnectionsPerServer, err := cmd.Flags().GetInt("databaseClusterMaxConnectionsPerServer")
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Contains(os.Getenv("PP_DEBUG"), "mysql") {
+		fmt.Printf("trying to connect to DB using username=%v, password=%v, hostname=%v, port=%d, database=%v, tls=%s\n", username, MaskDSN(password, password), hostname, port, database, tls)
+		if initialConnectionURL != "" {
+			fmt.Printf("databaseClusterInitialConnectionURL=%v, databaseClusterURLSuffix=%v, databaseClusterMaxConnectionsPerServer=%v\n", initialConnectionURL, URLSuffix, maxConnectionsPerServer)
+		}
+	}
+	setDBEnv(username, password, hostname, database, port, tls, initialConnectionURL, URLSuffix, maxConnectionsPerServer)
 	dbAttrs = append(dbAttrs, "tls="+tls)
 	var loop int
 	for {
