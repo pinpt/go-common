@@ -27,6 +27,12 @@ jobs:
           command: |
             trap "go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml" EXIT
             make test | tee ${TEST_RESULTS}/go-test.out
+            grep "FAIL" ${TEST_RESULTS}/go-test.out 2>&1 >/dev/null
+            if [ $? -eq 0 ];
+            then
+              echo "Some test cases failed"
+              exit 1
+            fi
 
       - save_cache:
           key: v1-pkg-cache
