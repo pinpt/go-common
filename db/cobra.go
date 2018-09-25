@@ -215,18 +215,12 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 
 		// do not log by default
 		logFn := func(args ...interface{}) {
-
-		}
-
-		if strings.Contains(os.Getenv("PP_DEBUG"), "mysql") {
-			logFn = func(args ...interface{}) {
-				args2 := []string{}
-				for _, v := range args {
-					args2 = append(args2, fmt.Sprint(v))
-				}
-				line := strings.Join(args2, " ")
-				log.Info(logger, "db: cluster: "+line)
+			args2 := []string{}
+			for _, v := range args {
+				args2 = append(args2, fmt.Sprint(v))
 			}
+			line := strings.Join(args2, " ")
+			log.Debug(logger, "db: cluster: "+line)
 		}
 
 		opts := cluster.Opts{
