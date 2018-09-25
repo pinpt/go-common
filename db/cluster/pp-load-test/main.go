@@ -208,6 +208,7 @@ func insertDataBatch(db *sql.DB) int {
 	}
 	err = tx.Commit()
 	if err != nil {
+		tx.Rollback()
 		panic(err)
 	}
 	return n
