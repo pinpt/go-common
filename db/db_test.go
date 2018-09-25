@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"os"
 	"testing"
 	"time"
 
@@ -33,23 +34,25 @@ func TestDSN(t *testing.T) {
 
 }
 func TestGetTableNames(t *testing.T) {
-	t.Parallel()
+	if os.Getenv("CI") == "" {
+		t.Parallel()
+		assert := assert.New(t)
 
-	assert := assert.New(t)
+		db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/mysql")
+		assert.NoError(err)
+		defer db.Close()
 
-	db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/mysql")
-	assert.NoError(err)
-	defer db.Close()
+		tx, err := db.Begin()
+		assert.NoError(err)
 
-	tx, err := db.Begin()
-	assert.NoError(err)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+		ok, err := GetTableNames(ctx, tx, "user")
+		assert.Nil(err)
+		assert.NotNil(ok)
 
-	ok, err := GetTableNames(ctx, tx, "user")
-	assert.Nil(err)
-	assert.NotNil(ok)
+	}
 }
 
 func TestDSNMask(t *testing.T) {
