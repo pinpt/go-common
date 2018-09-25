@@ -202,7 +202,7 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 					args2 = append(args2, fmt.Sprint(v))
 				}
 				line := strings.Join(args2, " ")
-				logger.Log("db: cluster", line)
+				log.Info(logger, "db: cluster: "+line)
 			}
 		}
 
