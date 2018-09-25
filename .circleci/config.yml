@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       # CircleCI Go images available at: https://hub.docker.com/r/circleci/golang/
-      - image: circleci/golang:1.10.3
+      - image: circleci/golang:1.11
 
     working_directory: /go/src/github.com/pinpt/go-common
 
@@ -25,8 +25,19 @@ jobs:
       - run:
           name: Run unit tests
           command: |
-            trap "go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml" EXIT
             make test | tee ${TEST_RESULTS}/go-test.out
+            set +e
+            grep "\-\-\- FAIL:" ${TEST_RESULTS}/go-test.out
+            if [ $? -eq 0 ];
+            then
+              echo "Some test cases failed"
+              exit 1
+            else
+              echo "All tests passed"
+              set -e
+              go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
+              exit 0
+            fi
 
       - save_cache:
           key: v1-pkg-cache

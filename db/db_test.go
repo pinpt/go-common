@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"os"
 	"testing"
 	"time"
 
@@ -33,23 +34,25 @@ func TestDSN(t *testing.T) {
 
 }
 func TestGetTableNames(t *testing.T) {
-	t.Parallel()
+	if os.Getenv("CI") == "" {
+		t.Parallel()
+		assert := assert.New(t)
 
-	assert := assert.New(t)
+		db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/mysql")
+		assert.NoError(err)
+		defer db.Close()
 
-	db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/mysql")
-	assert.NoError(err)
-	defer db.Close()
+		tx, err := db.Begin()
+		assert.NoError(err)
 
-	tx, err := db.Begin()
-	assert.NoError(err)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+		ok, err := GetTableNames(ctx, tx, "user")
+		assert.Nil(err)
+		assert.NotNil(ok)
 
-	ok, err := GetTableNames(ctx, tx, "user")
-	assert.Nil(err)
-	assert.NotNil(ok)
+	}
 }
 
 func TestDSNMask(t *testing.T) {
@@ -57,38 +60,40 @@ func TestDSNMask(t *testing.T) {
 	assert := assert.New(t)
 
 	dsn := GetDSN("username", "password", "hostname", 3306, "name")
-	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", dsn)
+	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 	mask := MaskDSN(dsn, "password")
-	assert.Equal("username:*****@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", mask)
+	assert.Equal("username:*****@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", mask)
 
 	dsn = GetDSN("username", "", "hostname", 3306, "name")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", dsn)
+	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 	mask = MaskDSN(dsn, "")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", mask)
+	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", mask)
 
 	dsn = GetDSN("username", "", "hostname", 0, "name")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", dsn)
+	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 }
 
 func TestDSNMaskAdditionalAttributes(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 	dsn := GetDSN("username", "password", "hostname", 3306, "name", "foo=bar", "bar=yes")
-	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&foo=bar&bar=yes&tls=false", dsn)
+	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&foo=bar&bar=yes&tls=false&autocommit=true", dsn)
 }
 
 func TestDSNDefaultTLS(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 	dsn := GetDSN("username", "password", "hostname", 3306, "name")
-	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false", dsn)
+	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 }
 
 func TestDSNOverrideTLS(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 	dsn := GetDSN("username", "password", "hostname", 3306, "name", "tls=true")
-	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true", dsn)
+	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true&autocommit=true", dsn)
+	dsn = GetDSN("username", "password", "hostname", 3306, "name", "autocommit=false")
+	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&autocommit=false&tls=false", dsn)
 }
 
 type testTest string

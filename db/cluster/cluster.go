@@ -66,9 +66,10 @@ const defaultPort = 3306
 
 // DefaultDriverOpts are the options passed to mysql driver by default. Adjust ExtraDriverOpts if you want to add or modify.
 var DefaultDriverOpts = url.Values{
-	"collation": {"utf8_unicode_ci"},
-	"charset":   {"utf8mb4"},
-	"parseTime": {"true"},
+	"collation":  {"utf8_unicode_ci"},
+	"charset":    {"utf8mb4"},
+	"parseTime":  {"true"},
+	"autocommit": {"true"},
 }
 
 // defaultUpdateTopology specifies how often the client should query the sql server for current servers list
@@ -331,6 +332,7 @@ func (s *rdsReadCluster) retrieveTopology(db querier) ([]string, error) {
 			if(session_id = 'MASTER_SESSION_ID', 'writer', 'reader') as role
 		FROM information_schema.replica_host_status
 		WHERE last_update_timestamp > NOW() - ?
+		AND REPLICA_LAG_IN_MILLISECONDS < 100
 		HAVING role = 'reader'
 	`
 	rows, err := db.Query(q, maxReplicaLastUpdateTimestampSec)

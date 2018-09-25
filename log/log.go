@@ -471,7 +471,6 @@ type crashlogger struct {
 func (l *crashlogger) Close() error {
 	l.once.Do(func() {
 		close(l.ch)
-		l.ch = nil
 		if l.started {
 			l.started = false
 			l.wg.Wait()
@@ -479,6 +478,7 @@ func (l *crashlogger) Close() error {
 		if l.callback != nil {
 			l.callback(os.Getenv("PP_LOGFILE"))
 		}
+		l.ch = nil
 	})
 	return nil
 }
@@ -520,43 +520,12 @@ func (l *crashlogger) run() {
 	l.wg.Add(1)
 	go func() {
 		defer l.wg.Done()
-		lf := byte('\n')
-		var failedLastTime bool
-		var numFailedInARow int
 		f := getLogFd()
 		defer f.Close()
 		ch := l.ch
-		var closed bool
-		for !closed {
-			select {
-			case buf := <-ch:
-				{
-					// don't write empty strings
-					if len(buf) == 0 || buf[0] == lf {
-						closed = true
-						break
-					}
-					n, err := fmt.Fprintln(f, buf)
-					if n < 0 || err != nil {
-						if err == io.EOF {
-							closed = true
-							continue
-						}
-						if failedLastTime {
-							numFailedInARow++
-						} else {
-							failedLastTime = true
-							numFailedInARow = 1
-						}
-						if numFailedInARow > 5 && err != nil {
-							fmt.Println("error writing to log file five times in a row", err)
-						}
-					} else {
-						failedLastTime = false
-					}
-				}
-			default:
-				closed = true
+		for buf := range ch {
+			n, err := fmt.Fprintln(f, buf)
+			if n < 0 || err != nil {
 				break
 			}
 		}
