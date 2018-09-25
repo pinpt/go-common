@@ -332,6 +332,7 @@ func (s *rdsReadCluster) retrieveTopology(db querier) ([]string, error) {
 			if(session_id = 'MASTER_SESSION_ID', 'writer', 'reader') as role
 		FROM information_schema.replica_host_status
 		WHERE last_update_timestamp > NOW() - ?
+		AND REPLICA_LAG_IN_MILLISECONDS < 100
 		HAVING role = 'reader'
 	`
 	rows, err := db.Query(q, maxReplicaLastUpdateTimestampSec)
