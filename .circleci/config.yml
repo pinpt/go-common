@@ -32,6 +32,9 @@ jobs:
             then
               echo "Some test cases failed"
               exit 1
+            else
+              echo "All tests passed"
+              exit 0
             fi
 
       - save_cache:
