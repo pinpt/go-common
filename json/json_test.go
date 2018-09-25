@@ -2,6 +2,7 @@ package json
 
 import (
 	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,12 +36,6 @@ func TestStringPointerJSON(t *testing.T) {
 	assert.Equal(`{"a":"foo"}`, Stringify(s))
 }
 
-// Create a file called test.json, place it in your desktop, and add the following:
-// {
-// 	"name": "Pedro",
-// 	"hairColor": "Dark",
-// 	"eyesColor": "Brown"
-// }
 func TestReadFile(t *testing.T) {
 	assert := assert.New(t)
 	type person struct {
@@ -48,9 +43,18 @@ func TestReadFile(t *testing.T) {
 		HairColor string `json:"hairColor"`
 		EyesColor string `json:"eyesColor"`
 	}
-
-	pedro := person{}
-	err := ReadFile("/Users/pedro/Desktop/test.json", &pedro)
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(tmpfile.Name())
+	ioutil.WriteFile(tmpfile.Name(), []byte(`{
+	"name": "Pedro",
+	"hairColor": "Dark",
+	"eyesColor": "Brown"
+}`), 0600)
+	var pedro person
+	err = ReadFile(tmpfile.Name(), &pedro)
 	assert.NoError(err)
 	assert.Equal(pedro.Name, "Pedro")
 	assert.Equal(pedro.HairColor, "Dark")

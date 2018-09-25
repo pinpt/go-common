@@ -241,7 +241,7 @@ func TestCrashLogger(t *testing.T) {
 	mylog := "{\"level\":\"debug\",\"msg\":\"testlog\",\"pkg\":\"test\"}\n"
 	assert.Equal(mylog, string(w.b))
 	log.Close()
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second)
 	s, err := ioutil.ReadFile(os.Getenv("PP_LOGFILE"))
 	assert.NoError(err)
 	assert.Equal(mylog, string(s))

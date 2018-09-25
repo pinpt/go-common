@@ -135,7 +135,7 @@ func NewHTTPAPIClientDefault() (httpclient.Client, error) {
 }
 
 // absurl is absolute if matching our API url pattern
-var absurl = regexp.MustCompile("^https://(.*)" + baseURL + "$")
+var absurl = regexp.MustCompile("^https?://(.*)" + baseURL + "$")
 
 func isAbsURL(urlstr string) bool {
 	return absurl.MatchString(urlstr)
