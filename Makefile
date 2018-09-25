@@ -14,4 +14,4 @@ dependencies:
 	@dep ensure
 
 test:
-	@go test -v ./... | grep -v "?"
+	@go test -v ./... | grep -v "no test"
