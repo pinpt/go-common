@@ -319,11 +319,11 @@ func (s *rdsReadCluster) getDB(connURL string) (*sql.DB, error) {
 	return db, nil
 }
 
-const maxReplicaLastUpdateTimestampSec = 60
-
 type querier interface {
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 }
+
+const maxReplicaLagMs = 100
 
 func (s *rdsReadCluster) retrieveTopology(db querier) ([]string, error) {
 	q := `
@@ -331,11 +331,10 @@ func (s *rdsReadCluster) retrieveTopology(db querier) ([]string, error) {
 			server_id,
 			if(session_id = 'MASTER_SESSION_ID', 'writer', 'reader') as role
 		FROM information_schema.replica_host_status
-		WHERE last_update_timestamp > NOW() - ?
-		AND REPLICA_LAG_IN_MILLISECONDS < 100
+		WHERE replica_lag_in_milliseconds < ?
 		HAVING role = 'reader'
 	`
-	rows, err := db.Query(q, maxReplicaLastUpdateTimestampSec)
+	rows, err := db.Query(q, maxReplicaLagMs)
 	if err != nil {
 		return nil, err
 	}
