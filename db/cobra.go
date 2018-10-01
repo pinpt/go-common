@@ -232,11 +232,13 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 			InitialConnectionURL:    initialConnectionURL,
 			ClusterURLSuffix:        clusterURLSuffix,
 			MaxConnectionsPerServer: maxConnectionsPerServer,
-			Log: logFn,
+			Log:                     logFn,
 		}
 
 		readDB = cluster.New(opts)
 	}
 
-	return &DBs{Master: db0.DB, Replicas: readDB}, nil
+	masterDB := cluster.NewMaster(db0.DB)
+
+	return &DBs{Master: masterDB, Replicas: readDB}, nil
 }

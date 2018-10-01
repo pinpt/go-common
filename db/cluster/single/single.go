@@ -40,3 +40,7 @@ func (s *single) QueryRow(query string, args ...interface{}) cluster.Row {
 func (s *single) Close() error {
 	return s.driver.Close()
 }
+
+func (s *single) GetDB() *sql.DB {
+	return s.driver
+}
