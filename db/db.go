@@ -23,7 +23,7 @@ import (
 // DBs contains separate references for write and read only database.
 type DBs struct {
 	// Master is the master database. Use it for writes.
-	Master *sql.DB
+	Master cluster.RDSWriteCluster
 
 	// Replicas is the cluster of read replicas. Use it for most reads, but keep in mind that it has a replication lag compared to master. It is possible that if you issue write to master and then read replica immediately, the record will not be there.
 	Replicas cluster.RDSReadCluster

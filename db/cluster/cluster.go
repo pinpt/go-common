@@ -7,9 +7,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"math"
 	"math/rand"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -439,4 +442,105 @@ func randn(maxNotInclusive int) int {
 func (s *rdsReadCluster) Close() error {
 	s.topologyUpdates.Stop()
 	return nil
+}
+
+// RDSWriteCluster is an interface to a write cluster (master)
+type RDSWriteCluster interface {
+	// ExecContext executes a query without returning any rows.
+	// The args are for any placeholder parameters in the query.
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+
+	// QueryContext executes a query that returns rows, typically a SELECT.
+	// The args are for any placeholder parameters in the query.
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+
+	// QueryRowContext executes a query that is expected to return at most one row.
+	// QueryRowContext always returns a non-nil value. Errors are deferred until
+	// Row's Scan method is called.
+	// If the query selects no rows, the *Row's Scan will return ErrNoRows.
+	// Otherwise, the *Row's Scan scans the first selected row and discards
+	// the rest.
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+
+	// BeginTx starts a transaction.
+	//
+	// The provided context is used until the transaction is committed or rolled back.
+	// If the context is canceled, the sql package will roll back
+	// the transaction. Tx.Commit will return an error if the context provided to
+	// BeginTx is canceled.
+	//
+	// The provided TxOptions is optional and may be nil if defaults should be used.
+	// If a non-default isolation level is used that the driver doesn't support,
+	// an error will be returned.
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+
+	// Close frees all resources. Make sure to complete all queries before calling Close.
+	Close() error
+}
+
+type rdsWriteCluster struct {
+	db *sql.DB
+}
+
+// NewMaster creates a new rdsWriteCluster
+func NewMaster(db *sql.DB) *rdsWriteCluster {
+	return &rdsWriteCluster{db}
+}
+
+// MaxRetries is the max number of times that a deadlock query will be retried
+var MaxRetries = 3
+
+func isRetryable(err error) bool {
+	if err != nil {
+		if strings.Contains(err.Error(), "Error 1213: Deadlock found when trying to get lock") {
+			// this is a retryable query
+			return true
+		}
+	}
+	return false
+}
+
+func exponentialBackoff(retryCount int) {
+	durf := time.Millisecond * time.Duration(math.Pow(2, float64(retryCount)))
+	time.Sleep(durf)
+}
+
+func (c *rdsWriteCluster) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+	var retryCount int
+	for retryCount < MaxRetries {
+		r, err := c.db.ExecContext(ctx, query, args...)
+		if isRetryable(err) {
+			retryCount++
+			exponentialBackoff(retryCount)
+			continue
+		}
+		return r, err
+	}
+	return nil, fmt.Errorf("timed out trying to retry query")
+}
+
+func (c *rdsWriteCluster) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+	var retryCount int
+	for retryCount < MaxRetries {
+		r, err := c.db.QueryContext(ctx, query, args...)
+		if isRetryable(err) {
+			retryCount++
+			exponentialBackoff(retryCount)
+			continue
+		}
+		return r, err
+	}
+	return nil, fmt.Errorf("timed out trying to retry query")
+}
+
+func (c *rdsWriteCluster) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+	return c.db.QueryRowContext(ctx, query, args...)
+}
+
+func (c *rdsWriteCluster) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return c.db.BeginTx(ctx, opts)
+}
+
+func (c *rdsWriteCluster) Close() error {
+	return c.db.Close()
 }
