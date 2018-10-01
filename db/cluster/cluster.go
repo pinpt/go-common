@@ -481,6 +481,9 @@ type RDSWriteCluster interface {
 	// the rest.
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 
+	// Begin starts a transaction. The default isolation level is dependent on the driver.
+	Begin() (*sql.Tx, error)
+
 	// BeginTx starts a transaction.
 	//
 	// The provided context is used until the transaction is committed or rolled back.
@@ -557,6 +560,10 @@ func (c *rdsWriteCluster) QueryContext(ctx context.Context, query string, args .
 
 func (c *rdsWriteCluster) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	return c.db.QueryRowContext(ctx, query, args...)
+}
+
+func (c *rdsWriteCluster) Begin() (*sql.Tx, error) {
+	return c.db.Begin()
 }
 
 func (c *rdsWriteCluster) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
