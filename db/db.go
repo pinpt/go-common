@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pinpt/go-common/db/cluster"
@@ -64,6 +65,8 @@ func (d *DB) SQLDB() *sql.DB {
 var dbreg map[string]bool
 
 func init() {
+	queryCache = make(map[string]*CacheRows)
+	queryLock = sync.RWMutex{}
 	dbreg = make(map[string]bool)
 }
 
@@ -620,6 +623,33 @@ func TimedQuery(ctx context.Context, logger log.Logger, db *sql.DB, label string
 		return rows, err
 	}
 	return db.QueryContext(ctx, sql, args...)
+}
+
+var queryCache map[string]*CacheRows
+var queryLock sync.RWMutex
+
+// TimedQueryClusterCache calls TimedQueryCluster but first checks if the results are cached
+func TimedQueryClusterCache(ctx context.Context, logger log.Logger, db cluster.RDSReadCluster, label string, sql string, args ...interface{}) (*CacheRows, error) {
+	// queryLock.RLock()
+	queryHash := FormatSQL(sql, args...)
+	// queryLock.RUnlock()
+	rows, ok := queryCache[queryHash]
+	if !ok {
+		rws, err := TimedQueryCluster(ctx, logger, db, label, sql, args...)
+		if err != nil {
+			return nil, err
+		}
+		queryLock.Lock()
+		rows = &CacheRows{}
+		rows.Fill(rws)
+		rws.Close()
+		queryCache[queryHash] = rows
+		queryLock.Unlock()
+	} else {
+		log.Debug(logger, fmt.Sprintf("repeated_sql=%s", FormatSQL(sql, args...)), "label", label)
+	}
+	rows.Reset()
+	return rows, nil
 }
 
 // TimedQueryCluster will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
