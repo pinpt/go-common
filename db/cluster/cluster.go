@@ -457,6 +457,12 @@ func (s *rdsReadCluster) Close() error {
 	return nil
 }
 
+// SQLDB is for fetching the underlying DB instance
+type SQLDB interface {
+	// GetDB returns the underlying DB instance and should only be used unwillingly ;)
+	GetDB() *sql.DB
+}
+
 // RDSWriteCluster is an interface to a write cluster (master)
 type RDSWriteCluster interface {
 	// ExecContext executes a query without returning any rows.
@@ -489,9 +495,6 @@ type RDSWriteCluster interface {
 
 	// Close frees all resources. Make sure to complete all queries before calling Close.
 	Close() error
-
-	// GetDB returns the underlying DB instance and should only be used unwillingly ;)
-	GetDB() *sql.DB
 }
 
 type rdsWriteCluster struct {
