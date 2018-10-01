@@ -115,6 +115,9 @@ type RDSReadCluster interface {
 
 	// Close frees all resources. Make sure to complete all queries before calling Close.
 	Close() error
+
+	// GetDB returns the underlying DB instance and should only be used unwillingly ;)
+	GetDB() *sql.DB
 }
 
 // rdsReadCluster is an implementaion of RDSReadCluster
@@ -423,6 +426,16 @@ func (s *rdsReadCluster) loadBalancedDB() (db *sql.DB, host string, _ error) {
 	return
 }
 
+func (s *rdsReadCluster) GetDB() *sql.DB {
+	for {
+		db, _, err := s.loadBalancedDB()
+		if err != nil {
+			time.Sleep(time.Microsecond * 10)
+		}
+		return db
+	}
+}
+
 func randomDB(dbs map[string]*sql.DB) (db *sql.DB, host string) {
 	i := 0
 	n := randn(len(dbs))
@@ -476,11 +489,16 @@ type RDSWriteCluster interface {
 
 	// Close frees all resources. Make sure to complete all queries before calling Close.
 	Close() error
+
+	// GetDB returns the underlying DB instance and should only be used unwillingly ;)
+	GetDB() *sql.DB
 }
 
 type rdsWriteCluster struct {
 	db *sql.DB
 }
+
+var _ RDSWriteCluster = (*rdsWriteCluster)(nil)
 
 // NewMaster creates a new rdsWriteCluster
 func NewMaster(db *sql.DB) *rdsWriteCluster {
@@ -490,7 +508,8 @@ func NewMaster(db *sql.DB) *rdsWriteCluster {
 // MaxRetries is the max number of times that a deadlock query will be retried
 var MaxRetries = 3
 
-func isRetryable(err error) bool {
+// IsRetryable returns true if the sql error passed in a retryable error
+func IsRetryable(err error) bool {
 	if err != nil {
 		if strings.Contains(err.Error(), "Error 1213: Deadlock found when trying to get lock") {
 			// this is a retryable query
@@ -509,7 +528,7 @@ func (c *rdsWriteCluster) ExecContext(ctx context.Context, query string, args ..
 	var retryCount int
 	for retryCount < MaxRetries {
 		r, err := c.db.ExecContext(ctx, query, args...)
-		if isRetryable(err) {
+		if IsRetryable(err) {
 			retryCount++
 			exponentialBackoff(retryCount)
 			continue
@@ -523,7 +542,7 @@ func (c *rdsWriteCluster) QueryContext(ctx context.Context, query string, args .
 	var retryCount int
 	for retryCount < MaxRetries {
 		r, err := c.db.QueryContext(ctx, query, args...)
-		if isRetryable(err) {
+		if IsRetryable(err) {
 			retryCount++
 			exponentialBackoff(retryCount)
 			continue
@@ -543,4 +562,8 @@ func (c *rdsWriteCluster) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sq
 
 func (c *rdsWriteCluster) Close() error {
 	return c.db.Close()
+}
+
+func (c *rdsWriteCluster) GetDB() *sql.DB {
+	return c.db
 }
