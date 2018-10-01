@@ -620,7 +620,7 @@ func TimedQuery(ctx context.Context, logger log.Logger, db *sql.DB, label string
 var queryCache map[string]*CacheRows
 var queryLock sync.RWMutex
 
-// TimedQueryClusterCache calls TimedQueryCluster but first checks if the results are canched
+// TimedQueryClusterCache calls TimedQueryCluster but first checks if the results are cached
 func TimedQueryClusterCache(ctx context.Context, logger log.Logger, db cluster.RDSReadCluster, label string, sql string, args ...interface{}) (*CacheRows, error) {
 	// queryLock.RLock()
 	queryHash := FormatSQL(sql, args...)
