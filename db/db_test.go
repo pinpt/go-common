@@ -96,6 +96,13 @@ func TestDSNOverrideTLS(t *testing.T) {
 	assert.Equal("username:password@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&autocommit=false&tls=false", dsn)
 }
 
+func TestDSNEscapeUsername(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	dsn := GetDSN("hi mom", "xZ{G{V?X-R:y%l", "hostname", 3306, "name", "tls=true")
+	assert.Equal("hi%20mom:xZ%7BG%7BV%3FX-R%3Ay%25l@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true&autocommit=true", dsn)
+}
+
 type testTest string
 
 func TestSQLJoin(t *testing.T) {

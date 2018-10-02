@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"regexp"
@@ -57,7 +58,8 @@ func GetDSN(username string, password string, hostname string, port int, name st
 	if port == 0 {
 		port = 3306
 	}
-	s := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true", username, password, hostname, port, name)
+	un := url.UserPassword(username, password)
+	s := fmt.Sprintf("%s@tcp(%s:%d)/%s?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true", un.String(), hostname, port, name)
 	l := len(attrs)
 	addtls := true
 	addac := true
