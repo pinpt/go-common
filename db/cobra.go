@@ -167,8 +167,8 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 		}
 		extraDriverOpts.Add(kv[0], kv[1])
 	}
-
-	dsn := fmt.Sprintf("%s:%s@%s:%d/%s?%s", username, password, initialConnectionURL, port, database, extraDriverOpts.Encode())
+	un := url.UserPassword(username, password)
+	dsn := fmt.Sprintf("%s@%s:%d/%s?%s", un.String(), initialConnectionURL, port, database, extraDriverOpts.Encode())
 	db, err := sql.Open(rdsmysql.DriverName, dsn)
 	if err != nil {
 		return nil, err
