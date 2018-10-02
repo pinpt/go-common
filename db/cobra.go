@@ -131,6 +131,16 @@ func GetDB(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfN
 	return
 }
 
+// GetClusterDSN returns the DSN url to a rds mysql cluster driver
+func GetClusterDSN(username string, password string, hostname string, port int, database string, extraDriverOpts url.Values) string {
+	var u url.URL
+	u.Host = fmt.Sprintf("%s:%d", hostname, port)
+	u.Path = database
+	u.User = url.UserPassword(username, password)
+	u.RawQuery = extraDriverOpts.Encode()
+	return u.String()
+}
+
 // GetDBCluster will setup the command for database, including clustered reader.
 func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfNotExist bool, dbAttrs ...string) (*DB, error) {
 	initialConnectionURL, err := cmd.Flags().GetString("databaseClusterInitialConnectionURL")
@@ -159,7 +169,7 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 		return nil, err
 	}
 
-	var extraDriverOpts url.Values
+	extraDriverOpts := make(url.Values)
 	for _, attr := range dbAttrs {
 		kv := strings.Split(attr, "=")
 		if len(kv) != 2 {
@@ -167,8 +177,7 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 		}
 		extraDriverOpts.Add(kv[0], kv[1])
 	}
-	un := url.UserPassword(username, password)
-	dsn := fmt.Sprintf("%s@%s:%d/%s?%s", un.String(), initialConnectionURL, port, database, extraDriverOpts.Encode())
+	dsn := GetClusterDSN(username, password, initialConnectionURL, port, database, extraDriverOpts)
 	db, err := sql.Open(rdsmysql.DriverName, dsn)
 	if err != nil {
 		return nil, err

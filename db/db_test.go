@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -127,4 +128,11 @@ func TestFormatSQL(t *testing.T) {
 	assert.Equal("SELECT * FROM foo GROUP BY foo,bar", FormatSQL("SELECT * FROM foo GROUP BY foo, bar"))
 	assert.Equal("SELECT * FROM foo where bar!=1", FormatSQL("SELECT * FROM foo where bar != 1"))
 	assert.Equal("SELECT * FROM foo where bar<>1", FormatSQL("SELECT * FROM foo where bar <> 1"))
+}
+
+func TestGetClusterDSN(t *testing.T) {
+	assert := assert.New(t)
+	uv := make(url.Values)
+	uv.Add("hi", "mom")
+	assert.Equal("//foo:xZ%7BG%7BV%3FX-R%3Ay%25l@hostname:3306/bar?hi=mom", GetClusterDSN("foo", "xZ{G{V?X-R:y%l", "hostname", 3306, "bar", uv))
 }
