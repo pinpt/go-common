@@ -13,31 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pinpt/go-common/db/cluster"
-
 	"github.com/go-sql-driver/mysql"
 	"github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/log"
 )
-
-// DBs contains separate references for write and read only database.
-type DBs struct {
-	// Master is the master database. Use it for writes.
-	Master cluster.RDSWriteCluster
-
-	// Replicas is the cluster of read replicas. Use it for most reads, but keep in mind that it has a replication lag compared to master. It is possible that if you issue write to master and then read replica immediately, the record will not be there.
-	Replicas cluster.RDSReadCluster
-}
-
-// Close the db
-func (s *DBs) Close() error {
-	err1 := s.Master.Close()
-	err2 := s.Replicas.Close()
-	if err1 != nil {
-		return err1
-	}
-	return err2
-}
 
 // DB wraps a sql.DB to remember the DSN setting
 type DB struct {
@@ -622,30 +601,8 @@ func TimedQuery(ctx context.Context, logger log.Logger, db *sql.DB, label string
 	return db.QueryContext(ctx, sql, args...)
 }
 
-// TimedQueryCluster will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
-func TimedQueryCluster(ctx context.Context, logger log.Logger, db cluster.RDSReadCluster, label string, sql string, args ...interface{}) (*sql.Rows, error) {
-	if printTimedQuery {
-		started := time.Now()
-		rows, err := db.QueryContext(ctx, sql, args...)
-		log.Debug(logger, fmt.Sprintf("sql=%s", FormatSQL(sql, args...)), "label", label, "duration", fmt.Sprintf("%v", time.Since(started)))
-		return rows, err
-	}
-	return db.QueryContext(ctx, sql, args...)
-}
-
 // TimedQueryRow will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
 func TimedQueryRow(ctx context.Context, logger log.Logger, db *sql.DB, label string, sql string, args ...interface{}) *sql.Row {
-	if printTimedQuery {
-		started := time.Now()
-		row := db.QueryRowContext(ctx, sql, args...)
-		log.Debug(logger, fmt.Sprintf("sql=%s", FormatSQL(sql, args...)), "label", label, "duration", fmt.Sprintf("%v", time.Since(started)))
-		return row
-	}
-	return db.QueryRowContext(ctx, sql, args...)
-}
-
-// TimedQueryRowCluster will execute query and log out useful information if SQL_DEBUG env is configured to 1 otherwise a normal SQL query
-func TimedQueryRowCluster(ctx context.Context, logger log.Logger, db cluster.RDSReadCluster, label string, sql string, args ...interface{}) cluster.Row {
 	if printTimedQuery {
 		started := time.Now()
 		row := db.QueryRowContext(ctx, sql, args...)
