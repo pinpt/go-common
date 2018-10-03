@@ -66,12 +66,12 @@ func TestDSNMask(t *testing.T) {
 	assert.Equal("username:*****@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", mask)
 
 	dsn = GetDSN("username", "", "hostname", 3306, "name")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
+	assert.Equal("username@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 	mask = MaskDSN(dsn, "")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", mask)
+	assert.Equal("username@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", mask)
 
 	dsn = GetDSN("username", "", "hostname", 0, "name")
-	assert.Equal("username:@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
+	assert.Equal("username@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=false&autocommit=true", dsn)
 }
 
 func TestDSNMaskAdditionalAttributes(t *testing.T) {
@@ -101,7 +101,7 @@ func TestDSNEscapeUsername(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 	dsn := GetDSN("hi mom", "xZ{G{V?X-R:y%l", "hostname", 3306, "name", "tls=true")
-	assert.Equal("hi%20mom:xZ%7BG%7BV%3FX-R%3Ay%25l@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true&autocommit=true", dsn)
+	assert.Equal("hi mom:xZ{G{V?X-R:y%l@tcp(hostname:3306)/name?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true&tls=true&autocommit=true", dsn)
 }
 
 type testTest string
