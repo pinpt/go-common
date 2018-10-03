@@ -117,7 +117,6 @@ func OpenDB(username string, password string, hostname string, port int, name st
 	}
 	dsn := GetDSN(username, password, hostname, port, name, attrs...)
 	maskedDsn := MaskDSN(dsn, password)
-	// log.Debugw("opening database", "dsn", maskedDsn)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database %s. %v", maskedDsn, err)

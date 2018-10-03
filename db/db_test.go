@@ -134,5 +134,11 @@ func TestGetClusterDSN(t *testing.T) {
 	assert := assert.New(t)
 	uv := make(url.Values)
 	uv.Add("hi", "mom")
-	assert.Equal("//foo:xZ%7BG%7BV%3FX-R%3Ay%25l@hostname:3306/bar?hi=mom", GetClusterDSN("foo", "xZ{G{V?X-R:y%l", "hostname", 3306, "bar", uv))
+	dsn := GetClusterDSN("foo", "xZ{G{V?X-R:y%l", "hostname", 3306, "bar", uv)
+	assert.Equal("//foo:xZ%7BG%7BV%3FX-R%3Ay%25l@hostname:3306/bar?hi=mom", dsn)
+	u, err := url.Parse(dsn)
+	assert.NoError(err)
+	pass, ok := u.User.Password()
+	assert.True(ok)
+	assert.Equal("xZ{G{V?X-R:y%l", pass)
 }
