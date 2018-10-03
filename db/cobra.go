@@ -156,6 +156,10 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 	if err != nil {
 		return nil, err
 	}
+	hostname, err := cmd.Flags().GetString("databaseHostname")
+	if err != nil {
+		return nil, err
+	}
 	password, err := cmd.Flags().GetString("databasePassword")
 	if err != nil {
 		return nil, err
@@ -168,6 +172,17 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 	if err != nil {
 		return nil, err
 	}
+	tls, err := cmd.Flags().GetString("databaseTLS")
+	if err != nil {
+		return nil, err
+	}
+	if len(dbAttrs) == 0 {
+		dbAttrs = []string{}
+	}
+	if tls == "" {
+		tls = "false"
+	}
+	setDBEnv(username, password, hostname, database, port, tls, initialConnectionURL)
 
 	extraDriverOpts := make(url.Values)
 	for _, attr := range dbAttrs {
