@@ -189,22 +189,16 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 	if hasColors {
 		switch lvl {
 		case debugLevel:
-			{
-				c = debugColor
-			}
+			c = debugColor
 		case warnLevel:
-			{
-				c = warnColor
-			}
+			c = warnColor
 		case errLevel:
-			{
-				c = errColor
-			}
+			c = errColor
+		case infoLevel:
+			c = infoColor
 		default:
-			{
-				lvl = infoLevel
-				c = infoColor
-			}
+			lvl = debugLevel
+			c = debugColor
 		}
 	}
 	pkg := m[pkgKey].(string)
