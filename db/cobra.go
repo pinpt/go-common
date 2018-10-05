@@ -84,9 +84,6 @@ func GetDB(ctx context.Context, cmd *cobra.Command, logger log.Logger, createIfN
 
 	if strings.Contains(os.Getenv("PP_DEBUG"), "mysql") {
 		fmt.Printf("trying to connect to DB using username=%v, password=%v, hostname=%v, port=%d, database=%v, tls=%s\n", username, MaskDSN(password, password), hostname, port, database, tls)
-		if initialConnectionURL != "" {
-			fmt.Println("databaseClusterInitialConnectionURL=", initialConnectionURL)
-		}
 	}
 
 	setDBEnv(username, password, hostname, database, port, tls, initialConnectionURL)
