@@ -199,5 +199,6 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(10) // set a reasonable default which can then be overriden by the caller
 	return &DB{db, db, dsn}, nil
 }

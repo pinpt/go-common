@@ -123,12 +123,12 @@
   version = "1.1.0"
 
 [[projects]]
-  digest = "1:00db17ad05487d45ec684a08f2c3e1dab1d4cbc48364ccf6eaa93ef61fa84b7d"
+  digest = "1:ac9193ad3c14619345522299495c4a6f61fb4e516dc53d75a1acf515689455a6"
   name = "github.com/pinpt/rdsmysql"
   packages = ["."]
   pruneopts = "UT"
-  revision = "23706cc3ffce18d6947090bcf2bdaa03005001fd"
-  version = "1.2.0"
+  revision = "7b90b6c141dec8834b53bf192beaf2716759e239"
+  version = "1.3.0"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"

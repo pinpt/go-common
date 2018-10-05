@@ -125,6 +125,7 @@ func OpenDB(username string, password string, hostname string, port int, name st
 	if err != nil {
 		return nil, fmt.Errorf("error opening database %s. %v", maskedDsn, err)
 	}
+	db.SetMaxOpenConns(10) // set a reasonable default which can then be overriden by the caller
 	return &DB{db, db, dsn}, nil
 }
 
