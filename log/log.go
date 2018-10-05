@@ -927,7 +927,7 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 	logger = newMaskingLogger(logger)
 
 	// make sure that all message have a level
-	logger = level.NewInjector(logger, level.InfoValue())
+	logger = level.NewInjector(logger, level.DebugValue())
 
 	// make sure we de-dupe log keys
 	logger = &dedupelogger{logger}

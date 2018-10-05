@@ -30,7 +30,7 @@ func TestLogLevels(t *testing.T) {
 	assert.Contains(b.String(), `"level":"info","msg":"info level log","pkg":"test"}`)
 	assert.Contains(b.String(), `"level":"warn","msg":"warn level log","pkg":"test"}`)
 	assert.Contains(b.String(), `"level":"error","msg":"error level log","pkg":"test"}`)
-	assert.NotContains(b.String(), `"hello":"world","level":"debug","pkg":"test"}`)
+	assert.Contains(b.String(), `"hello":"world","level":"debug","pkg":"test"}`)
 }
 
 func TestConsoleLogger(t *testing.T) {
@@ -106,10 +106,10 @@ func (w *wc) Close() error {
 func TestLogWriterCloser(t *testing.T) {
 	assert := assert.New(t)
 	var w wc
-	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, InfoLevel, "test")
+	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
 	log.Log("msg", "hi")
 	assert.NoError(log.Close())
-	assert.Equal("pkg=test level=info msg=hi\n", string(w.b))
+	assert.Equal("pkg=test level=debug msg=hi\n", string(w.b))
 	assert.True(w.c)
 }
 
