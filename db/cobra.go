@@ -191,7 +191,9 @@ func GetDBCluster(ctx context.Context, cmd *cobra.Command, logger log.Logger, cr
 	}
 	dsn := GetClusterDSN(username, password, initialConnectionURL, port, database, extraDriverOpts)
 	log.Debug(logger, "opening a clustered db connection", "dsn", dsn)
-	rdsmysql.L = logger
+	if strings.Contains(os.Getenv("PP_DEBUG"), "rdsmysql") {
+		rdsmysql.L = logger
+	}
 	db, err := sql.Open(rdsmysql.DriverName, dsn)
 	if err != nil {
 		return nil, err
