@@ -624,6 +624,7 @@ func GetTableNamesIfExists(ctx context.Context, db *DB, tables []string, dbname 
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	tableNames := []string{}
 	for rows.Next() {
 		var name string
