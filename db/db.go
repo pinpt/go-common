@@ -617,3 +617,18 @@ func TimedQueryRow(ctx context.Context, logger log.Logger, db *sql.DB, label str
 	}
 	return db.QueryRowContext(ctx, sql, args...)
 }
+
+// GetTableNamesIfExists returns an array of tables that exist in the database
+func GetTableNamesIfExists(ctx context.Context, db *DB, tables []string, dbname string) ([]string, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("select distinct(table_name) from information_schema.columns where table_schema = ? and table_name IN (%v)", SQLJoin(tables)), dbname)
+	if err != nil {
+		return nil, err
+	}
+	tableNames := []string{}
+	for rows.Next() {
+		var name string
+		rows.Scan(&name)
+		tableNames = append(tableNames, name)
+	}
+	return tableNames, nil
+}
