@@ -63,7 +63,7 @@ func GetDSN(username string, password string, hostname string, port int, name st
 	cfg.User = username
 	cfg.Passwd = password
 	cfg.DBName = name
-	s := "?collation=utf8_unicode_ci&charset=utf8mb4&parseTime=true"
+	s := "?collation=utf8mb4_unicode_ci&parseTime=true"
 	l := len(attrs)
 	addac := true
 	if l > 0 {
