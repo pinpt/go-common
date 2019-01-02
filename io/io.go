@@ -24,9 +24,11 @@ func NewStream(fn string) (io.WriteCloser, error) {
 	return out, nil
 }
 
+// JSONStream is a convenience class for streaming json objects to a file (one JSON per line)
 type JSONStream struct {
 	stream io.WriteCloser
 	enc    *json.Encoder
+	name   string
 }
 
 // Write will stream a JSON line to the output stream
@@ -39,6 +41,11 @@ func (s *JSONStream) Close() error {
 	return s.stream.Close()
 }
 
+// Name returns the underlying filename for the stream
+func (s *JSONStream) Name() string {
+	return s.name
+}
+
 // NewJSONStream will return a JSON stream encoder
 func NewJSONStream(fn string) (*JSONStream, error) {
 	out, err := NewStream(fn)
@@ -48,6 +55,7 @@ func NewJSONStream(fn string) (*JSONStream, error) {
 	stream := &JSONStream{
 		stream: out,
 		enc:    json.NewEncoder(out),
+		name:   fn,
 	}
 	return stream, nil
 }
