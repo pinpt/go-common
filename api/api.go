@@ -38,6 +38,7 @@ var (
 		"1bda5afff83781380bf708198f9f7d2db1e067f14bb9ea7bae70aac0b0305e7b": true, //CN=Amazon,OU=Server CA 2A,O=Amazon,C=US
 		"7c53b5df79135d9af6195ef6bb73ab98c2c89950b892b192dffd784db925a41c": true, //CN=Amazon,OU=Server CA 3A,O=Amazon,C=US
 		"17708dff2b7faec9cb1b5215ebb2421d97b0543c936fac9d6e02b92f20e5c707": true, //CN=Amazon,OU=Server CA 4A,O=Amazon,C=US
+		"60b87575447dcba2a36b7d11ac09fb24a9db406fee12d2cc90180517616e8a18": true, //CN=Let's Encrypt Authority X3,O=Let's Encrypt,C=US
 	}
 )
 
