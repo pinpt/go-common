@@ -5,6 +5,7 @@ package flatten
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Flatten generates a flat map from a nested one. It will lowecase all keys.
@@ -35,21 +36,27 @@ func flatten(top bool, flatMap map[string]interface{}, nested interface{}, prefi
 	switch t := nested.(type) {
 	case map[string]interface{}:
 		for k, v := range nested.(map[string]interface{}) {
-			newKey := enkey(top, prefix, k)
-			switch val := v.(type) {
-			case map[string]interface{}:
+			newKey := strings.ToLower(enkey(top, prefix, k))
+			switch t := v.(type) {
+			case map[string]interface{}: // Simple case of key-value
 				if err := flatten(false, flatMap, v, newKey); err != nil {
 					return err
 				}
-			case []interface{}:
-				// stringify objects in arrays
-				o := []string{}
-				for _, a := range val {
-					b, _ := json.Marshal(a)
-					o = append(o, string(b))
+			case []interface{}: // complex case, array
+				if len(t) > 0 { // check firts element
+					switch t[0].(type) {
+					case map[string]interface{}: // if key-value, flatten it
+						arr := []map[string]interface{}{}
+						for _, e := range t {
+							flatmap := make(map[string]interface{})
+							flatten(true, flatmap, e, "")
+							arr = append(arr, flatmap)
+						}
+						flatMap[newKey] = arr
+					default: // otherwise, ignore
+						flatMap[newKey] = v
+					}
 				}
-				flatMap[newKey] = o
-
 			default:
 				flatMap[newKey] = v
 			}
