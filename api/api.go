@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -20,11 +21,16 @@ import (
 )
 
 // baseURL is the url to the Pinpoint Cloud API
-const baseURL = "pinpt.io/api/"
+const baseURL = "pinpt.io/"
+
+// AuthorizationHeader is the name of the authorization header to use
+const AuthorizationHeader = "Authorization"
+
+const userAgentFormat = "Pinpoint Agent/%s"
 
 var (
 	// domainRegex are the only domains that we trust
-	domainRegex = regexp.MustCompile("\\.(pinpt|ppoint)\\.(net|com|io|co)$")
+	domainRegex = regexp.MustCompile("\\.(pinpt|ppoint|pinpoint)\\.(net|com|io|co)$")
 
 	// caWeTrust are the only Certificate Authorities we trust for our certificate
 	// see list from Amazon AwS at https://www.amazontrust.com/repository/
@@ -60,18 +66,13 @@ func isDNSNameTrusted(names ...string) bool {
 	return false
 }
 
-var (
-	subdomainRegexp  = regexp.MustCompile("[^\\w]+")
-	subdomainRegexp2 = regexp.MustCompile("\\s")
-)
-
-func getCustomerSubdomain(customerName string) string {
-	return strings.ToLower(subdomainRegexp2.ReplaceAllString(subdomainRegexp.ReplaceAllString(customerName, ""), ""))
-}
-
 // BackendURL return the base url to the API server
-func BackendURL(customerName string, channel string) string {
-	subdomain := getCustomerSubdomain(customerName)
+func BackendURL(channel string) string {
+	val := os.Getenv("PP_AGENT_URL")
+	if val != "" {
+		return val
+	}
+	subdomain := "auth-api"
 	if channel == "" || channel == "stable" {
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
 	}
@@ -142,9 +143,21 @@ func isAbsURL(urlstr string) bool {
 	return absurl.MatchString(urlstr)
 }
 
+// SetUserAgent will set the agent user agent
+func SetUserAgent(req *http.Request) {
+	req.Header.Set("User-Agent", fmt.Sprintf(userAgentFormat, os.Getenv("PP_AGENT_VERSION")))
+}
+
+// SetAuthorization will set the authorization header
+func SetAuthorization(req *http.Request, apikey string) {
+	if apikey != "" {
+		req.Header.Set(AuthorizationHeader, apikey)
+	}
+}
+
 // Get will invoke api for channel and basepath
-func Get(ctx context.Context, customer string, channel string, basepath string, apiKey string) (*http.Response, error) {
-	bu := BackendURL(customer, channel)
+func Get(ctx context.Context, channel string, basepath string, apiKey string) (*http.Response, error) {
+	bu := BackendURL(channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
@@ -154,10 +167,9 @@ func Get(ctx context.Context, customer string, channel string, basepath string, 
 		urlstr = u.String()
 	}
 	req, _ := http.NewRequest(http.MethodGet, urlstr, nil)
-	if apiKey != "" {
-		req.Header.Add("x-api-key", apiKey)
-	}
 	req.Header.Set("Accept", "application/json")
+	SetAuthorization(req, apiKey)
+	SetUserAgent(req)
 	req = req.WithContext(ctx)
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
@@ -171,8 +183,8 @@ func Get(ctx context.Context, customer string, channel string, basepath string, 
 }
 
 // Post will invoke api for channel and basepath as JSON post
-func Post(ctx context.Context, customer string, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
-	bu := BackendURL(customer, channel)
+func Post(ctx context.Context, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
+	bu := BackendURL(channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
@@ -182,10 +194,10 @@ func Post(ctx context.Context, customer string, channel string, basepath string,
 		urlstr = u.String()
 	}
 	req, _ := http.NewRequest(http.MethodPost, urlstr, strings.NewReader(json.Stringify(obj)))
-	if apiKey != "" {
-		req.Header.Add("x-api-key", apiKey)
-	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	SetUserAgent(req)
+	SetAuthorization(req, apiKey)
 	req = req.WithContext(ctx)
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
