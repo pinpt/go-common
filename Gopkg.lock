@@ -164,6 +164,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
+  name = "golang.org/x/crypto"
+  packages = ["pbkdf2"]
+  pruneopts = "UT"
+  revision = "a5d413f7728c81fb97d96a2b722368945f651e78"
+
+[[projects]]
+  branch = "master"
   digest = "1:f482efa2ce861f1eaed67bb4c95ccf175ca17b331e09bb42fddb27517495da09"
   name = "golang.org/x/sys"
   packages = ["unix"]
@@ -194,6 +202,7 @@
     "github.com/pinpt/rdsmysql",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
+    "golang.org/x/crypto/pbkdf2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
