@@ -1,12 +1,9 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 	"net/url"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -33,27 +30,6 @@ func TestDSN(t *testing.T) {
 
 	assert.Equal(dbObj.db, dbObj.SQLDB())
 
-}
-func TestGetTableNames(t *testing.T) {
-	if os.Getenv("CI") == "" {
-		t.Parallel()
-		assert := assert.New(t)
-
-		db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/mysql")
-		assert.NoError(err)
-		defer db.Close()
-
-		tx, err := db.Begin()
-		assert.NoError(err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-
-		ok, err := GetTableNames(ctx, tx, "user")
-		assert.Nil(err)
-		assert.NotNil(ok)
-
-	}
 }
 
 func TestDSNMask(t *testing.T) {
