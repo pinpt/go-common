@@ -77,14 +77,19 @@ func ISODateToTime(date string) (time.Time, error) {
 
 // ISODateOffsetToTime returns a RFC 3339 formatted string as a timestamp
 func ISODateOffsetToTime(date string) (time.Time, error) {
-	match, _ := regexp.MatchString("[+-]\\d{2}:\\d{2}", date)
-	if match {
+	if strings.Contains(date, ".") {
 		tv, err := time.Parse("2006-01-02T15:04:05.999999999-07:00", date)
 		if err != nil {
 			return time.Parse("2006-01-02T15:04:05.999999999-0700", date)
 		}
 		return tv, nil
 	}
+
+	match, _ := regexp.MatchString("([+-]\\d{2}:\\d{2})", date)
+	if match {
+		return time.Parse("2006-01-02T15:04:05-07:00", date)
+	}
+
 	return time.Parse("2006-01-02T15:04:05-0700", date)
 }
 
