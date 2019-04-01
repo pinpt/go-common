@@ -2,6 +2,7 @@ package datetime
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -83,6 +84,12 @@ func ISODateOffsetToTime(date string) (time.Time, error) {
 		}
 		return tv, nil
 	}
+
+	match, _ := regexp.MatchString("([+-]\\d{2}:\\d{2})", date)
+	if match {
+		return time.Parse("2006-01-02T15:04:05-07:00", date)
+	}
+
 	return time.Parse("2006-01-02T15:04:05-0700", date)
 }
 

@@ -74,18 +74,30 @@ func TestISODateToEpoch(t *testing.T) {
 func TestISODateOffsetToTime(t *testing.T) {
 	t.Parallel()
 
+	var dates = []struct {
+		date string
+	}{
+		{"2006-02-02T15:04:05-0600"},
+		{"2006-02-02T15:04:05.9999-0600"},
+		{"2006-02-02T15:04:05.99999-06:00"},
+		{"2006-02-02T15:04:05-06:00"},
+	}
+
 	assert := assert.New(t)
 
-	ok, err := ISODateOffsetToTime("2006-02-02T15:04:05-0600")
+	for _, tt := range dates {
+		ok, err := ISODateOffsetToTime(tt.date)
 
-	date := time.Date(int(2006), time.February, int(2), int(15), int(4), int(5), int(0), time.Local)
+		date := time.Date(int(2006), time.February, int(2), int(15), int(4), int(5), int(0), time.Local)
 
-	assert.Nil(err)
-	year1, month1, day1 := ok.Date()
-	year2, month2, day2 := date.Date()
-	assert.Equal(year1, year2)
-	assert.Equal(month1, month2)
-	assert.Equal(day1, day2)
+		assert.Nil(err)
+		year1, month1, day1 := ok.Date()
+		year2, month2, day2 := date.Date()
+		assert.Equal(year1, year2)
+		assert.Equal(month1, month2)
+		assert.Equal(day1, day2)
+	}
+
 }
 
 func TestISODateOffsetToTimeWithMillis(t *testing.T) {
