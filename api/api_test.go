@@ -18,13 +18,13 @@ func TestAbsoluteURL(t *testing.T) {
 
 func TestBackendURL(t *testing.T) {
 	assert := assert.New(t)
-	assert.Equal("https://auth-api.edge.pinpt.io/", BackendURL("edge"))
-	assert.Equal("https://auth-api.pinpt.io/", BackendURL("stable"))
+	assert.Equal("https://auth-api.edge.pinpt.io/", BackendURL(AuthService, "edge"))
+	assert.Equal("https://auth-api.pinpt.io/", BackendURL(AuthService, "stable"))
 }
 
 func TestSetHeaders(t *testing.T) {
 	assert := assert.New(t)
-	req, err := http.NewRequest("GET", BackendURL("edge"), nil)
+	req, err := http.NewRequest("GET", BackendURL(AuthService, "edge"), nil)
 	assert.NoError(err)
 	assert.NotNil(req)
 	SetUserAgent(req)

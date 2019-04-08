@@ -66,13 +66,19 @@ func isDNSNameTrusted(names ...string) bool {
 	return false
 }
 
+const (
+	// AgentService is the agent service endpoint
+	AgentService = "agent-api"
+	// AuthService is the auth service endpoint
+	AuthService = "auth-api"
+)
+
 // BackendURL return the base url to the API server
-func BackendURL(channel string) string {
+func BackendURL(subdomain string, channel string) string {
 	val := os.Getenv("PP_AGENT_URL")
 	if val != "" {
 		return val
 	}
-	subdomain := "auth-api"
 	if channel == "" || channel == "stable" {
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
 	}
@@ -156,8 +162,8 @@ func SetAuthorization(req *http.Request, apikey string) {
 }
 
 // Get will invoke api for channel and basepath
-func Get(ctx context.Context, channel string, basepath string, apiKey string) (*http.Response, error) {
-	bu := BackendURL(channel)
+func Get(ctx context.Context, channel string, service string, basepath string, apiKey string) (*http.Response, error) {
+	bu := BackendURL(service, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
@@ -183,8 +189,8 @@ func Get(ctx context.Context, channel string, basepath string, apiKey string) (*
 }
 
 // Post will invoke api for channel and basepath as JSON post
-func Post(ctx context.Context, channel string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
-	bu := BackendURL(channel)
+func Post(ctx context.Context, channel string, service string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
+	bu := BackendURL(service, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
 		urlstr = basepath
