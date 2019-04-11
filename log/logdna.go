@@ -163,22 +163,26 @@ func (l *dnalog) Close() error {
 	return nil
 }
 
-func getAddr() (ip string, addr string) {
+func getAddr() (string, string) {
 	interfaces, err := net.Interfaces()
 	if err == nil {
 		for _, i := range interfaces {
-			if i.Flags&net.FlagUp != 0 && bytes.Compare(i.HardwareAddr, nil) != 0 {
-				// Don't use random as we have a real address
+			if bytes.Compare(i.HardwareAddr, nil) != 0 {
 				addrs, _ := i.Addrs()
-				if addrs != nil && len(addrs) > 0 {
-					ip = addrs[0].String()
+				for _, address := range addrs {
+					if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+						if ipnet.IP.To4() != nil {
+							ip := ipnet.IP.To4().String()
+							ip = strings.Split(ip, "/")[0]
+							addr := i.HardwareAddr.String()
+							return ip, addr
+						}
+					}
 				}
-				addr = i.HardwareAddr.String()
-				break
 			}
 		}
 	}
-	return
+	return "", ""
 }
 
 type monitor struct {
