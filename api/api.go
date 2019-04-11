@@ -21,7 +21,7 @@ import (
 )
 
 // baseURL is the url to the Pinpoint Cloud API
-const baseURL = "pinpt.io/"
+const baseURL = "pinpoint.com/"
 
 // AuthorizationHeader is the name of the authorization header to use
 const AuthorizationHeader = "Authorization"
@@ -68,9 +68,9 @@ func isDNSNameTrusted(names ...string) bool {
 
 const (
 	// AgentService is the agent service endpoint
-	AgentService = "agent-api"
+	AgentService = "agent.api"
 	// AuthService is the auth service endpoint
-	AuthService = "auth-api"
+	AuthService = "auth.api"
 )
 
 // BackendURL return the base url to the API server

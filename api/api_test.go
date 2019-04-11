@@ -9,8 +9,8 @@ import (
 
 func TestAbsoluteURL(t *testing.T) {
 	assert := assert.New(t)
-	assert.True(isAbsURL("https://auth-api.pinpt.io/"))
-	assert.False(isAbsURL("http://api.edge.api.pinpt.io"))
+	assert.True(isAbsURL("https://auth.api.pinpoint.com/"))
+	assert.False(isAbsURL("http://api.api.edge.pinpoint.com"))
 	assert.False(isAbsURL("http://api.stable.api.pinpt.io"))
 	assert.False(isAbsURL("/foo"))
 	assert.False(isAbsURL("foo"))
@@ -18,8 +18,8 @@ func TestAbsoluteURL(t *testing.T) {
 
 func TestBackendURL(t *testing.T) {
 	assert := assert.New(t)
-	assert.Equal("https://auth-api.edge.pinpt.io/", BackendURL(AuthService, "edge"))
-	assert.Equal("https://auth-api.pinpt.io/", BackendURL(AuthService, "stable"))
+	assert.Equal("https://auth.api.edge.pinpoint.com/", BackendURL(AuthService, "edge"))
+	assert.Equal("https://auth.api.pinpoint.com/", BackendURL(AuthService, "stable"))
 }
 
 func TestSetHeaders(t *testing.T) {

@@ -923,11 +923,15 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 
 	logger = log.With(logger, pkgKey, pkg)
 
-	// create a masking logger
-	logger = newMaskingLogger(logger)
-
 	// make sure that all message have a level
 	logger = level.NewInjector(logger, level.DebugValue())
+
+	// create a delegate logger to forward to logdna (only will do anything if apikey set, otherwise a no-op)
+	logger = newDNALogger(logger)
+	loggers = append(loggers, logger)
+
+	// create a masking logger
+	logger = newMaskingLogger(logger)
 
 	// make sure we de-dupe log keys
 	logger = &dedupelogger{logger}
