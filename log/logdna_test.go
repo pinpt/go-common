@@ -17,6 +17,7 @@ func TestNewLogDNA(t *testing.T) {
 	assert := assert.New(t)
 	os.Setenv("PP_HOSTNAME", "foobar")
 	os.Setenv("PP_LOG_KEY", "123")
+	globalClient = nil
 	dnalogger := newDNALogger(nil)
 	l := dnalogger.(*dnalog)
 	assert.NotNil(l)
@@ -42,6 +43,7 @@ func TestNewLogDNAWithLevel(t *testing.T) {
 	assert := assert.New(t)
 	os.Setenv("PP_HOSTNAME", "foobar")
 	os.Setenv("PP_LOG_KEY", "123")
+	globalClient = nil
 	dnalogger := newDNALogger(nil)
 	l := dnalogger.(*dnalog)
 	assert.NotNil(l)
@@ -67,6 +69,7 @@ func TestNewLogDNAWithMetadata(t *testing.T) {
 	assert := assert.New(t)
 	os.Setenv("PP_HOSTNAME", "foobar")
 	os.Setenv("PP_LOG_KEY", "123")
+	globalClient = nil
 	dnalogger := newDNALogger(nil)
 	l := dnalogger.(*dnalog)
 	assert.NotNil(l)
@@ -94,6 +97,7 @@ func TestNewLogDNAWithMasking(t *testing.T) {
 	os.Setenv("PP_HOSTNAME", "foo")
 	os.Setenv("PP_LOG_KEY", "123")
 	os.Setenv("PP_LOG_TAGS", "")
+	globalClient = nil
 	var wg sync.WaitGroup
 	wg.Add(1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -125,6 +129,7 @@ func TestNewLogDNAWithTags(t *testing.T) {
 	os.Setenv("PP_HOSTNAME", "foo")
 	os.Setenv("PP_LOG_KEY", "123")
 	os.Setenv("PP_LOG_TAGS", "1,2,3")
+	globalClient = nil
 	var wg sync.WaitGroup
 	wg.Add(1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -157,6 +162,7 @@ func TestNewLogDNAWithHostnameNotProvided(t *testing.T) {
 	os.Setenv("PP_HOSTNAME", "")
 	os.Setenv("PP_LOG_KEY", "123")
 	os.Setenv("PP_LOG_TAGS", "")
+	globalClient = nil
 	var wg sync.WaitGroup
 	wg.Add(1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

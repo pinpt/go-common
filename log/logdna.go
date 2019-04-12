@@ -20,9 +20,7 @@ const maxNumLines = 100
 
 type payload struct {
 	Lines []line `json:"lines"`
-
-	mu         *sync.RWMutex
-	bufferSize uint32
+	mu    *sync.RWMutex
 }
 
 // Flush payload
@@ -73,7 +71,7 @@ type client struct {
 func (c *client) send(force bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !force && c.payload.Size() == 0 {
+	if c.payload.Size() == 0 {
 		return
 	}
 	c.payload.mu.Lock()
@@ -110,6 +108,8 @@ func (c *client) send(force bool) {
 		} else {
 			fmt.Println("error making logdna injest request", string(b))
 		}
+	} else {
+		ioutil.ReadAll(resp.Body)
 	}
 }
 
@@ -197,48 +197,57 @@ func (m *monitor) run() {
 			m.client.send(true)
 		case <-m.done:
 			return
-		default:
 		}
 	}
 }
+
+// make it a singleton since we can have a ton of logger instances
+var dnaGlobalLock = sync.Mutex{}
+var globalClient *client
 
 // newDNALogger returns a log dna logger
 func newDNALogger(next Logger) LoggerCloser {
 	var c *client
 	apikey := os.Getenv("PP_LOG_KEY")
 	if apikey != "" {
-		hostname := os.Getenv("PP_HOSTNAME")
-		if hostname == "" {
-			hostname = "hostname.not.provided"
+		dnaGlobalLock.Lock()
+		defer dnaGlobalLock.Unlock()
+		if globalClient == nil {
+			hostname := os.Getenv("PP_HOSTNAME")
+			if hostname == "" {
+				hostname = "hostname.not.provided"
+			}
+			tags := []string{}
+			tagstr := os.Getenv("PP_LOG_TAGS")
+			if tagstr != "" {
+				tags = strings.Split(tagstr, ",")
+			}
+			logurl := logdnaBaseURL
+			logurlstr := os.Getenv("PP_LOG_URL")
+			if logurlstr != "" {
+				logurl = logurlstr
+			}
+			ip, mac := getAddr()
+			globalClient = &client{
+				apikey:   apikey,
+				hostname: hostname,
+				mac:      mac,
+				ip:       ip,
+				tags:     tags,
+				url:      logurl,
+				payload: &payload{
+					Lines: make([]line, 0),
+					mu:    &sync.RWMutex{},
+				},
+			}
+			m := &monitor{
+				client: globalClient,
+				done:   make(chan struct{}, 1),
+			}
+			globalClient.monitor = m
+			go m.run()
+			c = globalClient
 		}
-		tags := []string{}
-		tagstr := os.Getenv("PP_LOG_TAGS")
-		if tagstr != "" {
-			tags = strings.Split(tagstr, ",")
-		}
-		logurl := logdnaBaseURL
-		logurlstr := os.Getenv("PP_LOG_URL")
-		if logurlstr != "" {
-			logurl = logurlstr
-		}
-		ip, mac := getAddr()
-		c = &client{
-			apikey:   apikey,
-			hostname: hostname,
-			mac:      mac,
-			ip:       ip,
-			tags:     tags,
-			url:      logurl,
-			payload: &payload{
-				mu: &sync.RWMutex{},
-			},
-		}
-		m := &monitor{
-			client: c,
-			done:   make(chan struct{}, 1),
-		}
-		c.monitor = m
-		go m.run()
 	}
 	return &dnalog{
 		next:   next,
