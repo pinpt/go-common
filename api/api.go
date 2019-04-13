@@ -22,6 +22,7 @@ import (
 
 // baseURL is the url to the Pinpoint Cloud API
 const baseURL = "pinpoint.com/"
+const devbaseURL = "ppoint.com"
 
 // AuthorizationHeader is the name of the authorization header to use
 const AuthorizationHeader = "Authorization"
@@ -75,12 +76,16 @@ const (
 
 // BackendURL return the base url to the API server
 func BackendURL(subdomain string, channel string) string {
-	val := os.Getenv("PP_AGENT_URL")
-	if val != "" {
-		return val
-	}
-	if channel == "" || channel == "stable" {
+	switch channel {
+	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
+	case "dev":
+		switch subdomain {
+		case AgentService:
+			return fmt.Sprintf("https://%s.%s:3004/", subdomain, devbaseURL)
+		case AuthService:
+			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
+		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
 }
