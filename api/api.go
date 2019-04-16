@@ -48,12 +48,12 @@ var (
 		"60b87575447dcba2a36b7d11ac09fb24a9db406fee12d2cc90180517616e8a18": true, //CN=Let's Encrypt Authority X3,O=Let's Encrypt,C=US
 	}
 	caWeTrustDev = map[string]bool{
-		"4bb434dfc2dbd6e7c5b6d2cc9ab54e4f565add13c6070000f35b8b44ef3fe360": true, //C=GB/ST=Greater Manchester/L=Salford/O=Sectigo Limited/CN=Sectigo RSA Domain Validation Secure Server CA
+		"e1ae9c3de848ece1ba72e0d991ae4d0d9ec547c6bad1dddab9d6beb0a7e0e0d8": true, //C=GB/ST=Greater Manchester/L=Salford/O=Sectigo Limited/CN=Sectigo RSA Domain Validation Secure Server CA
 	}
 )
 
 // isTrusted returns true if the Certificate is a CA Certificate that we explicitly trust
-func isTrusted(cert *x509.Certificate) bool {
+func isTrusted(cert *x509.Certificate, addr string) bool {
 	der, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	hash := sha256.Sum256(der)
 	fingerprint := fmt.Sprintf("%x", hash)
@@ -61,9 +61,8 @@ func isTrusted(cert *x509.Certificate) bool {
 	if caWeTrust[fingerprint] {
 		return true
 	}
-	fmt.Println(fingerprint)
 	// check validate local dev
-	if caWeTrustDev[fingerprint] && strings.HasSuffix(cert.Subject.CommonName, devbaseURL) {
+	if caWeTrustDev[fingerprint] && strings.Contains(addr, devbaseURL) {
 		return true
 	}
 	return false
@@ -122,7 +121,7 @@ func NewHTTPAPIClient(config *httpclient.Config) (httpclient.Client, error) {
 					certtrusted = true
 				}
 			}
-			if cert.IsCA && isTrusted(cert) {
+			if cert.IsCA && isTrusted(cert, addr) {
 				catrusted = true
 				// cert comes before CA so at this point we can stop
 				break
