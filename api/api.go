@@ -22,7 +22,7 @@ import (
 
 // baseURL is the url to the Pinpoint Cloud API
 const baseURL = "pinpoint.com/"
-const devbaseURL = "ppoint.com"
+const devbaseURL = "ppoint.io"
 
 // AuthorizationHeader is the name of the authorization header to use
 const AuthorizationHeader = "Authorization"
@@ -47,6 +47,9 @@ var (
 		"17708dff2b7faec9cb1b5215ebb2421d97b0543c936fac9d6e02b92f20e5c707": true, //CN=Amazon,OU=Server CA 4A,O=Amazon,C=US
 		"60b87575447dcba2a36b7d11ac09fb24a9db406fee12d2cc90180517616e8a18": true, //CN=Let's Encrypt Authority X3,O=Let's Encrypt,C=US
 	}
+	caWeTrustDev = map[string]bool{
+		"4bb434dfc2dbd6e7c5b6d2cc9ab54e4f565add13c6070000f35b8b44ef3fe360": true, //C=GB/ST=Greater Manchester/L=Salford/O=Sectigo Limited/CN=Sectigo RSA Domain Validation Secure Server CA
+	}
 )
 
 // isTrusted returns true if the Certificate is a CA Certificate that we explicitly trust
@@ -54,7 +57,16 @@ func isTrusted(cert *x509.Certificate) bool {
 	der, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	hash := sha256.Sum256(der)
 	fingerprint := fmt.Sprintf("%x", hash)
-	return caWeTrust[fingerprint]
+	// check valid production CA
+	if caWeTrust[fingerprint] {
+		return true
+	}
+	fmt.Println(fingerprint)
+	// check validate local dev
+	if caWeTrustDev[fingerprint] && strings.HasSuffix(cert.Subject.CommonName, devbaseURL) {
+		return true
+	}
+	return false
 }
 
 // isDNSNameTrusted returns true if the DNS name is a domain we explicitly trust
