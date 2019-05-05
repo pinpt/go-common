@@ -6,10 +6,164 @@ import (
 	"strconv"
 )
 
+// ToBool returns bool for string and if parse error, return false
+func ToBool(v string) bool {
+	if ok, err := strconv.ParseBool(v); err == nil {
+		return ok
+	}
+	return false
+}
+
+// ToBoolAny returns bool for interface{} and if parse error, return false
+func ToBoolAny(v interface{}) bool {
+	if v, ok := v.(bool); ok {
+		return v
+	}
+	if v, ok := v.(*bool); ok {
+		if v != nil {
+			return *v
+		}
+		return false
+	}
+	if v, ok := v.(int); ok {
+		return v > 0
+	}
+	if v, ok := v.(int32); ok {
+		return v > 0
+	}
+	if v, ok := v.(int64); ok {
+		return v > 0
+	}
+	if v, ok := v.(float32); ok {
+		return v > 0
+	}
+	if v, ok := v.(float64); ok {
+		return v > 0
+	}
+	if v, ok := v.(*int); ok {
+		if v != nil {
+			return *v > 0
+		}
+	}
+	if v, ok := v.(*int32); ok {
+		if v != nil {
+			return *v > 0
+		}
+	}
+	if v, ok := v.(*int64); ok {
+		if v != nil {
+			return *v > 0
+		}
+	}
+	if v, ok := v.(string); ok {
+		return ToBool(v)
+	}
+	if v, ok := v.(*string); ok {
+		if v != nil {
+			return ToBool(*v)
+		}
+	}
+	return false
+}
+
 // ToInt32 converts a string to a base 10 32-bit integer or return 0
 func ToInt32(v string) int32 {
 	if v, err := strconv.ParseInt(v, 10, 32); err == nil {
 		return int32(v)
+	}
+	return 0
+}
+
+// ToInt32Any converts an interface{} to a base 10 32-bit integer or return 0
+func ToInt32Any(v interface{}) int32 {
+	if v, ok := v.(int); ok {
+		return int32(v)
+	}
+	if v, ok := v.(int32); ok {
+		return v
+	}
+	if v, ok := v.(int64); ok {
+		return int32(v)
+	}
+	if v, ok := v.(float32); ok {
+		return int32(v)
+	}
+	if v, ok := v.(float64); ok {
+		return int32(v)
+	}
+	if v, ok := v.(*int); ok {
+		if v != nil {
+			return int32(*v)
+		}
+	}
+	if v, ok := v.(*int32); ok {
+		if v != nil {
+			return *v
+		}
+	}
+	if v, ok := v.(*int64); ok {
+		if v != nil {
+			return int32(*v)
+		}
+	}
+	if v, ok := v.(string); ok {
+		return ToInt32(v)
+	}
+	if v, ok := v.(*string); ok {
+		if v != nil {
+			return ToInt32(*v)
+		}
+	}
+	return 0
+}
+
+// ToInt64 converts a string to a base 10 64-bit integer or return 0
+func ToInt64(v string) int64 {
+	if v, err := strconv.ParseInt(v, 10, 64); err == nil {
+		return v
+	}
+	return 0
+}
+
+// ToInt64Any converts an interface{} to a base 10 64-bit integer or return 0
+func ToInt64Any(v interface{}) int64 {
+	if v, ok := v.(int); ok {
+		return int64(v)
+	}
+	if v, ok := v.(int32); ok {
+		return int64(v)
+	}
+	if v, ok := v.(int64); ok {
+		return v
+	}
+	if v, ok := v.(float32); ok {
+		return int64(v)
+	}
+	if v, ok := v.(float64); ok {
+		return int64(v)
+	}
+	if v, ok := v.(*int); ok {
+		if v != nil {
+			return int64(*v)
+		}
+	}
+	if v, ok := v.(*int32); ok {
+		if v != nil {
+			return int64(*v)
+		}
+	}
+	if v, ok := v.(*int64); ok {
+		if v != nil {
+			return int64(*v)
+		}
+	}
+	if v, ok := v.(string); ok {
+		return ToInt64(v)
+	}
+	if v, ok := v.(*string); ok {
+		if v != nil {
+			return ToInt64(*v)
+		}
 	}
 	return 0
 }

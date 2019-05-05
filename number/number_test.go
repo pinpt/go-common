@@ -6,6 +6,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestToBool(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(true, ToBool("true"))
+	assert.Equal(true, ToBool("1"))
+	assert.Equal(false, ToBool("false"))
+	assert.Equal(false, ToBool("0"))
+	assert.Equal(false, ToBool("x"))
+}
+
+func TestToBoolAny(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(true, ToBoolAny("true"))
+	assert.Equal(true, ToBoolAny("1"))
+	assert.Equal(false, ToBoolAny("false"))
+	assert.Equal(false, ToBoolAny("0"))
+	assert.Equal(false, ToBoolAny("x"))
+	assert.Equal(false, ToBoolAny(0))
+	assert.Equal(false, ToBoolAny(int32(0)))
+	assert.Equal(false, ToBoolAny(int64(0)))
+	assert.Equal(false, ToBoolAny(float32(0)))
+	assert.Equal(false, ToBoolAny(float64(0)))
+	assert.Equal(true, ToBoolAny(int32(1)))
+	assert.Equal(true, ToBoolAny(int64(1)))
+	assert.Equal(true, ToBoolAny(float32(1)))
+	assert.Equal(true, ToBoolAny(float64(1)))
+	assert.Equal(true, ToBoolAny(true))
+	assert.Equal(false, ToBoolAny(false))
+	assert.Equal(true, ToBoolAny(BoolPointer(true)))
+	assert.Equal(false, ToBoolAny(BoolPointer(false)))
+}
+
 func TestToInt32(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
@@ -13,6 +46,42 @@ func TestToInt32(t *testing.T) {
 	assert.Equal(int32(0), ToInt32("123.0"))
 	assert.Equal(int32(0), ToInt32(""))
 	assert.Equal(int32(-123), ToInt32("-123"))
+}
+func TestToInt32Any(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(int32(123), ToInt32Any("123"))
+	assert.Equal(int32(123), ToInt32Any(123))
+	assert.Equal(int32(123), ToInt32Any(int32(123)))
+	assert.Equal(int32(123), ToInt32Any(int64(123)))
+	assert.Equal(int32(123), ToInt32Any(float32(123)))
+	assert.Equal(int32(123), ToInt32Any(float64(123)))
+	assert.Equal(int32(0), ToInt32Any("123.0"))
+	assert.Equal(int32(0), ToInt32Any(""))
+	assert.Equal(int32(-123), ToInt32Any("-123"))
+}
+
+func TestToInt64(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(int64(123), ToInt64("123"))
+	assert.Equal(int64(0), ToInt64("123.0"))
+	assert.Equal(int64(0), ToInt64(""))
+	assert.Equal(int64(-123), ToInt64("-123"))
+}
+
+func TestToInt64Any(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(int64(123), ToInt64Any("123"))
+	assert.Equal(int64(123), ToInt64Any(123))
+	assert.Equal(int64(123), ToInt64Any(int32(123)))
+	assert.Equal(int64(123), ToInt64Any(int64(123)))
+	assert.Equal(int64(123), ToInt64Any(float32(123)))
+	assert.Equal(int64(123), ToInt64Any(float64(123)))
+	assert.Equal(int64(0), ToInt64Any("123.0"))
+	assert.Equal(int64(0), ToInt64Any(""))
+	assert.Equal(int64(-123), ToInt64Any("-123"))
 }
 
 func TestNullString(t *testing.T) {
