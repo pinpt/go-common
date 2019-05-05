@@ -84,6 +84,29 @@ func TestToInt64Any(t *testing.T) {
 	assert.Equal(int64(-123), ToInt64Any("-123"))
 }
 
+func TestToFloat64(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(float64(123), ToFloat64("123"))
+	assert.Equal(float64(123.0), ToFloat64("123.0"))
+	assert.Equal(float64(0), ToFloat64(""))
+	assert.Equal(float64(-123), ToFloat64("-123"))
+}
+
+func TestToFloat64Any(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+	assert.Equal(float64(123), ToFloat64Any("123"))
+	assert.Equal(float64(123), ToFloat64Any(123))
+	assert.Equal(float64(123), ToFloat64Any(int32(123)))
+	assert.Equal(float64(123), ToFloat64Any(int64(123)))
+	assert.Equal(float64(123), ToFloat64Any(float32(123)))
+	assert.Equal(float64(123), ToFloat64Any(float64(123)))
+	assert.Equal(float64(123.0), ToFloat64Any("123.0"))
+	assert.Equal(float64(0), ToFloat64Any(""))
+	assert.Equal(float64(-123), ToFloat64Any("-123"))
+}
+
 func TestNullString(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)

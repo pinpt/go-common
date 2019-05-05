@@ -168,6 +168,57 @@ func ToInt64Any(v interface{}) int64 {
 	return 0
 }
 
+// ToFloat64 converts a string to a 64-bit float or return 0
+func ToFloat64(v string) float64 {
+	if v, err := strconv.ParseFloat(v, 64); err == nil {
+		return v
+	}
+	return 0
+}
+
+// ToFloat64Any converts an interface{} to a 64-bit float or return 0
+func ToFloat64Any(v interface{}) float64 {
+	if v, ok := v.(int); ok {
+		return float64(v)
+	}
+	if v, ok := v.(int32); ok {
+		return float64(v)
+	}
+	if v, ok := v.(int64); ok {
+		return float64(v)
+	}
+	if v, ok := v.(float32); ok {
+		return float64(v)
+	}
+	if v, ok := v.(float64); ok {
+		return v
+	}
+	if v, ok := v.(*int); ok {
+		if v != nil {
+			return float64(*v)
+		}
+	}
+	if v, ok := v.(*int32); ok {
+		if v != nil {
+			return float64(*v)
+		}
+	}
+	if v, ok := v.(*int64); ok {
+		if v != nil {
+			return float64(*v)
+		}
+	}
+	if v, ok := v.(string); ok {
+		return ToFloat64(v)
+	}
+	if v, ok := v.(*string); ok {
+		if v != nil {
+			return ToFloat64(*v)
+		}
+	}
+	return 0.0
+}
+
 // BoolToStringAsInt returns a 1 or 0 string for a bool
 func BoolToStringAsInt(bo bool) string {
 	if bo {
@@ -202,6 +253,16 @@ func IntPointer(v int) *int {
 	if v == 0 {
 		return nil
 	}
+	return &v
+}
+
+// Float32Pointer returns a float64 as pointer
+func Float32Pointer(v float32) *float32 {
+	return &v
+}
+
+// Float64Pointer returns a float64 as pointer
+func Float64Pointer(v float64) *float64 {
 	return &v
 }
 
