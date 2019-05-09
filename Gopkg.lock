@@ -83,12 +83,12 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:4879db672958a652e2501d33cd235efe58434c8c9f5f55cf27602c93fb289c9e"
+  digest = "1:9eddcfbbc797dd81c6335772d8b33e189d4fb76a29dd047a05ef8d121996f22e"
   name = "github.com/jhaynie/go-gator"
   packages = ["orm"]
   pruneopts = "UT"
-  revision = "8baee4036fffd6426d109edfbc326d85c3f1dc0f"
-  version = "2.1.0"
+  revision = "ca7ccc0cf82e05d7ea8edc18b0e9d0d08b79156f"
+  version = "2.2.0"
 
 [[projects]]
   branch = "master"
@@ -190,6 +190,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/cespare/xxhash",
     "github.com/fatih/color",
     "github.com/go-kit/kit/log",
     "github.com/go-kit/kit/log/level",

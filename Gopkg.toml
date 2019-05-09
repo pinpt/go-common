@@ -45,10 +45,6 @@
   version = "1.1.0"
 
 [[constraint]]
-  name = "github.com/jhaynie/go-gator"
-  version = "2.1.0"
-
-[[constraint]]
   name = "github.com/spf13/cobra"
   version = "0.0.3"
 
