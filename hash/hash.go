@@ -30,7 +30,7 @@ func hashValues(objects ...interface{}) string {
 		case float32, float64:
 			fmt.Fprintf(h, "%f", s)
 		case *string:
-			if s != nil {
+			if s == nil {
 				io.WriteString(h, "")
 			} else {
 				io.WriteString(h, *s)
