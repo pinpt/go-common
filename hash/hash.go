@@ -27,8 +27,20 @@ func hashValues(objects ...interface{}) string {
 			h.Write(s)
 		case int, int32, int64:
 			fmt.Fprintf(h, "%d", s)
-		case float32, float64:
-			fmt.Fprintf(h, "%f", s)
+		case float32:
+			// truncate without decimals if a float like 123.00
+			if s == float32(int32(s)) {
+				fmt.Fprintf(h, "%d", int32(s))
+			} else {
+				fmt.Fprintf(h, "%f", s)
+			}
+		case float64:
+			// truncate without decimals if a float like 123.00
+			if s == float64(int64(s)) {
+				fmt.Fprintf(h, "%d", int64(s))
+			} else {
+				fmt.Fprintf(h, "%f", s)
+			}
 		case *string:
 			if s == nil {
 				io.WriteString(h, "")
@@ -57,13 +69,23 @@ func hashValues(objects ...interface{}) string {
 			if s == nil {
 				io.WriteString(h, "")
 			} else {
-				fmt.Fprintf(h, "%f", *s)
+				// truncate without decimals if a float like 123.00
+				if *s == float32(int32(*s)) {
+					fmt.Fprintf(h, "%d", int32(*s))
+				} else {
+					fmt.Fprintf(h, "%f", *s)
+				}
 			}
 		case *float64:
 			if s == nil {
 				io.WriteString(h, "")
 			} else {
-				fmt.Fprintf(h, "%f", *s)
+				// truncate without decimals if a float like 123.00
+				if *s == float64(int64(*s)) {
+					fmt.Fprintf(h, "%d", int64(*s))
+				} else {
+					fmt.Fprintf(h, "%f", *s)
+				}
 			}
 		case *bool:
 			if s == nil {
