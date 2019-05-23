@@ -75,6 +75,14 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:e4f5819333ac698d294fe04dbf640f84719658d5c7ce195b10060cc37292ce79"
+  name = "github.com/golang/snappy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2a8bb927dd31d8daada140a5d09578521ce5c36a"
+  version = "v0.0.1"
+
+[[projects]]
   digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
@@ -97,6 +105,14 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
+  digest = "1:e47ce9db1f402ee86ac1815fabeb7b7cb7760d427869d22dd7c74fb68875627b"
+  name = "github.com/linkedin/goavro"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ed2b6675101501e2a4d2186875dd3953ca576fc7"
+  version = "v2.8.5"
 
 [[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
@@ -206,6 +222,7 @@
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/jhaynie/go-gator/orm",
+    "github.com/linkedin/goavro",
     "github.com/mattn/go-isatty",
     "github.com/oliveagle/jsonpath",
     "github.com/pinpt/httpclient",

@@ -63,3 +63,7 @@
 [[constraint]]
   name = "github.com/oliveagle/jsonpath"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/linkedin/goavro"
+  version = "v2.8.5"
