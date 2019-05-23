@@ -115,6 +115,14 @@
   version = "v0.0.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:4f971e961cc101712d18dbbd532813bbcd08c9984acceb55dff3fb86ed62ed5f"
+  name = "github.com/oliveagle/jsonpath"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2e52cf6e685269ed8aefec6390f3cac3ef74e730"
+
+[[projects]]
   digest = "1:6eef8f86f477a009130df82edfc5384be7632b5b09a936058e74973e682627b6"
   name = "github.com/pinpt/httpclient"
   packages = ["."]
@@ -199,6 +207,7 @@
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/jhaynie/go-gator/orm",
     "github.com/mattn/go-isatty",
+    "github.com/oliveagle/jsonpath",
     "github.com/pinpt/httpclient",
     "github.com/pinpt/rdsmysql",
     "github.com/spf13/cobra",
