@@ -2,8 +2,10 @@ package datamodel
 
 import (
 	"context"
+	"time"
 
 	"github.com/linkedin/goavro"
+	"github.com/pinpt/go-common/event"
 )
 
 // TopicNameType is a type for the name of a topic
@@ -40,41 +42,63 @@ type Model interface {
 	IsMaterialized() bool
 	// MaterializedName returns the name of the materialized table
 	MaterializedName() string
+	// IsEvented returns true if the model supports eventing and implements ModelEventProvider
+	IsEvented() bool
 }
 
-// Db is an interface to the database
-type Db interface {
-	Create(ctx context.Context, kv map[string]interface{}) error
-	Update(ctx context.Context, id string, kv map[string]interface{}) error
-	Delete(ctx context.Context, id string) error
-	FindOne(ctx context.Context, id string) (map[string]interface{}, error)
-	Find(ctx context.Context, kv map[string]interface{}) ([]map[string]interface{}, error)
+// Storage is an interface to storage model. It could be a data or a filesystem or an in memory cache
+type Storage interface {
+	// Create a new Model instance in the storage system
+	Create(ctx context.Context, model Model) error
+	// Update the model in the storage system
+	Update(ctx context.Context, model Model) error
+	// Delete the model from the storage system
+	Delete(ctx context.Context, model Model) error
+	// FindOne will find a model by the id and return. will be nil if not found
+	FindOne(ctx context.Context, id string) (Model, error)
+	// Find will query models in the storage system using the query and return an array of models. If none found, will be nil
+	Find(ctx context.Context, query map[string]interface{}) ([]Model, error)
 }
 
-// Producer will emit events to consumers
-type Producer interface {
-	// Send will send the event
-	Send(ctx context.Context, codec *goavro.Codec, key []byte, value []byte) error
-	// Close will close the producer
+// ModelReceiveEvent is a model event received on an event consumer channel
+type ModelReceiveEvent interface {
+	// Object returns an instance of the Model that was received
+	Object() Model
+	// Message returns the underlying message data for the event
+	Message() event.Message
+}
+
+// ModelSendEvent is a model event to send on an event producer channel
+type ModelSendEvent interface {
+	// Key is the key to use for the message
+	Key() string
+	// Object returns an instance of the Model that will be send
+	Object() Model
+	// Headers returns any headers for the event. can be nil to not send any additional headers
+	Headers() map[string]string
+	// Timestamp returns the event timestamp. If empty, will default to time.Now()
+	Timestamp() time.Time
+}
+
+// ModelEventProducer is the producer interface
+type ModelEventProducer interface {
+	// Channel returns the producer channel to produce new events
+	Channel() chan<- ModelSendEvent
+	// Close is called to shutdown the producer
 	Close() error
 }
 
-// ConsumerCallback will receive events from producers
-type ConsumerCallback struct {
-	// OnDataReceived is called when an event is received
-	OnDataReceived func(key []byte, value []byte) error
-	// OnErrorReceived is called when an error is received
-	OnErrorReceived func(err error)
-}
-
-// Consumer will create a consumer for receiving events
-type Consumer interface {
-	// Close will stop listening for events
+// ModelEventConsumer is the producer interface
+type ModelEventConsumer interface {
+	Channel() <-chan ModelReceiveEvent
+	// Close is called to shutdown the producer
 	Close() error
 }
 
-// ConsumerFactory is for creating consumers
-type ConsumerFactory interface {
-	// CreateConsumer will create a new consumer for a given topic and callback to handle events
-	CreateConsumer(topic string, callback ConsumerCallback) (Consumer, error)
+// ModelEventProvider is an interface that Models implement if they can send and receive events
+type ModelEventProvider interface {
+	// NewProducerChannel returns a channel which can be used for producing Model events
+	NewProducerChannel(producer event.Producer, errors chan<- error) ModelEventProducer
+	// NewConsumerChannel returns a consumer channel which can be used to consume Model events
+	NewConsumerChannel(consumer event.Consumer, errors chan<- error) ModelEventConsumer
 }
