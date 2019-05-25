@@ -44,10 +44,10 @@ type Model interface {
 	MaterializedName() string
 	// IsEvented returns true if the model supports eventing and implements ModelEventProvider
 	IsEvented() bool
-	// TopicName returns the name of the topic if evented
-	TopicName() TopicNameType
-	// Name returns the name of the model
-	Name() ModelNameType
+	// GetTopicName returns the name of the topic if evented
+	GetTopicName() TopicNameType
+	// GetModelName returns the name of the model
+	GetModelName() ModelNameType
 }
 
 // Storage is an interface to storage model. It could be a data or a filesystem or an in memory cache
