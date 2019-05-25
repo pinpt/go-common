@@ -105,5 +105,5 @@ type ModelEventProvider interface {
 	// NewProducerChannel returns a channel which can be used for producing Model events
 	NewProducerChannel(producer event.Producer, errors chan<- error) ModelEventProducer
 	// NewConsumerChannel returns a consumer channel which can be used to consume Model events
-	NewConsumerChannel(factory event.ConsumerFactory, errors chan<- error) ModelEventConsumer
+	NewConsumerChannel(channel event.Consumer, errors chan<- error) ModelEventConsumer
 }
