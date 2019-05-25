@@ -90,6 +90,7 @@ type ModelEventProducer interface {
 
 // ModelEventConsumer is the producer interface
 type ModelEventConsumer interface {
+	// Channel returns the consumer channel to consume new events
 	Channel() <-chan ModelReceiveEvent
 	// Close is called to shutdown the producer
 	Close() error
@@ -100,5 +101,5 @@ type ModelEventProvider interface {
 	// NewProducerChannel returns a channel which can be used for producing Model events
 	NewProducerChannel(producer event.Producer, errors chan<- error) ModelEventProducer
 	// NewConsumerChannel returns a consumer channel which can be used to consume Model events
-	NewConsumerChannel(consumer event.Consumer, errors chan<- error) ModelEventConsumer
+	NewConsumerChannel(factory event.ConsumerFactory, errors chan<- error) ModelEventConsumer
 }
