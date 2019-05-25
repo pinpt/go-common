@@ -37,10 +37,6 @@ type ConsumerCallback struct {
 type Consumer interface {
 	// Close will stop listening for events
 	Close() error
-}
-
-// ConsumerFactory is for creating consumers
-type ConsumerFactory interface {
-	// CreateConsumer will create a new consumer for a given topic and callback to handle events
-	CreateConsumer(topic string, callback ConsumerCallback) (Consumer, error)
+	// Consume will start consuming from the consumer using the callback
+	Consume(callback ConsumerCallback)
 }
