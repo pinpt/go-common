@@ -24,6 +24,18 @@ func (t ModelNameType) String() string {
 	return string(t)
 }
 
+// ModelTopicConfig is a configuration for the topic
+type ModelTopicConfig struct {
+	// NumPartitions returns the number of partitions for the topic
+	NumPartitions int
+	// ReplicationFactor returns the replication factor for the topic
+	ReplicationFactor int
+	// Retention returns the retention duration for items in the topic
+	Retention time.Duration
+	// MaxSize in bytes for items in the topic
+	MaxSize int64
+}
+
 // Model is a generic model interface that all our models implement
 type Model interface {
 	// GetID returns the ID for the instance
@@ -46,12 +58,10 @@ type Model interface {
 	IsEvented() bool
 	// GetTopicName returns the name of the topic if evented
 	GetTopicName() TopicNameType
+	// GetNumPartitions returns the number of partitions for the topic
+	GetTopicConfig() *ModelTopicConfig
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
-	// GetNumPartitions returns the number of partitions for the topic
-	GetNumPartitions() int
-	// GetReplicationFactor returns the replication factor for the topic
-	GetReplicationFactor() int
 }
 
 // Storage is an interface to storage model. It could be a data or a filesystem or an in memory cache
