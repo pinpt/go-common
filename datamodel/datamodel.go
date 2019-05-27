@@ -60,7 +60,7 @@ type Model interface {
 	FromMap(kv map[string]interface{})
 	// IsMaterialized returns true if the model is materialized
 	IsMaterialized() bool
-	// ModelMaterializeConfig returns the materialization config if materialized or nil if not
+	// GetModelMaterializeConfig returns the materialization config if materialized or nil if not
 	GetModelMaterializeConfig() *ModelMaterializeConfig
 	// IsEvented returns true if the model supports eventing and implements ModelEventProvider
 	IsEvented() bool
@@ -81,9 +81,9 @@ type Storage interface {
 	// Delete the model from the storage system
 	Delete(ctx context.Context, model Model) error
 	// FindOne will find a model by the id and return. will be nil if not found
-	FindOne(ctx context.Context, id string) (Model, error)
+	FindOne(ctx context.Context, modelname ModelNameType, id string) (Model, error)
 	// Find will query models in the storage system using the query and return an array of models. If none found, will be nil
-	Find(ctx context.Context, query map[string]interface{}) ([]Model, error)
+	Find(ctx context.Context, modelname ModelNameType, query map[string]interface{}) ([]Model, error)
 }
 
 // ModelReceiveEvent is a model event received on an event consumer channel
