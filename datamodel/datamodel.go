@@ -48,6 +48,10 @@ type Model interface {
 	GetTopicName() TopicNameType
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
+	// GetNumPartitions returns the number of partitions for the topic
+	GetNumPartitions() int
+	// GetReplicationFactor returns the replication factor for the topic
+	GetReplicationFactor() int
 }
 
 // Storage is an interface to storage model. It could be a data or a filesystem or an in memory cache
