@@ -36,6 +36,14 @@ type ModelTopicConfig struct {
 	MaxSize int64
 }
 
+// ModelMaterializeConfig is a configuration for the materialization
+type ModelMaterializeConfig struct {
+	// KeyName is the name of the key field
+	KeyName string
+	// TableName is the name of the table to materialize
+	TableName string
+}
+
 // Model is a generic model interface that all our models implement
 type Model interface {
 	// GetID returns the ID for the instance
@@ -52,13 +60,13 @@ type Model interface {
 	FromMap(kv map[string]interface{})
 	// IsMaterialized returns true if the model is materialized
 	IsMaterialized() bool
-	// MaterializedName returns the name of the materialized table
-	MaterializedName() string
+	// ModelMaterializeConfig returns the materialization config if materialized or nil if not
+	GetModelMaterializeConfig() *ModelMaterializeConfig
 	// IsEvented returns true if the model supports eventing and implements ModelEventProvider
 	IsEvented() bool
-	// GetTopicName returns the name of the topic if evented
+	// GetTopicName returns the name of the topic if evented or nil if not
 	GetTopicName() TopicNameType
-	// GetNumPartitions returns the number of partitions for the topic
+	// GetTopicConfig returns the topic config object
 	GetTopicConfig() *ModelTopicConfig
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
