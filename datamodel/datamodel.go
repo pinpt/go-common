@@ -46,6 +46,10 @@ type ModelMaterializeConfig struct {
 
 // Model is a generic model interface that all our models implement
 type Model interface {
+	// Clone returns an exact copy of the model
+	Clone() Model
+	// Anon returns the model with the sensitive fields anonymized
+	Anon() Model
 	// GetID returns the ID for the instance
 	GetID() string
 	// GetAvroCodec returns the avro codec for this model
