@@ -42,6 +42,10 @@ type ModelMaterializeConfig struct {
 	KeyName string
 	// TableName is the name of the table to materialize
 	TableName string
+	// IdleTime returns the idle time before committing the data
+	IdleTime time.Duration
+	// BatchSize returns the number of records to batch before materializing
+	BatchSize int
 }
 
 // Model is a generic model interface that all our models implement
