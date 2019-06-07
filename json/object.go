@@ -39,8 +39,9 @@ func Deserialize(r io.Reader, dser Deserializer) error {
 					// advance the array token
 					dec.Token()
 				}
-				var line json.RawMessage
+
 				for dec.More() {
+					var line json.RawMessage
 					if err := dec.Decode(&line); err != nil {
 						return err
 					}
