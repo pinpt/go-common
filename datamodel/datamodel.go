@@ -34,6 +34,10 @@ type ModelTopicConfig struct {
 	Retention time.Duration
 	// MaxSize in bytes for items in the topic
 	MaxSize int64
+	// Key is the partition key field for the topic
+	Key string
+	// Timestamp is the timestamp field for the topic
+	Timestamp string
 }
 
 // ModelMaterializeConfig is a configuration for the materialization
