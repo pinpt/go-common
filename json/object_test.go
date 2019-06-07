@@ -171,3 +171,23 @@ func TestDeserializerInvalidJSON(t *testing.T) {
 		return fmt.Errorf("shouldn't have gotten here")
 	}), "invalid json, expected either [ or {")
 }
+
+func TestDeserializerRef(t *testing.T) {
+	assert := assert.New(t)
+	var buf strings.Builder
+	b, _ := json.Marshal(Foo{"a"})
+	buf.Write(b)
+	b, _ = json.Marshal(Foo{"b"})
+	buf.Write(b)
+	arr := make([]json.RawMessage, 0)
+	assert.NoError(Deserialize(strings.NewReader(buf.String()), func(line json.RawMessage) error {
+		var f Foo
+		if err := json.Unmarshal(line, &f); err != nil {
+			return err
+		}
+		arr = append(arr, line)
+		return nil
+	}))
+	assert.Equal("{\"Bar\":\"a\"}", string(arr[0]))
+	assert.Equal("{\"Bar\":\"b\"}", string(arr[1]))
+}
