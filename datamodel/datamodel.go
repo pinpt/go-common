@@ -80,6 +80,8 @@ type Model interface {
 	GetTopicName() TopicNameType
 	// GetTopicConfig returns the topic config object
 	GetTopicConfig() *ModelTopicConfig
+	// GetTopicKey returns the topic message key when sending this model as a ModelSendEvent
+	GetTopicKey() string
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
 }
