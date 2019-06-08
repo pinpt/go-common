@@ -77,6 +77,13 @@ func ISODateToTime(date string) (time.Time, error) {
 
 // ISODateOffsetToTime returns a RFC 3339 formatted string as a timestamp
 func ISODateOffsetToTime(date string) (time.Time, error) {
+	if strings.Contains(date, "Z") {
+		// 2017-01-20T15:56:23.000000Z-08:00
+		tv, err := time.Parse("2006-01-02T15:04:05.999999999Z-07:00", date)
+		if err == nil {
+			return tv, nil
+		}
+	}
 	if strings.Contains(date, ".") {
 		tv, err := time.Parse("2006-01-02T15:04:05.999999999-07:00", date)
 		if err != nil {
