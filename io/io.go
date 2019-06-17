@@ -16,12 +16,35 @@ func NewStream(fn string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating %v. %v", fn, err)
 	}
-	var out io.WriteCloser
-	out = f
-	if filepath.Ext(fn) == ".gz" {
-		out, _ = gzip.NewWriterLevel(f, gzip.BestCompression)
+	if filepath.Ext(fn) != ".gz" {
+		return f, nil
 	}
-	return out, nil
+	gz, err := gzip.NewWriterLevel(f, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	wrapper := &writerWrapper{
+		original: f,
+		wrapper:  gz,
+	}
+	return wrapper, nil
+}
+
+type writerWrapper struct {
+	original io.WriteCloser
+	wrapper  io.WriteCloser
+}
+
+func (s *writerWrapper) Write(p []byte) (n int, _ error) {
+	return s.wrapper.Write(p)
+}
+
+func (s *writerWrapper) Close() error {
+	err := s.wrapper.Close()
+	if err != nil {
+		return err
+	}
+	return s.original.Close()
 }
 
 // JSONStream is a convenience class for streaming json objects to a file (one JSON per line)
