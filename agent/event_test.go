@@ -16,9 +16,7 @@ func TestPostEvent(t *testing.T) {
 
 	event := Event{
 		CustomerID: "CUSTOMER",
-		TTL:        234,
 		Type:       "export",
-		AgentID:    "ID",
 		UUID:       "UUID",
 		OS:         "os",
 		Distro:     "distro",
@@ -33,7 +31,9 @@ func TestPostEvent(t *testing.T) {
 
 	csrfToken := "5q4c7jsg55FZuk2pwvL4JFF+f5dWPqg5eIo0koUmTjYOdSwesKm4h93cB6LKn7LyBuSkas8Fabva1lTbXi7K/g=="
 
-	err := PostEvent(ctx, event, channel, apiKey, csrfToken)
+	headers := make(map[string]string)
+
+	err := PostEvent(ctx, event, channel, apiKey, csrfToken, headers)
 
 	assert.NoError(err)
 }

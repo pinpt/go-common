@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -35,6 +34,8 @@ func (e *EventAPI) Reader() (io.Reader, error) {
 }
 
 type Event struct {
+	// built in types
+
 	ID         string `json:"id" bson:"_id" yaml:"id" faker:"-"`
 	RefID      string `json:"ref_id" bson:"ref_id" yaml:"ref_id" faker:"-"`
 	RefType    string `json:"ref_type" bson:"ref_type" yaml:"ref_type" faker:"-"`
@@ -42,12 +43,8 @@ type Event struct {
 	Hashcode   string `json:"hashcode" bson:"hashcode" yaml:"hashcode" faker:"-"`
 	// custom types
 
-	// TTL ttl
-	TTL int64 `json:"ttl" bson:"ttl" yaml:"ttl" faker:"-"`
 	// Type type
 	Type string `json:"type" bson:"type" yaml:"type" faker:"-"`
-	// AgentID agent id
-	AgentID string `json:"agent_id" bson:"agent_id" yaml:"agent_id" faker:"-"`
 	// UUID uuid
 	UUID string `json:"uuid" bson:"uuid" yaml:"uuid" faker:"-"`
 	// OS os
@@ -59,15 +56,15 @@ type Event struct {
 	// Hostname hostname
 	Hostname string `json:"hostname" bson:"hostname" yaml:"hostname" faker:"-"`
 	// NumCPU num cpus
-	NumCPU string `json:"num_cpu" bson:"num_cpu" yaml:"num_cpu" faker:"-"`
+	NumCPU int64 `json:"num_cpu" bson:"num_cpu" yaml:"num_cpu" faker:"-"`
 	// FreeSpace free space
-	FreeSpace string `json:"free_space" bson:"free_space" yaml:"free_space" faker:"-"`
+	FreeSpace int64 `json:"free_space" bson:"free_space" yaml:"free_space" faker:"-"`
 	// GoVersion go version
 	GoVersion string `json:"go_version" bson:"go_version" yaml:"go_version" faker:"-"`
 	// Architecture architecture
 	Architecture string `json:"architecture" bson:"architecture" yaml:"architecture" faker:"-"`
 	// Memory memory
-	Memory string `json:"memory" bson:"memory" yaml:"memory" faker:"-"`
+	Memory int64 `json:"memory" bson:"memory" yaml:"memory" faker:"-"`
 	// Date date
 	Date string `json:"date" bson:"date" yaml:"date" faker:"-"`
 	// Error error
@@ -88,7 +85,7 @@ func (e *Event) Base64String() (string, error) {
 	return string(base64EventBytes), nil
 }
 
-func PostEvent(ctx context.Context, event Event, channel string, apiKey string, csrfToken string) error {
+func PostEvent(ctx context.Context, event Event, channel string, apiKey string, csrfToken string, headers map[string]string) error {
 	URL := api.BackendURL(api.EventService, channel)
 
 	base64String, err := event.Base64String()
@@ -98,8 +95,8 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 
 	eventAPI := EventAPI{
 		Type:    "json",
-		Model:   "event.Event",
-		Headers: make(map[string]string, 0),
+		Model:   "agent.Event",
+		Headers: headers,
 		Data:    base64String,
 	}
 
@@ -112,15 +109,22 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 	api.SetUserAgent(req)
 	api.SetAuthorization(req, apiKey)
 	req = req.WithContext(ctx)
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+	if strings.Contains(URL, "ppoint.io") {
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			},
-		},
+		}
+		_, err = client.Do(req)
+	} else {
+		client, err := api.NewHTTPAPIClientDefault()
+		if err != nil {
+			return err
+		}
+		_, err = client.Do(req)
 	}
-	fmt.Println("URL", req.URL.String())
-	_, err = client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -132,19 +136,31 @@ func GetCSRFToken(ctx context.Context, channel string, apiKey string) (string, e
 
 	URL := api.BackendURL(api.EventService, channel)
 	URL = pstrings.JoinURL(URL, "token")
-	req, _ := http.NewRequest(http.MethodGet, URL, nil)
+	req, err := http.NewRequest(http.MethodGet, URL, nil)
+	if err != nil {
+		return "", err
+	}
 	req.Header.Set("Accept", "application/json")
 	api.SetAuthorization(req, apiKey)
 	api.SetUserAgent(req)
 	req = req.WithContext(ctx)
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+	var resp *http.Response
+	if strings.Contains(URL, "ppoint.io") {
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
 			},
-		},
+		}
+		resp, err = client.Do(req)
+	} else {
+		client, err := api.NewHTTPAPIClientDefault()
+		if err != nil {
+			return "", err
+		}
+		resp, err = client.Do(req)
 	}
-	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
