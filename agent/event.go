@@ -80,12 +80,10 @@ func (e *Event) Base64String() (string, error) {
 		return "", err
 	}
 
-	base64EventBytes := base64.StdEncoding.EncodeToString(bts)
-
-	return string(base64EventBytes), nil
+	return base64.StdEncoding.EncodeToString(bts), nil
 }
 
-func PostEvent(ctx context.Context, event Event, channel string, apiKey string, csrfToken string, headers map[string]string) error {
+func PostEvent(ctx context.Context, event Event, channel string, apiKey string, headers map[string]string) error {
 	URL := api.BackendURL(api.EventService, channel)
 
 	base64String, err := event.Base64String()
@@ -101,6 +99,11 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 	}
 
 	URL = pstrings.JoinURL(URL, "ingest")
+
+	csrfToken, err := getCSRFToken(ctx, channel, apiKey)
+	if err != nil {
+		return err
+	}
 
 	req, _ := http.NewRequest(http.MethodPost, URL, strings.NewReader(pjson.Stringify(eventAPI)))
 	req.Header.Set("Content-Type", "application/json")
@@ -132,7 +135,7 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 	return nil
 }
 
-func GetCSRFToken(ctx context.Context, channel string, apiKey string) (string, error) {
+func getCSRFToken(ctx context.Context, channel string, apiKey string) (string, error) {
 
 	URL := api.BackendURL(api.EventService, channel)
 	URL = pstrings.JoinURL(URL, "token")
