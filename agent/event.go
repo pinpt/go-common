@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -112,6 +113,7 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 	api.SetUserAgent(req)
 	api.SetAuthorization(req, apiKey)
 	req = req.WithContext(ctx)
+	var resp *http.Response
 	if strings.Contains(URL, "ppoint.io") {
 		client := &http.Client{
 			Transport: &http.Transport{
@@ -120,16 +122,25 @@ func PostEvent(ctx context.Context, event Event, channel string, apiKey string, 
 				},
 			},
 		}
-		_, err = client.Do(req)
+		resp, err = client.Do(req)
 	} else {
 		client, err := api.NewHTTPAPIClientDefault()
 		if err != nil {
 			return err
 		}
-		_, err = client.Do(req)
+		resp, err = client.Do(req)
 	}
 	if err != nil {
 		return err
+	}
+
+	defer resp.Body.Close()
+	bts, err := ioutil.ReadAll(resp.Body)
+
+	respStr := string(bts)
+
+	if respStr != "OK" {
+		return fmt.Errorf("%s", respStr)
 	}
 
 	return nil
