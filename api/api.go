@@ -83,6 +83,8 @@ const (
 	AgentService = "agent.api"
 	// AuthService is the auth service endpoint
 	AuthService = "auth.api"
+	// EventService is the auth service endpoint
+	EventService = "event.api"
 )
 
 // BackendURL return the base url to the API server
@@ -96,6 +98,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:3004/", subdomain, devbaseURL)
 		case AuthService:
 			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
+		case EventService:
+			return fmt.Sprintf("https://%s.%s:8443/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
