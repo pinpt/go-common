@@ -83,7 +83,7 @@ const (
 	AgentService = "agent.api"
 	// AuthService is the auth service endpoint
 	AuthService = "auth.api"
-	// EventService is the auth service endpoint
+	// EventService is the event service endpoint
 	EventService = "event.api"
 )
 

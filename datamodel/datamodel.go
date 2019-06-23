@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/linkedin/goavro"
-	"github.com/pinpt/go-common/event"
+	"github.com/pinpt/go-common/eventing"
 )
 
 // TopicNameType is a type for the name of a topic
@@ -107,7 +107,7 @@ type ModelReceiveEvent interface {
 	// Object returns an instance of the Model that was received
 	Object() Model
 	// Message returns the underlying message data for the event
-	Message() event.Message
+	Message() eventing.Message
 }
 
 // ModelSendEvent is a model event to send on an event producer channel
@@ -141,7 +141,7 @@ type ModelEventConsumer interface {
 // ModelEventProvider is an interface that Models implement if they can send and receive events
 type ModelEventProvider interface {
 	// NewProducerChannel returns a channel which can be used for producing Model events
-	NewProducerChannel(producer event.Producer, errors chan<- error) ModelEventProducer
+	NewProducerChannel(producer eventing.Producer, errors chan<- error) ModelEventProducer
 	// NewConsumerChannel returns a consumer channel which can be used to consume Model events
-	NewConsumerChannel(channel event.Consumer, errors chan<- error) ModelEventConsumer
+	NewConsumerChannel(channel eventing.Consumer, errors chan<- error) ModelEventConsumer
 }
