@@ -20,17 +20,17 @@ jobs:
             - v1-pkg-cache
 
       - run:
-        name: Install librdkafka
-        command: |
-          sudo apt-get install libsasl2-2
-          cd /tmp
-          git clone https://github.com/edenhill/librdkafka.git
-          cd librdkafka
-          git fetch && git fetch --tags
-          echo building $kafkaversion
-          git checkout $kafkaversion
-          ./configure --prefix /usr
-          make && make install
+          name: Install librdkafka
+          command: |
+            sudo apt-get install libsasl2-2
+            cd /tmp
+            git clone https://github.com/edenhill/librdkafka.git
+            cd librdkafka
+            git fetch && git fetch --tags
+            echo building $kafkaversion
+            git checkout $kafkaversion
+            ./configure --prefix /usr
+            make && make install
 
       - run: go get github.com/golang/dep/cmd/dep
       - run: go get github.com/jstemmer/go-junit-report
