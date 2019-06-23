@@ -7,13 +7,18 @@ import (
 )
 
 type modelSendEvent struct {
-	object Model
+	object  Model
+	headers map[string]string
 }
 
 var _ ModelSendEvent = (*modelSendEvent)(nil)
 
 // Key is the key to use for the message
 func (o *modelSendEvent) Key() string {
+	cfg := o.object.GetTopicConfig()
+	if cfg != nil {
+		return o.object.GetTopicKey()
+	}
 	return o.object.GetID()
 }
 
@@ -24,16 +29,22 @@ func (o *modelSendEvent) Object() Model {
 
 // Headers returns any headers for the event. can be nil to not send any additional headers
 func (o *modelSendEvent) Headers() map[string]string {
-	return nil
+	return o.headers
 }
 
 // Timestamp returns the event timestamp. If empty, will default to time.Now()
 func (o *modelSendEvent) Timestamp() time.Time {
-	return time.Now()
+	return o.object.GetTimestamp()
 }
 
+// NewModelSendEvent will send just a model object
 func NewModelSendEvent(object Model) ModelSendEvent {
-	return &modelSendEvent{object}
+	return &modelSendEvent{object, nil}
+}
+
+// NewModelSendEvent will send just a model object and headers
+func NewModelSendEventWithHeaders(object Model, headers map[string]string) ModelSendEvent {
+	return &modelSendEvent{object, headers}
 }
 
 type modelReceiveEvent struct {
@@ -51,4 +62,9 @@ func (o *modelReceiveEvent) Object() Model {
 // Message returns the underlying message data for the event
 func (o *modelReceiveEvent) Message() eventing.Message {
 	return o.msg
+}
+
+// NewModelReceiveEvent returns a new ModelReceiveEvent
+func NewModelReceiveEvent(msg eventing.Message, obj Model) ModelReceiveEvent {
+	return &modelReceiveEvent{obj, msg}
 }
