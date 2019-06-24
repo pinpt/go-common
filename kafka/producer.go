@@ -45,7 +45,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		timestamp = time.Now()
 	}
 	value := msg.Value
-	if p.config.Registry != nil && msg.Codec != nil {
+	if p.config.Registry != nil && msg.Codec != nil && msg.Encoding == eventing.AvroEncoding {
 		subject := msg.Topic + "-value"
 		schemaid, err := p.config.Registry.CreateSubject(subject, msg.Codec)
 		if err != nil {
@@ -54,14 +54,21 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		// encode the avro buffer
 		binarySchemaId := make([]byte, 4)
 		binary.BigEndian.PutUint32(binarySchemaId, uint32(schemaid))
-		native, _, err := msg.Codec.NativeFromTextual(value)
-		if err != nil {
-			return err
-		}
-		// Convert native Go form to binary Avro data
-		binaryValue, err := msg.Codec.BinaryFromNative(nil, native)
-		if err != nil {
-			return err
+
+		switch msg.Encoding {
+		case eventing.AvroEncoding:
+			break // already in the right format
+		default:
+			native, _, err := msg.Codec.NativeFromTextual(value)
+			if err != nil {
+				return err
+			}
+			// Convert native Go form to binary Avro data
+			binaryValue, err := msg.Codec.BinaryFromNative(nil, native)
+			if err != nil {
+				return err
+			}
+			value = binaryValue
 		}
 
 		var binaryMsg []byte
@@ -70,8 +77,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		//4-byte schema ID as returned by the Schema Registry
 		binaryMsg = append(binaryMsg, binarySchemaId...)
 		//avro serialized data in Avro’s binary encoding
-		binaryMsg = append(binaryMsg, binaryValue...)
-
+		binaryMsg = append(binaryMsg, value...)
 		// reset the value to the new binary encoded value
 		value = binaryMsg
 	}

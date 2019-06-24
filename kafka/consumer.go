@@ -1,11 +1,15 @@
 package kafka
 
 import (
+	"errors"
 	"time"
 
 	"github.com/pinpt/go-common/eventing"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
+
+// ErrMissingTopics is returned if no topics are passed
+var ErrMissingTopics = errors.New("error: missing at least one topic for consumer")
 
 // ConsumerEOFCallback is an interface for handling topic EOF events
 type ConsumerEOFCallback interface {
@@ -94,6 +98,9 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 
 // NewConsumer returns a new Consumer instance
 func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, error) {
+	if len(topics) == 0 {
+		return nil, ErrMissingTopics
+	}
 	cfg := NewConfigMap(config)
 	cfg.SetKey("group.id", groupid)
 	cfg.SetKey("enable.partition.eof", true)

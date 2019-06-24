@@ -7,8 +7,19 @@ import (
 	"github.com/linkedin/goavro"
 )
 
+// ValueEncodingType is the type of encoding for the Value payload
+type ValueEncodingType string
+
+const (
+	// JSONEncoding is json encoding for the Value payload
+	JSONEncoding ValueEncodingType = "json"
+	// AvroEncoding is avro encoding for the Value payload
+	AvroEncoding ValueEncodingType = "avro"
+)
+
 // Message encapsulates data for the event system
 type Message struct {
+	Encoding  ValueEncodingType
 	Codec     *goavro.Codec
 	Key       string
 	Value     []byte
