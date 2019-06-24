@@ -3,12 +3,14 @@ package kafka
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 
 	"github.com/linkedin/goavro"
+	pjson "github.com/pinpt/go-common/json"
 )
 
 var (
@@ -45,8 +47,9 @@ type HTTPRegistryClient struct {
 var _ RegistryClient = (*HTTPRegistryClient)(nil)
 
 type createSubjResp struct {
-	ID        int `json:"id"`
-	ErrorCode int `json:"error_code"`
+	ID        int    `json:"id"`
+	ErrorCode int    `json:"error_code"`
+	Message   string `json:"message"`
 }
 
 func (c *HTTPRegistryClient) setHeaders(req *http.Request) {
@@ -54,6 +57,10 @@ func (c *HTTPRegistryClient) setHeaders(req *http.Request) {
 	if c.config.Username != "" {
 		req.SetBasicAuth(c.config.Username, c.config.Password)
 	}
+}
+
+type schemaReq struct {
+	Schema string `json:"schema"`
 }
 
 func (c *HTTPRegistryClient) CreateSubject(subject string, codec *goavro.Codec) (int, error) {
@@ -67,8 +74,8 @@ func (c *HTTPRegistryClient) CreateSubject(subject string, codec *goavro.Codec) 
 	if err != nil {
 		return 0, err
 	}
-	u.Path = "/subjects/" + subject
-	req, err := http.NewRequest(http.MethodPost, u.String(), strings.NewReader(codec.Schema()))
+	u.Path = "/subjects/" + subject + "/versions"
+	req, err := http.NewRequest(http.MethodPost, u.String(), strings.NewReader(pjson.Stringify(schemaReq{codec.Schema()})))
 	if err != nil {
 		return 0, err
 	}
@@ -78,15 +85,23 @@ func (c *HTTPRegistryClient) CreateSubject(subject string, codec *goavro.Codec) 
 		return 0, err
 	}
 	defer resp.Body.Close()
-	var r createSubjResp
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
 		return 0, err
 	}
-	switch r.ErrorCode {
-	case subjectNotFoundCode:
-		return 0, ErrSubjectNotFound
-	case schemaNotFoundCode:
-		return 0, ErrSchemaNotFound
+	var r createSubjResp
+	if err := json.Unmarshal(buf, &r); err != nil {
+		return 0, err
+	}
+	if r.ErrorCode > 0 {
+		switch r.ErrorCode {
+		case subjectNotFoundCode:
+			return 0, ErrSubjectNotFound
+		case schemaNotFoundCode:
+			return 0, ErrSchemaNotFound
+		default:
+			return 0, errors.New(r.Message)
+		}
 	}
 	c.mu.Lock()
 	c.cache[subject] = r.ID
