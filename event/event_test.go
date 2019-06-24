@@ -813,8 +813,8 @@ func TestSendAndReceive(t *testing.T) {
 	assert := assert.New(t)
 	errors := make(chan error, 1)
 	sub, err := NewSubscription(context.Background(), Subscription{
-		GroupID:      "testgroup",
-		Topics:       []string{"web.Track"},
+		GroupID:      fmt.Sprintf("testgroup:%v", datetime.EpochNow()),
+		Topics:       []string{TrackTopic.String()},
 		IdleDuration: "10s",
 		Errors:       errors,
 		Channel:      "dev",
@@ -822,6 +822,7 @@ func TestSendAndReceive(t *testing.T) {
 	assert.NoError(err)
 	go func() {
 		for err := range errors {
+			fmt.Println("ERR", err)
 			assert.NoError(err)
 			sub.Close()
 			break
@@ -839,7 +840,7 @@ func TestSendAndReceive(t *testing.T) {
 	event := PublishEvent{
 		Object: track,
 	}
-	err = Publish(context.Background(), event, "dev", "", nil)
+	err = Publish(context.Background(), event, "dev", "")
 	assert.NoError(err)
 	result := <-sub.Channel()
 	assert.NotNil(result)

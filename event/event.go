@@ -38,7 +38,7 @@ type payload struct {
 }
 
 // Publish will publish an event to the event api server
-func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, headers map[string]string) (err error) {
+func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
 	payload := payload{
 		Type:    "json",
@@ -218,6 +218,7 @@ func (c *SubscriptionChannel) run() {
 				if err == io.EOF {
 					return
 				}
+				fmt.Println(">>>", string(buf), "err", err)
 				if buf != nil && len(buf) != 0 {
 					var payload SubscriptionEvent
 					if err := json.Unmarshal(buf, &payload); err != nil {
@@ -232,6 +233,12 @@ func (c *SubscriptionChannel) run() {
 						return
 					default:
 						c.ch <- payload
+					}
+				} else {
+					select {
+					case <-c.done:
+						return
+					default:
 					}
 				}
 			}

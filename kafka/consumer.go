@@ -78,14 +78,17 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if e.TopicPartition.Topic != nil {
 						topic = *e.TopicPartition.Topic
 					}
-					callback.DataReceived(eventing.Message{
+					if err := callback.DataReceived(eventing.Message{
+						Encoding:  eventing.AvroEncoding,
 						Key:       string(e.Key),
 						Value:     e.Value,
 						Headers:   headers,
 						Timestamp: e.Timestamp,
 						Topic:     topic,
 						Partition: e.TopicPartition.Partition,
-					})
+					}); err != nil {
+						callback.ErrorReceived(err)
+					}
 				case ck.PartitionEOF:
 					if cb, ok := callback.(ConsumerEOFCallback); ok {
 						cb.EOF(*e.Topic, e.Partition, int64(e.Offset))
