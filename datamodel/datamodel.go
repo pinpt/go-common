@@ -108,6 +108,8 @@ type ModelReceiveEvent interface {
 	Object() Model
 	// Message returns the underlying message data for the event
 	Message() eventing.Message
+	// EOF returns true if an EOF event was received. in this case, the Object and Message will return nil
+	EOF() bool
 }
 
 // ModelSendEvent is a model event to send on an event producer channel

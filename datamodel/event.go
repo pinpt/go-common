@@ -50,6 +50,7 @@ func NewModelSendEventWithHeaders(object Model, headers map[string]string) Model
 type modelReceiveEvent struct {
 	object Model
 	msg    eventing.Message
+	eof    bool
 }
 
 var _ ModelReceiveEvent = (*modelReceiveEvent)(nil)
@@ -64,7 +65,17 @@ func (o *modelReceiveEvent) Message() eventing.Message {
 	return o.msg
 }
 
+// EOF returns true if an EOF event was received. in this case, the Object and Message will return nil
+func (o *modelReceiveEvent) EOF() bool {
+	return o.eof
+}
+
 // NewModelReceiveEvent returns a new ModelReceiveEvent
 func NewModelReceiveEvent(msg eventing.Message, obj Model) ModelReceiveEvent {
-	return &modelReceiveEvent{obj, msg}
+	return &modelReceiveEvent{obj, msg, false}
+}
+
+// NewModelReceiveEventEOF creates a model receive event that signals an EOF on the topic
+func NewModelReceiveEventEOF(msg eventing.Message) ModelReceiveEvent {
+	return &modelReceiveEvent{nil, msg, true}
 }

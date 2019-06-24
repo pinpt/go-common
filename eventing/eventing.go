@@ -33,6 +33,8 @@ type ConsumerCallbackAdapter struct {
 	OnDataReceived func(msg Message) error
 	// OnErrorReceived is called when an error is received
 	OnErrorReceived func(err error)
+	// OnEOF is called when a topic partition EOF is received
+	OnEOF func(topic string, partition int32, offset int64)
 }
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
@@ -45,6 +47,12 @@ func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
 func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
 	if cb.OnErrorReceived != nil {
 		cb.OnErrorReceived(err)
+	}
+}
+
+func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
+	if cb.OnEOF != nil {
+		cb.OnEOF(topic, partition, offset)
 	}
 }
 
