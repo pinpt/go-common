@@ -1,6 +1,7 @@
 package event
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -513,6 +514,21 @@ func (o *Track) ToAvroBinary() ([]byte, *goavro.Codec, error) {
 	// Convert native Go form to binary Avro data
 	buf, err := codec.BinaryFromNative(nil, native)
 	return buf, codec, err
+}
+
+// FromAvroBinary will convert from Avro binary data into data in this object
+func (o *Track) FromAvroBinary(value []byte) error {
+	var nullHeader = []byte{byte(0)}
+	// if this still has the schema encoded in the header, move past it to the avro payload
+	if bytes.HasPrefix(value, nullHeader) {
+		value = value[5:]
+	}
+	kv, _, err := o.GetAvroCodec().NativeFromBinary(value)
+	if err != nil {
+		return err
+	}
+	o.FromMap(kv.(map[string]interface{}))
+	return nil
 }
 
 // Stringify returns the object in JSON format as a string

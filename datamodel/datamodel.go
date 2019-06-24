@@ -64,6 +64,8 @@ type Model interface {
 	GetAvroCodec() *goavro.Codec
 	// ToAvroBinary converts the instance to binary avro
 	ToAvroBinary() ([]byte, *goavro.Codec, error)
+	// FromAvroBinary will convert from Avro binary data into data in this object
+	FromAvroBinary(value []byte) error
 	// Stringfy converts the instance to JSON string
 	Stringify() string
 	// ToMap converts the instance to a map
