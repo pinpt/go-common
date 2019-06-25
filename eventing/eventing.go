@@ -46,6 +46,8 @@ type ConsumerCallbackAdapter struct {
 	OnErrorReceived func(err error)
 	// OnEOF is called when a topic partition EOF is received
 	OnEOF func(topic string, partition int32, offset int64)
+	// OnStats is called when topic stats is generated
+	OnStats func(stats map[string]interface{})
 }
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
@@ -64,6 +66,12 @@ func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
 func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
 	if cb.OnEOF != nil {
 		cb.OnEOF(topic, partition, offset)
+	}
+}
+
+func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
+	if cb.OnStats != nil {
+		cb.OnStats(stats)
 	}
 }
 

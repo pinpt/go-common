@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -14,6 +15,11 @@ var ErrMissingTopics = errors.New("error: missing at least one topic for consume
 // ConsumerEOFCallback is an interface for handling topic EOF events
 type ConsumerEOFCallback interface {
 	EOF(topic string, partition int32, offset int64)
+}
+
+// ConsumerStatsCallback is an interface for handling stats events
+type ConsumerStatsCallback interface {
+	Stats(stats map[string]interface{})
 }
 
 // Consumer will return a kafka consumer
@@ -92,6 +98,20 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				case ck.PartitionEOF:
 					if cb, ok := callback.(ConsumerEOFCallback); ok {
 						cb.EOF(*e.Topic, e.Partition, int64(e.Offset))
+					}
+				case *ck.Stats:
+					// Stats events are emitted as JSON (as string).
+					// Either directly forward the JSON to your
+					// statistics collector, or convert it to a
+					// map to extract fields of interest.
+					// The definition of the statistics JSON
+					// object can be found here:
+					// https://github.com/edenhill/librdkafka/blob/master/STATISTICS.md
+					var stats map[string]interface{}
+					if err := json.Unmarshal([]byte(e.String()), &stats); err == nil {
+						if cb, ok := callback.(ConsumerStatsCallback); ok {
+							cb.Stats(stats)
+						}
 					}
 				}
 			}

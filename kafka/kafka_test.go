@@ -135,3 +135,40 @@ func TestSendReceiveCallbackEOF(t *testing.T) {
 	}))
 	<-done
 }
+
+func TestSendReceiveCallbackStats(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	config.Extra = map[string]interface{}{
+		"statistics.interval.ms": 5000,
+	}
+	consumer, err := NewConsumer(config, "testgroup3", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	callback := &eventing.ConsumerCallbackAdapter{
+		OnStats: func(stats map[string]interface{}) {
+			assert.NotEmpty(stats)
+			done <- true
+		},
+	}
+	consumer.Consume(callback)
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+}

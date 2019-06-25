@@ -92,6 +92,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 
 // Close will close the producer
 func (p *Producer) Close() error {
+	p.producer.Flush(int((5 * time.Second) / time.Millisecond))
 	p.producer.Close()
 	return nil
 }
@@ -100,6 +101,7 @@ func (p *Producer) Close() error {
 func NewProducer(config Config) (*Producer, error) {
 	c := NewConfigMap(config)
 	c.SetKey("compression.codec", "snappy")
+	c.SetKey("go.delivery.reports", false)
 	producer, err := ck.NewProducer(c)
 	if err != nil {
 		return nil, err
