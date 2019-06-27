@@ -3,6 +3,9 @@ package kafka
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/pinpt/go-common/eventing"
@@ -28,14 +31,25 @@ type Consumer struct {
 	consumer        *ck.Consumer
 	done            chan struct{}
 	DefaultPollTime time.Duration
+	mu              sync.Mutex
+	closed          bool
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
 
 // Close will stop listening for events
 func (c *Consumer) Close() error {
-	c.done <- struct{}{}
-	return c.consumer.Close()
+	c.mu.Lock()
+	closed := c.closed
+	c.closed = true
+	c.mu.Unlock()
+	var err error
+	if !closed {
+		c.consumer.Unsubscribe()
+		c.done <- struct{}{}
+		err = c.consumer.Close()
+	}
+	return err
 }
 
 // Consume will start consuming from the consumer using the callback
@@ -46,11 +60,37 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 			case <-c.done:
 				return
 			default:
+				c.mu.Lock()
+				closed := c.closed
+				c.mu.Unlock()
+				if closed {
+					return
+				}
 				ev := c.consumer.Poll(int(c.DefaultPollTime / time.Millisecond))
 				// fmt.Println(ev, reflect.TypeOf(ev))
 				if ev == nil {
 					continue
 				}
+				c.mu.Lock()
+				// check and make sure we're not closed
+				select {
+				case <-c.done:
+					c.mu.Unlock()
+					return
+				default:
+				}
+				closed = c.closed
+				c.mu.Unlock()
+				if closed {
+					return
+				}
+				defer func() {
+					// don't allow a panic
+					if x := recover(); x != nil {
+						fmt.Fprintf(os.Stderr, "panic: %v\n", x)
+					}
+				}()
+				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev))
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
 					c.consumer.Assign(e.Partitions)
@@ -129,7 +169,11 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	cfg.SetKey("enable.partition.eof", true)
 	cfg.SetKey("go.events.channel.enable", false)
 	cfg.SetKey("go.application.rebalance.enable", true)
-	cfg.SetKey("auto.offset.reset", ck.OffsetBeginning)
+	if config.Offset == "" {
+		cfg.SetKey("auto.offset.reset", ck.OffsetBeginning)
+	} else {
+		cfg.SetKey("auto.offset.reset", config.Offset)
+	}
 	consumer, err := ck.NewConsumer(cfg)
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-package event
+package action
 
 import (
 	"bytes"
@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/pinpt/go-common/event"
 
 	"github.com/linkedin/goavro"
 	"github.com/pinpt/go-common/datamodel"
@@ -821,50 +824,155 @@ func GetTrackAvroSchema() (*goavro.Codec, error) {
 	return goavro.NewCodec(GetTrackAvroSchemaSpec())
 }
 
-func TestSendAndReceive(t *testing.T) {
+type testAction struct {
+	wg       sync.WaitGroup
+	received datamodel.Model
+	response datamodel.Model
+	err      error
+	mu       sync.Mutex
+}
+
+var _ Action = (*testAction)(nil)
+
+func (a *testAction) Execute(instance datamodel.Model) (datamodel.Model, error) {
+	defer a.wg.Done()
+	a.mu.Lock()
+	a.received = instance
+	a.mu.Unlock()
+	return a.response, a.err
+}
+
+func (a *testAction) New(name datamodel.ModelNameType) datamodel.Model {
+	return &Track{}
+}
+
+func TestAction(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.SkipNow()
 		return
 	}
 	assert := assert.New(t)
+	action := &testAction{}
+	action.wg.Add(1)
 	errors := make(chan error, 1)
-	sub, err := NewSubscription(context.Background(), Subscription{
-		GroupID:      fmt.Sprintf("testgroup:%v", datetime.EpochNow()),
-		Topics:       []string{TrackTopic.String()},
-		IdleDuration: "10s",
-		Errors:       errors,
-		Channel:      "dev",
-		Offset:       "latest",
-	})
+	config := Config{
+		Channel: "dev",
+		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Factory: action,
+		Topic:   TrackTopic.String(),
+		Errors:  errors,
+		Offset:  "latest",
+	}
+	sub, err := Register(context.Background(), action, config)
 	assert.NoError(err)
-	go func() {
-		for err := range errors {
-			fmt.Println("ERR", err)
-			assert.NoError(err)
-			sub.Close()
-			break
-		}
-	}()
+	assert.NotNil(sub)
 	defer sub.Close()
-	track := &Track{
-		CustomerID: "5500a5ba8135f296",
-		DateAt:     datetime.EpochNow(),
-		Event:      "test",
-		Action:     "test",
-		Properties: map[string]string{},
-		IP:         "127.0.0.1",
+	time.Sleep(time.Second * 5) // give our listener time to be added
+	ts := datetime.EpochNow()
+	assert.NoError(event.Publish(context.Background(), event.PublishEvent{
+		Object: &Track{
+			DateAt: ts,
+			Event:  "agent",
+			Action: "hey",
+		},
+	}, "dev", ""))
+	action.wg.Wait()
+	// time.Sleep(time.Second * 60)
+	select {
+	case err := <-errors:
+		assert.NoError(err)
+	default:
 	}
-	event := PublishEvent{
-		Object: track,
+	assert.NotNil(action.received)
+	if m, ok := action.received.(*Track); ok {
+		assert.Equal("hey", m.Action)
+		assert.Equal("agent", m.Event)
+		assert.Equal(ts, m.DateAt)
+	} else {
+		assert.FailNow("should have received *testAction")
 	}
-	time.Sleep(time.Second * 5) // let the subscription setup
-	err = Publish(context.Background(), event, "dev", "")
+}
+
+func TestActionWithResponse(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	action1 := &testAction{
+		response: &Track{
+			ID:     "456",
+			Action: "response",
+			Event:  "response",
+		},
+	}
+	action2 := &testAction{}
+	action1.wg.Add(1)
+	action2.wg.Add(1)
+	errors := make(chan error, 2)
+	config1 := Config{
+		Channel: "dev",
+		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Factory: action1,
+		Topic:   TrackTopic.String(),
+		Errors:  errors,
+		Offset:  "latest",
+	}
+	config2 := Config{
+		Channel: "dev",
+		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Factory: action2,
+		Topic:   TrackTopic.String(),
+		Errors:  errors,
+		Offset:  "latest",
+	}
+	sub1, err := Register(context.Background(), action1, config1)
 	assert.NoError(err)
-	result := <-sub.Channel()
-	assert.NotNil(result)
-	kv := make(map[string]interface{})
-	assert.NoError(json.Unmarshal([]byte(result.Data), &kv))
-	var track2 Track
-	track2.FromMap(kv)
-	assert.Equal(track.Stringify(), track2.Stringify())
+	assert.NotNil(sub1)
+	defer sub1.Close()
+	time.Sleep(time.Second * 5) // give our listener time to be added
+	ts := datetime.EpochNow()
+	assert.NoError(event.Publish(context.Background(), event.PublishEvent{
+		Object: &Track{
+			ID:     "123",
+			DateAt: ts,
+			Event:  "agent",
+			Action: "hey",
+		},
+	}, "dev", ""))
+	action1.wg.Wait()
+	sub1.Close()
+	select {
+	case err := <-errors:
+		assert.NoError(err)
+	default:
+	}
+	sub2, err := Register(context.Background(), action2, config2)
+	assert.NoError(err)
+	assert.NotNil(sub2)
+	defer sub2.Close()
+	action2.wg.Wait()
+	select {
+	case err := <-errors:
+		assert.NoError(err)
+	default:
+	}
+	action1.mu.Lock()
+	action2.mu.Lock()
+	defer action1.mu.Unlock()
+	defer action2.mu.Unlock()
+	assert.NotNil(action1.received)
+	if m, ok := action1.received.(*Track); ok {
+		assert.Equal("hey", m.Action)
+		assert.Equal("agent", m.Event)
+		assert.Equal(ts, m.DateAt)
+	} else {
+		assert.FailNow("should have received *testAction")
+	}
+	if m, ok := action2.received.(*Track); ok {
+		assert.Equal("response", m.Action)
+		assert.Equal("response", m.Event)
+	} else {
+		assert.FailNow("should have received *testAction")
+	}
 }

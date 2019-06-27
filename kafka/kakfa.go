@@ -13,6 +13,7 @@ type Config struct {
 	Password string
 	Extra    map[string]interface{}
 	Registry RegistryClient
+	Offset   string
 }
 
 // NewConfigMap returns a ConfigMap from a Config

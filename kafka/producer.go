@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/pinpt/go-common/eventing"
@@ -17,6 +18,8 @@ var ErrMissingTopic = errors.New("error: missing topic in message")
 type Producer struct {
 	config   Config
 	producer *ck.Producer
+	closed   bool
+	mu       sync.Mutex
 }
 
 var _ eventing.Producer = (*Producer)(nil)
@@ -81,19 +84,30 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		// reset the value to the new binary encoded value
 		value = binaryMsg
 	}
-	return p.producer.Produce(&ck.Message{
-		TopicPartition: tp,
-		Key:            []byte(msg.Key),
-		Value:          value,
-		Timestamp:      timestamp,
-		Headers:        headers,
-	}, nil)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if !p.closed {
+		return p.producer.Produce(&ck.Message{
+			TopicPartition: tp,
+			Key:            []byte(msg.Key),
+			Value:          value,
+			Timestamp:      timestamp,
+			Headers:        headers,
+		}, nil)
+	}
+	return nil
 }
 
 // Close will close the producer
 func (p *Producer) Close() error {
-	p.producer.Flush(int((5 * time.Second) / time.Millisecond))
-	p.producer.Close()
+	p.mu.Lock()
+	closed := p.closed
+	p.closed = true
+	p.mu.Unlock()
+	if !closed {
+		p.producer.Flush(int((5 * time.Second) / time.Millisecond))
+		p.producer.Close()
+	}
 	return nil
 }
 

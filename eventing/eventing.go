@@ -2,6 +2,7 @@ package eventing
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/linkedin/goavro"
@@ -48,31 +49,56 @@ type ConsumerCallbackAdapter struct {
 	OnEOF func(topic string, partition int32, offset int64)
 	// OnStats is called when topic stats is generated
 	OnStats func(stats map[string]interface{})
+
+	// mutex
+	mu sync.Mutex
 }
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
-	if cb.OnDataReceived != nil {
-		return cb.OnDataReceived(msg)
+	cb.mu.Lock()
+	h := cb.OnDataReceived
+	cb.mu.Unlock()
+	if h != nil {
+		return h(msg)
 	}
 	return nil
 }
 
 func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
-	if cb.OnErrorReceived != nil {
-		cb.OnErrorReceived(err)
+	cb.mu.Lock()
+	h := cb.OnErrorReceived
+	cb.mu.Unlock()
+	if h != nil {
+		h(err)
 	}
 }
 
 func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
-	if cb.OnEOF != nil {
-		cb.OnEOF(topic, partition, offset)
+	cb.mu.Lock()
+	h := cb.OnEOF
+	cb.mu.Unlock()
+	if h != nil {
+		h(topic, partition, offset)
 	}
 }
 
 func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
-	if cb.OnStats != nil {
-		cb.OnStats(stats)
+	cb.mu.Lock()
+	h := cb.OnStats
+	cb.mu.Unlock()
+	if h != nil {
+		h(stats)
 	}
+}
+
+func (cb *ConsumerCallbackAdapter) Close() error {
+	cb.mu.Lock()
+	cb.OnDataReceived = nil
+	cb.OnEOF = nil
+	cb.OnErrorReceived = nil
+	cb.OnStats = nil
+	cb.mu.Unlock()
+	return nil
 }
 
 // ConsumerCallback will receive events from producers

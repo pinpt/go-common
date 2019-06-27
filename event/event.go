@@ -33,7 +33,7 @@ type PublishEvent struct {
 type payload struct {
 	Type    string                  `json:"type"`
 	Model   datamodel.ModelNameType `json:"model"`
-	Headers map[string]string       `json:"headers"`
+	Headers map[string]string       `json:"headers,omitempty"`
 	Data    string                  `json:"data"`
 }
 
@@ -96,11 +96,12 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 // SubscriptionEvent is received from the event server
 type SubscriptionEvent struct {
 	Timestamp time.Time         `json:"timestamp"`
-	Headers   map[string]string `json:"headers"`
+	Headers   map[string]string `json:"headers,omitempty"`
 	Key       string            `json:"key"`
 	Type      string            `json:"type"`
 	Model     string            `json:"model"`
 	Data      string            `json:"object"`
+	Offset    string            `json:"offset,omitempty"`
 }
 
 // SubscriptionChannel is a channel for receiving events
@@ -111,6 +112,7 @@ type SubscriptionChannel struct {
 	subscription Subscription
 	mu           sync.Mutex
 	closed       bool
+	cancel       context.CancelFunc
 }
 
 // Channel returns a read-only channel to receive SubscriptionEvent
@@ -123,6 +125,7 @@ func (c *SubscriptionChannel) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.closed {
+		c.cancel()
 		c.closed = true
 		c.done <- true
 		close(c.done)
@@ -133,12 +136,10 @@ func (c *SubscriptionChannel) Close() error {
 
 func (c *SubscriptionChannel) run() {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, c.subscription.Channel), "consume")
-	ctx, cancel := context.WithCancel(c.ctx)
-	defer cancel()
 	for {
 		// check to see if we're done
 		select {
-		case <-ctx.Done():
+		case <-c.ctx.Done():
 			return
 		case <-c.done:
 			return
@@ -151,7 +152,7 @@ func (c *SubscriptionChannel) run() {
 			}
 			return
 		}
-		req = req.WithContext(ctx)
+		req = req.WithContext(c.ctx)
 		req.Header.Set("Content-Type", jsonContentType)
 		req.Header.Set("Accept", jsonContentType)
 		api.SetUserAgent(req)
@@ -215,11 +216,10 @@ func (c *SubscriptionChannel) run() {
 			for {
 				// read one line at a time as we receive it
 				buf, err := r.ReadBytes('\n')
-				if err == io.EOF {
+				if err == context.Canceled || err == io.EOF {
 					return
 				}
-				fmt.Println(">>>", string(buf), "err", err)
-				if buf != nil && len(buf) != 0 {
+				if buf != nil && len(buf) > 0 {
 					var payload SubscriptionEvent
 					if err := json.Unmarshal(buf, &payload); err != nil {
 						if c.subscription.Errors != nil {
@@ -228,11 +228,14 @@ func (c *SubscriptionChannel) run() {
 						return
 					}
 					// check once more that we're not cancelled
+					c.mu.Lock()
 					select {
 					case <-c.done:
+						c.mu.Unlock()
 						return
 					default:
 						c.ch <- payload
+						c.mu.Unlock()
 					}
 				} else {
 					select {
@@ -247,7 +250,6 @@ func (c *SubscriptionChannel) run() {
 		// and then loop and do it again
 		select {
 		case <-c.done:
-			cancel()
 			return
 		case <-finished:
 			return
@@ -262,6 +264,7 @@ type Subscription struct {
 	Headers      map[string]string `json:"headers"`
 	IdleDuration string            `json:"idle_duration"`
 	Limit        int               `json:"limit"`
+	Offset       string            `json:"offset"`
 	Channel      string            `json:"-"`
 	APIKey       string            `json:"-"`
 	BufferSize   int               `json:"-"`
@@ -272,8 +275,10 @@ type Subscription struct {
 // and send them back to the return channel. once you're done, you must call Close on the channel to stop
 // receiving events
 func NewSubscription(ctx context.Context, subscription Subscription) (*SubscriptionChannel, error) {
+	newctx, cancel := context.WithCancel(ctx)
 	subch := &SubscriptionChannel{
-		ctx:          ctx,
+		ctx:          newctx,
+		cancel:       cancel,
 		ch:           make(chan SubscriptionEvent, subscription.BufferSize),
 		done:         make(chan bool, 1),
 		subscription: subscription,
