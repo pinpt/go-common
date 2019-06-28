@@ -66,23 +66,12 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				if closed {
 					return
 				}
+				c.mu.Lock()
 				ev := c.consumer.Poll(int(c.DefaultPollTime / time.Millisecond))
+				c.mu.Unlock()
 				// fmt.Println(ev, reflect.TypeOf(ev))
 				if ev == nil {
 					continue
-				}
-				c.mu.Lock()
-				// check and make sure we're not closed
-				select {
-				case <-c.done:
-					c.mu.Unlock()
-					return
-				default:
-				}
-				closed = c.closed
-				c.mu.Unlock()
-				if closed {
-					return
 				}
 				defer func() {
 					// don't allow a panic
@@ -185,7 +174,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		config:          config,
 		consumer:        consumer,
 		done:            make(chan struct{}, 1),
-		DefaultPollTime: time.Second * 5,
+		DefaultPollTime: time.Millisecond * 500,
 	}
 	return c, nil
 }
