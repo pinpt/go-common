@@ -22,6 +22,7 @@ func NewConfigMap(config Config) *ck.ConfigMap {
 		"request.timeout.ms":  20000,
 		"retry.backoff.ms":    500,
 		"api.version.request": true,
+		"message.max.bytes":   1000000000, // allow the consumer/producer to be as big but the broker to enforce
 		"bootstrap.servers":   strings.Join(config.Brokers, ","),
 		"client.id":           "pinpt/go-common",
 	}
