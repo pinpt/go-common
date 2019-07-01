@@ -85,6 +85,8 @@ const (
 	AuthService = "auth.api"
 	// EventService is the event service endpoint
 	EventService = "event.api"
+	// GraphqlService is the graphql service endpoint
+	GraphqlService = "graph.api"
 )
 
 // BackendURL return the base url to the API server
@@ -100,6 +102,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
 		case EventService:
 			return fmt.Sprintf("https://%s.%s:8443/", subdomain, devbaseURL)
+		case GraphqlService:
+			return fmt.Sprintf("https://%s.%s:3010/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
