@@ -163,6 +163,10 @@ func CreateObject(object Object, kv map[string]interface{}, mapping map[string][
 			if err != nil {
 				return err
 			}
+			if res != nil {
+				newkv[k] = res
+				break
+			}
 			newkv[k] = res
 		}
 	}

@@ -13,6 +13,12 @@ type Foo struct {
 	Bar string
 }
 
+func (f *Foo) FromMap(kv map[string]interface{}) {
+	if val, ok := kv["bar"].(string); ok {
+		f.Bar = val
+	}
+}
+
 func TestDeserializerSingleArray(t *testing.T) {
 	assert := assert.New(t)
 	var buf strings.Builder
@@ -190,4 +196,23 @@ func TestDeserializerRef(t *testing.T) {
 	}))
 	assert.Equal("{\"Bar\":\"a\"}", string(arr[0]))
 	assert.Equal("{\"Bar\":\"b\"}", string(arr[1]))
+}
+
+func TestCreateObject(t *testing.T) {
+	assert := assert.New(t)
+	var objMap = map[string][]string{
+		"bar": []string{"$.bar", "$.bar2"},
+	}
+	raw := make(map[string]interface{})
+	raw["bar"] = "a"
+
+	var f Foo
+	assert.NoError(CreateObject(&f, raw, objMap))
+	assert.Equal("a", f.Bar)
+
+	raw = make(map[string]interface{})
+	raw["bar2"] = "a"
+	var f2 Foo
+	assert.NoError(CreateObject(&f2, raw, objMap))
+	assert.Equal("a", f.Bar)
 }
