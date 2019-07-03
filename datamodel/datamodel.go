@@ -88,6 +88,8 @@ type Model interface {
 	GetModelName() ModelNameType
 	// GetTimestamp returns the timestamp for the model or now if not provided
 	GetTimestamp() time.Time
+	//GetStateKey returns the key to use for state persistence
+	GetStateKey() string
 }
 
 // Storage is an interface to storage model. It could be a data or a filesystem or an in memory cache
