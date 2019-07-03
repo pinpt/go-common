@@ -423,6 +423,10 @@ func (o *Track) GetTimestamp() time.Time {
 	panic("not sure how to handle the date time format for Track")
 }
 
+func (o *Track) GetStateKey() string {
+	return ""
+}
+
 // IsMaterialized returns true if the model is materialized
 func (o *Track) IsMaterialized() bool {
 	return false
