@@ -40,6 +40,21 @@ type Action interface {
 	Execute(instance datamodel.Model) (datamodel.Model, error)
 }
 
+type ActionFunc func(instance datamodel.Model) (datamodel.Model, error)
+
+type action struct {
+	callback ActionFunc
+}
+
+func (a *action) Execute(instance datamodel.Model) (datamodel.Model, error) {
+	return a.callback(instance)
+}
+
+// NewAction is a convenient wrapper that implements the Action interface
+func NewAction(callback ActionFunc) Action {
+	return &action{callback}
+}
+
 // ActionSubscription is returned to control when the subscription should be closed
 type ActionSubscription struct {
 	ctx          context.Context

@@ -980,3 +980,47 @@ func TestActionWithResponse(t *testing.T) {
 		assert.FailNow("should have received *testAction")
 	}
 }
+
+func TestActionFunc(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	action := NewAction(func(instance datamodel.Model) (datamodel.Model, error) {
+		defer wg.Done()
+		return nil, nil
+	})
+	factory := &testAction{}
+	errors := make(chan error, 1)
+	config := Config{
+		Channel: "dev",
+		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Factory: factory,
+		Topic:   TrackTopic.String(),
+		Errors:  errors,
+		Offset:  "latest",
+	}
+	sub, err := Register(context.Background(), action, config)
+	assert.NoError(err)
+	assert.NotNil(sub)
+	defer sub.Close()
+	time.Sleep(time.Second * 5) // give our listener time to be added
+	ts := datetime.EpochNow()
+	assert.NoError(event.Publish(context.Background(), event.PublishEvent{
+		Object: &Track{
+			DateAt: ts,
+			Event:  "agent",
+			Action: "hey",
+		},
+	}, "dev", ""))
+	wg.Wait()
+	// time.Sleep(time.Second * 60)
+	select {
+	case err := <-errors:
+		assert.NoError(err)
+	default:
+	}
+}
