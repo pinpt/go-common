@@ -308,3 +308,39 @@ func AddDaysToStrDate(date string, days int) (string, error) {
 	}
 	return ShortDateFromTime(d.AddDate(0, 0, days)), nil
 }
+
+// Date represents the object structure for date
+type Date struct {
+	// Epoch the date in epoch format
+	Epoch int64 `json:"epoch" bson:"epoch" yaml:"epoch" faker:"-"`
+	// Offset the timezone offset from GMT
+	Offset int64 `json:"offset" bson:"offset" yaml:"offset" faker:"-"`
+	// Rfc3339 the date in RFC3339 format
+	Rfc3339 string `json:"rfc3339" bson:"rfc3339" yaml:"rfc3339" faker:"-"`
+}
+
+// NewDateNow returns a Date object as of now
+func NewDateNow() Date {
+	val := time.Now().Round(time.Millisecond).Format(time.RFC3339Nano)
+	tv, _ := ISODateOffsetToTime(val)
+	_, timezone := tv.Zone()
+	return Date{
+		Epoch:   TimeToEpoch(tv),
+		Rfc3339: val,
+		Offset:  int64(timezone),
+	}
+}
+
+// NewDate returns a new Date object from a string date value
+func NewDate(val string) (*Date, error) {
+	tv, err := ISODateOffsetToTime(val)
+	if err != nil {
+		return nil, err
+	}
+	_, timezone := tv.Zone()
+	return &Date{
+		Epoch:   TimeToEpoch(tv),
+		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Offset:  int64(timezone),
+	}, nil
+}
