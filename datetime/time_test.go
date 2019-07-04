@@ -211,7 +211,6 @@ func TestDateObject(t *testing.T) {
 	date3, err := NewDate(ISODate())
 	assert.NoError(err)
 	dt3 := DateFromEpoch(date3.Epoch)
-	_, tz3 := dt3.Zone()
 	assert.WithinDuration(dt3, time.Now(), time.Second)
-	assert.Equal(int64(tz3), date2.Offset)
+	assert.Equal(int64(0), date3.Offset) // make sure ISO returns GMT timezone
 }
