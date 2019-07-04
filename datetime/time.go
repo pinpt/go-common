@@ -321,11 +321,12 @@ type Date struct {
 
 // NewDateNow returns a Date object as of now
 func NewDateNow() Date {
-	val := time.Now().Round(time.Millisecond).Format(time.RFC3339Nano)
+	epoch := EpochNow()
+	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
 	tv, _ := ISODateOffsetToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
-		Epoch:   TimeToEpoch(tv),
+		Epoch:   epoch,
 		Rfc3339: val,
 		Offset:  int64(timezone),
 	}
