@@ -1,6 +1,7 @@
 package datetime
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -195,16 +196,16 @@ func TestDateObject(t *testing.T) {
 	date1 := NewDateNow()
 	dt := DateFromEpoch(date1.Epoch)
 	_, tz := dt.Zone()
-	assert.WithinDuration(dt, time.Now(), time.Millisecond)
+	assert.WithinDuration(dt, time.Now(), time.Second)
 	assert.Equal(int64(tz), date1.Offset)
 	assert.Equal(dt.Format(time.RFC3339Nano), date1.Rfc3339)
 	date2, err := NewDate(date1.Rfc3339)
 	assert.NoError(err)
 	dt2 := DateFromEpoch(date2.Epoch)
 	_, tz2 := dt2.Zone()
-	assert.WithinDuration(dt2, time.Now(), time.Millisecond)
+	assert.WithinDuration(dt2, time.Now(), time.Second)
 	assert.Equal(int64(tz2), date2.Offset)
 	assert.Equal(dt2.Format(time.RFC3339Nano), date2.Rfc3339)
 	_, err = NewDate("x")
-	assert.EqualError(err, `parsing time "x" as "2006-01-02T15:04:05-0700": cannot parse "x" as "2006"`)
+	assert.True(strings.Contains(err.Error(), `parsing time "x"`))
 }
