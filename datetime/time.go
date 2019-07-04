@@ -323,7 +323,7 @@ type Date struct {
 func NewDateNow() Date {
 	epoch := EpochNow()
 	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
-	tv, _ := ISODateOffsetToTime(val)
+	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
 		Epoch:   epoch,
@@ -334,7 +334,7 @@ func NewDateNow() Date {
 
 // NewDate returns a new Date object from a string date value
 func NewDate(val string) (*Date, error) {
-	tv, err := ISODateOffsetToTime(val)
+	tv, err := ISODateToTime(val)
 	if err != nil {
 		return nil, err
 	}
