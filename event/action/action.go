@@ -102,7 +102,7 @@ func (s *ActionSubscription) run() {
 		}
 		// if we have a result, publish the result
 		if result != nil {
-			if err := event.Publish(s.ctx, event.PublishEvent{Object: result, Headers: nil}, s.config.Channel, s.config.APIKey); err != nil {
+			if err := event.Publish(s.ctx, event.PublishEvent{Object: result, Headers: s.config.Headers}, s.config.Channel, s.config.APIKey); err != nil {
 				s.config.Errors <- fmt.Errorf("error sending response for action %v: %v", e.Model, err)
 				return
 			}
