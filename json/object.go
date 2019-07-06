@@ -2,15 +2,11 @@ package json
 
 import (
 	"bufio"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 
-	"github.com/oliveagle/jsonpath"
 	"github.com/pinpt/go-common/fileutil"
 )
 
@@ -64,42 +60,43 @@ func Deserialize(r io.Reader, dser Deserializer) error {
 
 // StreamToMap will stream a file into results
 func StreamToMap(fp string, keypath string, results map[string]map[string]interface{}, insert bool) error {
-	of, err := os.Open(fp)
+	of, err := fileutil.OpenFile(fp)
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening: %v. %v", fp, err)
 	}
 	defer of.Close()
-	var f io.ReadCloser = of
-	if filepath.Ext(fp) == ".gz" {
-		gf, err := gzip.NewReader(of)
-		if err != nil {
-			return err
+	var keys map[string]bool
+	addkeys := len(results) > 0
+	if addkeys {
+		keys = make(map[string]bool)
+		// mark all keys as not found
+		for k := range results {
+			keys[k] = false
 		}
-		f = gf
-		defer gf.Close()
 	}
-	keys := make(map[string]bool)
-	// mark all keys as not found
-	for k := range results {
-		keys[k] = false
-	}
-	if err := Deserialize(f, func(buf json.RawMessage) error {
+	if err := Deserialize(of, func(buf json.RawMessage) error {
 		kv := make(map[string]interface{})
 		if err := json.Unmarshal(buf, &kv); err != nil {
 			return err
 		}
-		key, err := jsonpath.JsonPathLookup(kv, keypath)
-		if err != nil {
-			return err
+		key := kv[keypath]
+		var keystr string
+		if s, ok := key.(string); ok {
+			keystr = s
+		} else {
+			keystr = fmt.Sprintf("%v", key)
 		}
-		keystr := fmt.Sprintf("%v", key)
 		if insert {
 			results[keystr] = kv
-			keys[keystr] = true
+			if addkeys {
+				keys[keystr] = true
+			}
 		} else {
 			found := results[keystr]
 			if found != nil {
-				keys[keystr] = true
+				if addkeys {
+					keys[keystr] = true
+				}
 				for k, v := range kv {
 					found[k] = v
 				}

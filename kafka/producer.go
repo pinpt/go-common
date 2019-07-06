@@ -19,10 +19,28 @@ type Producer struct {
 	config   Config
 	producer *ck.Producer
 	closed   bool
-	mu       sync.Mutex
+	mu       sync.RWMutex
+	size     int64
+	count    int64
 }
 
 var _ eventing.Producer = (*Producer)(nil)
+
+// Count returns the number of records transmitted
+func (p *Producer) Count() int64 {
+	p.mu.RLock()
+	val := p.count
+	p.mu.RUnlock()
+	return val
+}
+
+// Count returns the number of bytes transmitted
+func (p *Producer) Size() int64 {
+	p.mu.RLock()
+	val := p.size
+	p.mu.RUnlock()
+	return val
+}
 
 // Send will send the event
 func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
@@ -84,10 +102,16 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		// reset the value to the new binary encoded value
 		value = binaryMsg
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.closed {
-		return p.producer.Produce(&ck.Message{
+	var err error
+	p.mu.RLock()
+	closed := p.closed
+	if !closed {
+		p.size += int64(len(value))
+		p.count++
+	}
+	p.mu.RUnlock()
+	if !closed {
+		err = p.producer.Produce(&ck.Message{
 			TopicPartition: tp,
 			Key:            []byte(msg.Key),
 			Value:          value,
@@ -95,7 +119,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 			Headers:        headers,
 		}, nil)
 	}
-	return nil
+	return err
 }
 
 // Close will close the producer
