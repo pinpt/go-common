@@ -221,6 +221,7 @@ func TestStreamToMap(t *testing.T) {
 
 	res := make(map[string]map[string]interface{})
 	assert.NoError(StreamToMap(file, "$.Bar", res, true))
+	assert.EqualValues(3, len(res))
 	assert.Equal("a", res["a"]["Bar"])
 	assert.Equal("b", res["b"]["Bar"])
 	assert.Equal("c", res["c"]["Bar"])
@@ -251,6 +252,7 @@ func TestStreamToMapOptimized(t *testing.T) {
 
 	res := make(map[string]map[string]interface{})
 	assert.NoError(StreamToMap(file, "$.id", res, true))
+	assert.EqualValues(3, len(res))
 	assert.Equal("a", res["a"]["id"])
 	assert.Equal("b", res["b"]["id"])
 	assert.Equal("c", res["c"]["id"])
