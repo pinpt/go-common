@@ -38,7 +38,7 @@ type ModelTopicConfig struct {
 	Key string
 	// Timestamp is the timestamp field for the topic
 	Timestamp string
-	//TTL is the duration the message is valid
+	// TTL is the duration the message is valid
 	TTL time.Duration
 }
 
