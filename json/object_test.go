@@ -3,6 +3,8 @@ package json
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -196,6 +198,62 @@ func TestDeserializerRef(t *testing.T) {
 	}))
 	assert.Equal("{\"Bar\":\"a\"}", string(arr[0]))
 	assert.Equal("{\"Bar\":\"b\"}", string(arr[1]))
+}
+
+func TestStreamToMap(t *testing.T) {
+	assert := assert.New(t)
+	var buf strings.Builder
+	b, _ := json.Marshal(Foo{"a"})
+	buf.Write(b)
+	buf.WriteString("\n")
+	b, _ = json.Marshal(Foo{"b"})
+	buf.Write(b)
+	buf.WriteString("\n")
+	b, _ = json.Marshal(Foo{"c"})
+	buf.Write(b)
+	buf.WriteString("\n")
+
+	f, _ := ioutil.TempFile("", "")
+	file := f.Name()
+	fmt.Fprint(f, buf.String())
+	f.Close()
+	defer os.Remove(file)
+
+	res := make(map[string]map[string]interface{})
+	assert.NoError(StreamToMap(file, "$.Bar", res, true))
+	assert.Equal("a", res["a"]["Bar"])
+	assert.Equal("b", res["b"]["Bar"])
+	assert.Equal("c", res["c"]["Bar"])
+}
+
+type Thing struct {
+	ID string `json:"id"`
+}
+
+func TestStreamToMapOptimized(t *testing.T) {
+	assert := assert.New(t)
+	var buf strings.Builder
+	b, _ := json.Marshal(Thing{"a"})
+	buf.Write(b)
+	buf.WriteString("\n")
+	b, _ = json.Marshal(Thing{"b"})
+	buf.Write(b)
+	buf.WriteString("\n")
+	b, _ = json.Marshal(Thing{"c"})
+	buf.Write(b)
+	buf.WriteString("\n")
+
+	f, _ := ioutil.TempFile("", "")
+	file := f.Name()
+	fmt.Fprint(f, buf.String())
+	f.Close()
+	defer os.Remove(file)
+
+	res := make(map[string]map[string]interface{})
+	assert.NoError(StreamToMap(file, "$.id", res, true))
+	assert.Equal("a", res["a"]["id"])
+	assert.Equal("b", res["b"]["id"])
+	assert.Equal("c", res["c"]["id"])
 }
 
 func TestCreateObject(t *testing.T) {
