@@ -7,6 +7,7 @@ import (
 	"io"
 	"regexp"
 
+	"github.com/oliveagle/jsonpath"
 	"github.com/pinpt/go-common/fileutil"
 )
 
@@ -74,12 +75,21 @@ func StreamToMap(fp string, keypath string, results map[string]map[string]interf
 			keys[k] = false
 		}
 	}
+	idfind := keypath == "$.id"
 	if err := Deserialize(of, func(buf json.RawMessage) error {
 		kv := make(map[string]interface{})
 		if err := json.Unmarshal(buf, &kv); err != nil {
 			return err
 		}
-		key := kv[keypath]
+		var key interface{}
+		if idfind {
+			key = kv["id"]
+		} else {
+			key, err = jsonpath.JsonPathLookup(kv, keypath)
+			if err != nil {
+				return err
+			}
+		}
 		var keystr string
 		if s, ok := key.(string); ok {
 			keystr = s
