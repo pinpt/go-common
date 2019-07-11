@@ -118,6 +118,8 @@ func init() {
 	})
 	RegisterAction("string", func(args ...interface{}) (interface{}, error) {
 		switch a := args[0].(type) {
+		case nil:
+			return "", nil
 		case float64:
 			// check if it's a whole number
 			if a == float64(int64(a)) {
