@@ -171,8 +171,16 @@ func CreateObject(object Object, kv map[string]interface{}, mapping map[string][
 				return err
 			}
 			if res != nil {
-				newkv[k] = res
-				break
+				// if empty string, go to the next one
+				if str, ok := res.(string); ok {
+					if str != "" {
+						newkv[k] = res
+						break
+					}
+				} else {
+					newkv[k] = res
+					break
+				}
 			}
 			newkv[k] = res
 		}
