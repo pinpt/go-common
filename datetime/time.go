@@ -77,6 +77,9 @@ func ISODateToTime(date string) (time.Time, error) {
 
 // ISODateOffsetToTime returns a RFC 3339 formatted string as a timestamp
 func ISODateOffsetToTime(date string) (time.Time, error) {
+	if date == "" {
+		return time.Time{}, nil
+	}
 	if strings.Contains(date, "Z") {
 		// 2017-01-20T15:56:23.000000Z-08:00
 		tv, err := time.Parse("2006-01-02T15:04:05.999999999Z-07:00", date)
@@ -123,6 +126,9 @@ func TimestampToEpoch(ts *timestamp.Timestamp) int64 {
 
 // TimeToEpoch will convert a time to epoch (in UTC) with millisecond precision
 func TimeToEpoch(tv time.Time) int64 {
+	if tv.IsZero() {
+		return 0
+	}
 	return tv.UTC().UnixNano() / 1000000
 }
 

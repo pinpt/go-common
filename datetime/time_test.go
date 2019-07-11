@@ -113,6 +113,15 @@ func TestISODateOffsetToTimeWithMillis(t *testing.T) {
 	assert.Equal("2012-06-04T14:05:49Z", ISODateFromTime(ok))
 }
 
+func TestISODateOffsetToTimeWithEmptyString(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+
+	timeVal, err := ISODateOffsetToTime("")
+	assert.NoError(err)
+	assert.True(timeVal.IsZero())
+}
+
 func TestShortDateToTimestamp(t *testing.T) {
 	t.Parallel()
 
@@ -131,6 +140,12 @@ func TestShortDateToTimestamp(t *testing.T) {
 	assert.Nil(ok)
 }
 
+func TestTimeToEpochWithEmptyTime(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+
+	assert.EqualValues(0, TimeToEpoch(time.Time{}))
+}
 func TestTimestampFromEpoch(t *testing.T) {
 	t.Parallel()
 
