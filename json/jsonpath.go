@@ -84,6 +84,15 @@ func dequote(val string) string {
 }
 
 func init() {
+	RegisterAction("date", func(args ...interface{}) (interface{}, error) {
+		if args != nil && len(args) == 1 && args[0] != nil {
+			str := fmt.Sprint(args[0])
+			if str != "" {
+				return datetime.NewDate(str)
+			}
+		}
+		return datetime.Date{}, nil
+	})
 	RegisterAction("epoch", func(args ...interface{}) (interface{}, error) {
 		if len(args) == 0 {
 			return datetime.EpochNow(), nil
