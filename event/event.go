@@ -250,9 +250,9 @@ func (c *SubscriptionChannel) run() {
 		// and then loop and do it again
 		select {
 		case <-c.done:
-			return
+			return // not sure if I should change this to continue as well
 		case <-finished:
-			return
+			continue
 		}
 	}
 }
