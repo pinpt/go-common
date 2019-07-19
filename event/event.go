@@ -252,7 +252,7 @@ func (c *SubscriptionChannel) run() {
 		case <-c.done:
 			return
 		case <-finished:
-			return
+			continue
 		}
 	}
 }
