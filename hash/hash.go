@@ -1,8 +1,10 @@
 package hash
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/cespare/xxhash"
 )
@@ -25,6 +27,16 @@ func hashValues(objects ...interface{}) string {
 			io.WriteString(h, s)
 		case []byte:
 			h.Write(s)
+		case []string:
+			for _, v := range s {
+				io.WriteString(h, v)
+			}
+		case bool:
+			if s {
+				io.WriteString(h, "1")
+			} else {
+				io.WriteString(h, "0")
+			}
 		case int, int32, int64:
 			fmt.Fprintf(h, "%d", s)
 		case float32:
@@ -94,7 +106,12 @@ func hashValues(objects ...interface{}) string {
 				fmt.Fprintf(h, "%v", *s)
 			}
 		default:
-			fmt.Fprintf(h, "%v", s)
+			if reflect.TypeOf(s).Kind() == reflect.Struct {
+				buf, _ := json.Marshal(s)
+				h.Write(buf)
+			} else {
+				fmt.Fprintf(h, "%v", s)
+			}
 		}
 	}
 
