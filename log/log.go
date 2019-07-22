@@ -779,6 +779,7 @@ func (l *maskingLogger) Log(keyvals ...interface{}) error {
 						var found bool
 						for x := 0; x < len(val); x += 2 {
 							k := val[x]
+							valcpy[x] = k
 							var v string
 							if x+1 < len(val) {
 								v = val[x+1]
