@@ -106,17 +106,21 @@ func hashValues(objects ...interface{}) string {
 				fmt.Fprintf(h, "%v", *s)
 			}
 		default:
-			switch reflect.TypeOf(s).Kind() {
-			case reflect.Struct, reflect.Slice, reflect.Interface:
-				buf, _ := json.Marshal(s)
-				h.Write(buf)
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				fmt.Fprintf(h, "%d", s)
-			case reflect.Float32, reflect.Float64:
-				fmt.Fprintf(h, "%f", s)
-			default:
-				// fmt.Println(reflect.TypeOf(s), reflect.TypeOf(s).Kind(), fmt.Sprintf("%v", s))
-				fmt.Fprintf(h, "%v", s)
+			if s == nil {
+				io.WriteString(h, "")
+			} else {
+				switch reflect.TypeOf(s).Kind() {
+				case reflect.Struct, reflect.Slice, reflect.Interface:
+					buf, _ := json.Marshal(s)
+					h.Write(buf)
+				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+					fmt.Fprintf(h, "%d", s)
+				case reflect.Float32, reflect.Float64:
+					fmt.Fprintf(h, "%f", s)
+				default:
+					// fmt.Println(reflect.TypeOf(s), reflect.TypeOf(s).Kind(), fmt.Sprintf("%v", s))
+					fmt.Fprintf(h, "%v", s)
+				}
 			}
 		}
 	}
