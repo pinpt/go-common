@@ -746,33 +746,36 @@ func (l *maskingLogger) Log(keyvals ...interface{}) error {
 					}
 				case map[string]string:
 					{
+						valcpy := make(map[string]string, len(val))
 						var found bool
 						for k, v := range val {
 							v, found = MaskKV(k, v)
-							val[k] = v
+							valcpy[k] = v
 						}
 						if found {
-							newvals[i+1] = pjson.Stringify(val)
+							newvals[i+1] = pjson.Stringify(valcpy)
 						}
 					}
 				case map[string]interface{}:
 					{
+						valcpy := make(map[string]interface{}, len(val))
 						var found bool
 						for k, v := range val {
 							if keyMatches(k) {
 								nv := mask(v)
 								if nv != v {
 									found = true
-									val[k] = nv
+									valcpy[k] = nv
 								}
 							}
 						}
 						if found {
-							newvals[i+1] = pjson.Stringify(val)
+							newvals[i+1] = pjson.Stringify(valcpy)
 						}
 					}
 				case []string:
 					{
+						valcpy := make([]string, len(val))
 						var found bool
 						for x := 0; x < len(val); x += 2 {
 							k := val[x]
@@ -784,17 +787,17 @@ func (l *maskingLogger) Log(keyvals ...interface{}) error {
 								nv := mask(v)
 								if v != nv {
 									found = true
-									val[x+1] = nv
+									valcpy[x+1] = nv
 								}
 							} else if awsKeyPattern.MatchString(v) {
 								found = true
-								val[x+1] = mask(v)
+								valcpy[x+1] = mask(v)
 							} else if awsKeyPattern.MatchString(k) {
-								val[x] = mask(k)
+								valcpy[x] = mask(k)
 							}
 						}
 						if found {
-							newvals[i+1] = pjson.Stringify(val)
+							newvals[i+1] = pjson.Stringify(valcpy)
 						}
 					}
 				}
