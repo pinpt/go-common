@@ -33,11 +33,11 @@ func hashValues(objects ...interface{}) string {
 			}
 		case bool:
 			if s {
-				io.WriteString(h, "1")
+				io.WriteString(h, "true")
 			} else {
-				io.WriteString(h, "0")
+				io.WriteString(h, "false")
 			}
-		case int, int32, int64:
+		case int, int8, int16, int32, int64:
 			fmt.Fprintf(h, "%d", s)
 		case float32:
 			// truncate without decimals if a float like 123.00
@@ -60,6 +60,18 @@ func hashValues(objects ...interface{}) string {
 				io.WriteString(h, *s)
 			}
 		case *int:
+			if s == nil {
+				io.WriteString(h, "")
+			} else {
+				fmt.Fprintf(h, "%d", *s)
+			}
+		case *int8:
+			if s == nil {
+				io.WriteString(h, "")
+			} else {
+				fmt.Fprintf(h, "%d", *s)
+			}
+		case *int16:
 			if s == nil {
 				io.WriteString(h, "")
 			} else {
@@ -109,14 +121,16 @@ func hashValues(objects ...interface{}) string {
 			if s == nil {
 				io.WriteString(h, "")
 			} else {
-				switch reflect.TypeOf(s).Kind() {
+				t := reflect.TypeOf(s)
+				k := t.Kind()
+				if k == reflect.Ptr {
+					s = reflect.ValueOf(s).Interface()
+					k = reflect.Interface
+				}
+				switch k {
 				case reflect.Struct, reflect.Slice, reflect.Interface:
 					buf, _ := json.Marshal(s)
 					h.Write(buf)
-				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-					fmt.Fprintf(h, "%d", s)
-				case reflect.Float32, reflect.Float64:
-					fmt.Fprintf(h, "%f", s)
 				default:
 					// fmt.Println(reflect.TypeOf(s), reflect.TypeOf(s).Kind(), fmt.Sprintf("%v", s))
 					fmt.Fprintf(h, "%v", s)
