@@ -1,6 +1,7 @@
 package hash
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ func TestHashNil(t *testing.T) {
 		Values(nil)
 	}
 	assert.NotPanics(hashFunc)
+	assert.Equal("ef46db3751d8e999", Values(nil, nil, nil))
 }
 
 func TestHashInts(t *testing.T) {
@@ -73,6 +75,8 @@ func TestHashString(t *testing.T) {
 	assert.Equal("ef46db3751d8e999", Values(s))
 	assert.Equal("ef46db3751d8e999", Values(nil))
 	assert.Equal("ef46db3751d8e999", Values(""))
+	assert.Equal("ef46db3751d8e999", Values((*string)(nil)))
+	assert.Equal("2c5e0532cab8422c", Values(strings.Repeat("*", 64)))
 }
 
 func TestHashBool(t *testing.T) {

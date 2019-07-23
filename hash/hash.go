@@ -22,6 +22,10 @@ func hashValues(objects ...interface{}) string {
 	//This is a type switch, pointers have to be handled differently unfortunately
 	//Note: It appears fmt.Fprintf is second fastest to io.WriteString.
 	for _, o := range objects {
+		if o == nil {
+			io.WriteString(h, "")
+			continue
+		}
 		switch s := o.(type) {
 		case string:
 			io.WriteString(h, s)
@@ -118,23 +122,19 @@ func hashValues(objects ...interface{}) string {
 				fmt.Fprintf(h, "%v", *s)
 			}
 		default:
-			if s == nil {
-				io.WriteString(h, "")
-			} else {
-				t := reflect.TypeOf(s)
-				k := t.Kind()
-				if k == reflect.Ptr {
-					s = reflect.ValueOf(s).Interface()
-					k = reflect.Interface
-				}
-				switch k {
-				case reflect.Struct, reflect.Slice, reflect.Interface:
-					buf, _ := json.Marshal(s)
-					h.Write(buf)
-				default:
-					// fmt.Println(reflect.TypeOf(s), reflect.TypeOf(s).Kind(), fmt.Sprintf("%v", s))
-					fmt.Fprintf(h, "%v", s)
-				}
+			t := reflect.TypeOf(s)
+			k := t.Kind()
+			if k == reflect.Ptr {
+				s = reflect.ValueOf(s).Interface()
+				k = reflect.Interface
+			}
+			switch k {
+			case reflect.Struct, reflect.Slice, reflect.Interface:
+				buf, _ := json.Marshal(s)
+				h.Write(buf)
+			default:
+				// fmt.Println(reflect.TypeOf(s), reflect.TypeOf(s).Kind(), fmt.Sprintf("%v", s))
+				fmt.Fprintf(h, "%v", s)
 			}
 		}
 	}
