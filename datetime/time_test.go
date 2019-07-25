@@ -228,4 +228,7 @@ func TestDateObject(t *testing.T) {
 	dt3 := DateFromEpoch(date3.Epoch)
 	assert.WithinDuration(dt3, time.Now(), time.Second)
 	assert.Equal(int64(0), date3.Offset) // make sure ISO returns GMT timezone
+	dt4, err := NewDateWithTime(dt)
+	assert.NoError(err)
+	assert.Equal(date1.Epoch, dt4.Epoch)
 }

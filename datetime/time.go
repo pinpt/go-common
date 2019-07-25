@@ -351,3 +351,13 @@ func NewDate(val string) (*Date, error) {
 		Offset:  int64(timezone),
 	}, nil
 }
+
+// NewDateWithTime returns a new Date object from a time.Time value
+func NewDateWithTime(tv time.Time) (*Date, error) {
+	_, timezone := tv.Zone()
+	return &Date{
+		Epoch:   TimeToEpoch(tv),
+		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Offset:  int64(timezone),
+	}, nil
+}
