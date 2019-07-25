@@ -113,10 +113,12 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if e.TopicPartition.Topic != nil {
 						topic = *e.TopicPartition.Topic
 					}
+					buf := make([]byte, len(e.Value))
+					copy(buf, e.Value)
 					if err := callback.DataReceived(eventing.Message{
 						Encoding:  eventing.AvroEncoding,
 						Key:       string(e.Key),
-						Value:     e.Value,
+						Value:     buf,
 						Headers:   headers,
 						Timestamp: e.Timestamp,
 						Topic:     topic,
