@@ -118,7 +118,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if err := callback.DataReceived(eventing.Message{
 						Encoding:  eventing.AvroEncoding,
 						Key:       string(e.Key),
-						Value:     e.Value,
+						Value:     buf,
 						Headers:   headers,
 						Timestamp: e.Timestamp,
 						Topic:     topic,
