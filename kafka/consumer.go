@@ -187,3 +187,20 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	}
 	return c, nil
 }
+
+// NewPingConsumer returns a new Consumer instance that supports only pings
+func NewPingConsumer(config Config) (*Consumer, error) {
+	cfg := NewConfigMap(config)
+	cfg.SetKey("group.id", "kafka.ping.consumer")
+	cfg.SetKey("go.events.channel.enable", false)
+	consumer, err := ck.NewConsumer(cfg)
+	if err != nil {
+		return nil, err
+	}
+	c := &Consumer{
+		config:   config,
+		consumer: consumer,
+		done:     make(chan struct{}, 1),
+	}
+	return c, nil
+}
