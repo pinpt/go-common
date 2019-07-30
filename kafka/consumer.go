@@ -115,8 +115,14 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					}
 					buf := make([]byte, len(e.Value))
 					copy(buf, e.Value)
+					var encoding eventing.ValueEncodingType
+					if buf[0] == '{' && buf[len(buf)-1] == '}' {
+						encoding = eventing.JSONEncoding
+					} else {
+						encoding = eventing.AvroEncoding
+					}
 					if err := callback.DataReceived(eventing.Message{
-						Encoding:  eventing.AvroEncoding,
+						Encoding:  encoding,
 						Key:       string(e.Key),
 						Value:     buf,
 						Headers:   headers,
