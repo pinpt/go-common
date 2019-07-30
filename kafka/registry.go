@@ -3,6 +3,7 @@ package kafka
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ const (
 type RegistryClient interface {
 	CreateSubject(string, *goavro.Codec) (int, error)
 	IsSchemaRegistered(string, *goavro.Codec) bool
+	Ping() bool
 }
 
 // RegistryConfig is the config for connecting to the registry server
@@ -115,6 +117,26 @@ func (c *HTTPRegistryClient) IsSchemaRegistered(subject string, codec *goavro.Co
 		return true
 	}
 	return false
+}
+
+func (c *HTTPRegistryClient) Ping() bool {
+	u, err := url.Parse(c.config.URL)
+	if err != nil {
+		return false
+	}
+	u.Path = "/config"
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return false
+	}
+	c.setHeaders(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	io.Copy(ioutil.Discard, resp.Body)
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 // NewRegistryClient will create a registry client

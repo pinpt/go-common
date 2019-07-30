@@ -172,3 +172,31 @@ func TestSendReceiveCallbackStats(t *testing.T) {
 	}))
 	<-done
 }
+
+func TestConsumerPing(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	consumer, err := NewConsumer(config, "testgroup3", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	assert.True(consumer.Ping())
+}
+
+func TestPing(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := RegistryConfig{
+		URL: "http://localhost:8081",
+	}
+	c := NewRegistryClient(config)
+	assert.True(c.Ping())
+}

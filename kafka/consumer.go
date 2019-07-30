@@ -52,6 +52,13 @@ func (c *Consumer) Close() error {
 	return err
 }
 
+// Ping will cause a ping against the broker by way of fetching metadata from the _schemas topic
+func (c *Consumer) Ping() bool {
+	topic := "_schemas"
+	md, err := c.consumer.GetMetadata(&topic, false, 2000)
+	return err == nil && len(md.Topics) == 1
+}
+
 // Consume will start consuming from the consumer using the callback
 func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 	go func() {
