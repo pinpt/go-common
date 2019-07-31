@@ -4,7 +4,7 @@ import "github.com/linkedin/goavro"
 
 func ToGolangObjectNil(isavro bool, isoptional bool) (interface{}, bool) {
 	if isavro && isoptional {
-		return goavro.Union("null", nil), true
+		return map[string]interface{}{"null": nil}, true
 	}
 	return nil, true
 }
