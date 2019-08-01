@@ -38,13 +38,16 @@ type payload struct {
 }
 
 // Publish will publish an event to the event api server
-func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string) (err error) {
+func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, debug ...bool) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
 	payload := payload{
 		Type:    "json",
 		Model:   event.Object.GetModelName(),
 		Headers: event.Headers,
 		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
+	}
+	if len(debug) > 0 {
+		fmt.Println(pjson.Stringify(payload))
 	}
 	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
 	req.Header.Set("Content-Type", jsonContentType)
@@ -81,6 +84,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		return err
 	}
 	respStr := string(bts)
+	if len(debug) > 0 {
+		fmt.Println(respStr)
+	}
 	if respStr != "OK" {
 		var rerr struct {
 			Message string
