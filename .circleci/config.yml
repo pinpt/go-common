@@ -57,11 +57,13 @@ jobs:
             if [ $? -eq 0 ];
             then
               echo "Some test cases failed"
+              pinpoint build finish --status fail --dry-run
               exit 1
             else
               echo "All tests passed"
               set -e
               go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
+              pinpoint build finish --status pass --dry-run
               exit 0
             fi
 
@@ -76,5 +78,3 @@ jobs:
 
       - store_test_results:
           path: /tmp/test-results
-
-      - run: pinpoint build finish --dry-run
