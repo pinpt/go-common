@@ -38,9 +38,11 @@ func CanSubscribeEventAPI(auth EventAPIAuthorization, customerID string, headers
 		switch auth {
 		case EventAPIAuthorizationAPIKey:
 			// if using an apikey, you can susbcribe as long as it matches the customer id on the header
-			if customerID == event.Message().Headers["customer_id"] {
-				return true
+			// or if the header doesn't have a customer_id (a public message)
+			if cid, ok := event.Message().Headers["customer_id"]; cid != "" {
+				return !ok || cid == customerID
 			}
+			return true
 		case EventAPIAuthorizationNone:
 			cfg := c.GetEventAPIConfig()
 			// if public, make sure that you can only subscribe if the event api config is marked as public
