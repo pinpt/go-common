@@ -62,7 +62,7 @@ jobs:
               echo "All tests passed"
               set -e
               go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
-              pinpoint build finish --status pass
+              pinpoint build finish --status pass --debug
               exit 0
             fi
 
