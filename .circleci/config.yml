@@ -17,7 +17,7 @@ jobs:
 
       - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
       - run: echo $PATH
-      - run: ls -la /usr/local/bin/pinpoint
+      - run: ls -la /usr/local/bin
       - run: ls -la ~/.pinpoint
       - run: /usr/local/bin/pinpoint build start
 
