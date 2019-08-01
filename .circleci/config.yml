@@ -82,5 +82,5 @@ workflows:
   version: 2
   my-workflow:
     jobs:
-      - run-tests:
+      - build:
           context: org-global
