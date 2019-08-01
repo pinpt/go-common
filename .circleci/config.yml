@@ -18,6 +18,7 @@ jobs:
       - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
       - run: echo 'export PATH=$HOME/.pinpoint:$PATH' >> $BASH_ENV
       - run: pinpoint build start
+      - run: env
 
       - restore_cache:
           keys:
