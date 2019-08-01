@@ -56,7 +56,7 @@ jobs:
             if [ $? -eq 0 ];
             then
               echo "Some test cases failed"
-              pinpoint build finish --status fail
+              pinpoint build finish --status fail --debug
               exit 1
             else
               echo "All tests passed"
