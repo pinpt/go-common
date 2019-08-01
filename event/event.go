@@ -48,6 +48,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	}
 	if len(debug) > 0 {
 		fmt.Println(pjson.Stringify(payload))
+		fmt.Println(url)
 	}
 	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
 	req.Header.Set("Content-Type", jsonContentType)
@@ -85,6 +86,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	}
 	respStr := string(bts)
 	if len(debug) > 0 {
+		for k, v := range resp.Header {
+			fmt.Println(k, "=>", v[0])
+		}
 		fmt.Println(respStr)
 	}
 	if respStr != "OK" {
