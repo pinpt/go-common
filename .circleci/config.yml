@@ -9,11 +9,14 @@ jobs:
 
     environment:
       TEST_RESULTS: /tmp/test-results
-      kafkaversion: v1.0.1
+      kafkaversion: v1.1.0
 
     steps:
       - checkout
       - run: mkdir -p $TEST_RESULTS
+
+      - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
+      - run: pinpoint build start
 
       - restore_cache:
           keys:
@@ -71,3 +74,5 @@ jobs:
 
       - store_test_results:
           path: /tmp/test-results
+
+      - run: pinpoint build finish --dry-run
