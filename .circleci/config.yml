@@ -10,13 +10,13 @@ jobs:
     environment:
       TEST_RESULTS: /tmp/test-results
       kafkaversion: v1.1.0
-      PATH: ~/.pinpoint:$PATH
 
     steps:
       - checkout
       - run: mkdir -p $TEST_RESULTS
 
       - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
+      - run: echo 'export PATH=$HOME/.pinpoint:$PATH' >> $BASH_ENV
       - run: echo $PATH
       - run: pinpoint build start
 
