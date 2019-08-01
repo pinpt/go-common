@@ -17,7 +17,6 @@ jobs:
 
       - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
       - run: echo 'export PATH=$HOME/.pinpoint:$PATH' >> $BASH_ENV
-      - run: echo $PATH
       - run: pinpoint build start
 
       - restore_cache:
@@ -39,7 +38,7 @@ jobs:
               ./configure --prefix /
               make && sudo make install
               mkdir -p /go/pkg
-              cp /lib/librdkafka.so* /go/pkg
+              cp -R /lib/librdkafka.so* /go/pkg
             else
               echo "already installed"
             fi
@@ -57,13 +56,13 @@ jobs:
             if [ $? -eq 0 ];
             then
               echo "Some test cases failed"
-              pinpoint build finish --status fail --dry-run
+              pinpoint build finish --status fail
               exit 1
             else
               echo "All tests passed"
               set -e
               go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
-              pinpoint build finish --status pass --dry-run
+              pinpoint build finish --status pass
               exit 0
             fi
 
