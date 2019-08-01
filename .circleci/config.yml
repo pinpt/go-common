@@ -16,7 +16,7 @@ jobs:
       - run: mkdir -p $TEST_RESULTS
 
       - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
-      - run: pinpoint build start
+      - run: /usr/loca/bin/pinpoint build start
 
       - restore_cache:
           keys:
@@ -75,4 +75,4 @@ jobs:
       - store_test_results:
           path: /tmp/test-results
 
-      - run: pinpoint build finish --dry-run
+      - run: /usr/local/bin/pinpoint build finish --dry-run
