@@ -20,6 +20,8 @@ type TopicConfig struct {
 type AdminClient interface {
 	// NewTopic will create a new topic
 	NewTopic(name string, config TopicConfig) error
+	// DeleteTopic will delete a topic
+	DeleteTopic(name string, config TopicConfig) error
 }
 
 type AdminClientImpl struct {
@@ -56,6 +58,18 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 		},
 	})
 	return err
+}
+
+// DeleteTopic will delete a topic
+func (c *AdminClientImpl) DeleteTopic(name string, config TopicConfig) error {
+	res, err := c.client.DeleteTopics(context.Background(), []string{name})
+	if err != nil {
+		return err
+	}
+	if res[0].Error.IsFatal() {
+		return res[0].Error
+	}
+	return nil
 }
 
 // NewAdminClientUsingProducer will create a new AdminClient from a Producer

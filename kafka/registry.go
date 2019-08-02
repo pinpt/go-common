@@ -28,6 +28,7 @@ const (
 // RegistryClient is an interface to the registry
 type RegistryClient interface {
 	CreateSubject(string, *goavro.Codec) (int, error)
+	DeleteSubject(string) error
 	IsSchemaRegistered(string, *goavro.Codec) bool
 	Ping() bool
 }
@@ -109,6 +110,29 @@ func (c *HTTPRegistryClient) CreateSubject(subject string, codec *goavro.Codec) 
 	c.cache[subject] = r.ID
 	c.mu.Unlock()
 	return r.ID, nil
+}
+
+func (c *HTTPRegistryClient) DeleteSubject(subject string) error {
+	c.mu.Lock()
+	delete(c.cache, subject)
+	c.mu.Unlock()
+	u, err := url.Parse(c.config.URL)
+	if err != nil {
+		return err
+	}
+	u.Path = "/subjects/" + subject
+	req, err := http.NewRequest(http.MethodDelete, u.String(), nil)
+	if err != nil {
+		return err
+	}
+	c.setHeaders(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	return nil
 }
 
 func (c *HTTPRegistryClient) IsSchemaRegistered(subject string, codec *goavro.Codec) bool {
