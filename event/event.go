@@ -46,7 +46,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		Headers: event.Headers,
 		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
 	}
-	if len(debug) > 0 {
+	if len(debug) > 0 && debug[0] {
 		fmt.Println(pjson.Stringify(payload))
 		fmt.Println(url)
 	}
@@ -85,7 +85,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		return err
 	}
 	respStr := string(bts)
-	if len(debug) > 0 {
+	if len(debug) > 0 && debug[0] {
 		for k, v := range resp.Header {
 			fmt.Println(k, "=>", v[0])
 		}
