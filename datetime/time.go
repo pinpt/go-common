@@ -334,7 +334,7 @@ func NewDateNow() Date {
 	return Date{
 		Epoch:   epoch,
 		Rfc3339: val,
-		Offset:  int64(timezone),
+		Offset:  int64(timezone) / 60,
 	}
 }
 
@@ -348,7 +348,7 @@ func NewDate(val string) (*Date, error) {
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
 		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
-		Offset:  int64(timezone),
+		Offset:  int64(timezone) / 60,
 	}, nil
 }
 
@@ -358,6 +358,6 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
 		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
-		Offset:  int64(timezone),
+		Offset:  int64(timezone) / 60,
 	}, nil
 }
