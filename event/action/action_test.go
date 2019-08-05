@@ -830,15 +830,15 @@ func GetTrackAvroSchema() (*goavro.Codec, error) {
 
 type testAction struct {
 	wg       sync.WaitGroup
-	received datamodel.Model
-	response datamodel.Model
+	received datamodel.ModelReceiveEvent
+	response datamodel.ModelSendEvent
 	err      error
 	mu       sync.Mutex
 }
 
 var _ Action = (*testAction)(nil)
 
-func (a *testAction) Execute(instance datamodel.Model) (datamodel.Model, error) {
+func (a *testAction) Execute(instance datamodel.ModelReceiveEvent) (datamodel.ModelSendEvent, error) {
 	defer a.wg.Done()
 	a.mu.Lock()
 	a.received = instance
@@ -888,7 +888,7 @@ func TestAction(t *testing.T) {
 	default:
 	}
 	assert.NotNil(action.received)
-	if m, ok := action.received.(*Track); ok {
+	if m, ok := action.received.Object().(*Track); ok {
 		assert.Equal("hey", m.Action)
 		assert.Equal("agent", m.Event)
 		assert.Equal(ts, m.DateAt)
@@ -904,11 +904,11 @@ func TestActionWithResponse(t *testing.T) {
 	}
 	assert := assert.New(t)
 	action1 := &testAction{
-		response: &Track{
+		response: datamodel.NewModelSendEvent(&Track{
 			ID:     "456",
 			Action: "response",
 			Event:  "response",
-		},
+		}),
 	}
 	action2 := &testAction{}
 	action1.wg.Add(1)
@@ -966,14 +966,14 @@ func TestActionWithResponse(t *testing.T) {
 	defer action1.mu.Unlock()
 	defer action2.mu.Unlock()
 	assert.NotNil(action1.received)
-	if m, ok := action1.received.(*Track); ok {
+	if m, ok := action1.received.Object().(*Track); ok {
 		assert.Equal("hey", m.Action)
 		assert.Equal("agent", m.Event)
 		assert.Equal(ts, m.DateAt)
 	} else {
 		assert.FailNow("should have received *testAction")
 	}
-	if m, ok := action2.received.(*Track); ok {
+	if m, ok := action2.received.Object().(*Track); ok {
 		assert.Equal("response", m.Action)
 		assert.Equal("response", m.Event)
 	} else {
@@ -989,7 +989,7 @@ func TestActionFunc(t *testing.T) {
 	assert := assert.New(t)
 	var wg sync.WaitGroup
 	wg.Add(1)
-	action := NewAction(func(instance datamodel.Model) (datamodel.Model, error) {
+	action := NewAction(func(instance datamodel.ModelReceiveEvent) (datamodel.ModelSendEvent, error) {
 		defer wg.Done()
 		return nil, nil
 	})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/event"
+	"github.com/pinpt/go-common/eventing"
 )
 
 // ModelFactory creates new instances of models
@@ -37,16 +38,16 @@ type Config struct {
 // Action defines a specific action interface for running an action in response to an event
 type Action interface {
 	// Execute to invoke when a message is received. Return nil to not send a response or return an instance to send in response
-	Execute(instance datamodel.Model) (datamodel.Model, error)
+	Execute(event datamodel.ModelReceiveEvent) (datamodel.ModelSendEvent, error)
 }
 
-type ActionFunc func(instance datamodel.Model) (datamodel.Model, error)
+type ActionFunc func(instance datamodel.ModelReceiveEvent) (datamodel.ModelSendEvent, error)
 
 type action struct {
 	callback ActionFunc
 }
 
-func (a *action) Execute(instance datamodel.Model) (datamodel.Model, error) {
+func (a *action) Execute(instance datamodel.ModelReceiveEvent) (datamodel.ModelSendEvent, error) {
 	return a.callback(instance)
 }
 
@@ -95,14 +96,27 @@ func (s *ActionSubscription) run() {
 			return
 		}
 		// run the action
-		result, err := s.action.Execute(instance)
+		msg := eventing.Message{
+			Encoding:  eventing.ValueEncodingType(e.Type),
+			Codec:     instance.GetAvroCodec(),
+			Key:       e.Key,
+			Value:     []byte(e.Data),
+			Headers:   e.Headers,
+			Timestamp: e.Timestamp,
+			Topic:     instance.GetTopicName().String(),
+		}
+		result, err := s.action.Execute(datamodel.NewModelReceiveEvent(msg, instance))
 		if err != nil {
 			s.config.Errors <- fmt.Errorf("error running action for %v: %v", e.Model, err)
 			return
 		}
 		// if we have a result, publish the result
 		if result != nil {
-			if err := event.Publish(s.ctx, event.PublishEvent{Object: result, Headers: s.config.Headers}, s.config.Channel, s.config.APIKey); err != nil {
+			headers := result.Headers()
+			if headers == nil {
+				headers = s.config.Headers
+			}
+			if err := event.Publish(s.ctx, event.PublishEvent{Object: result.Object(), Headers: headers}, s.config.Channel, s.config.APIKey); err != nil {
 				s.config.Errors <- fmt.Errorf("error sending response for action %v: %v", e.Model, err)
 				return
 			}
