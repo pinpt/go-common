@@ -2,6 +2,7 @@ package event
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -229,7 +230,7 @@ func (c *SubscriptionChannel) run() {
 				if err == context.Canceled || err == io.EOF {
 					return
 				}
-				if buf != nil && len(buf) > 0 {
+				if buf != nil && len(bytes.TrimSpace(buf)) > 0 {
 					var payload SubscriptionEvent
 					if err := json.Unmarshal(buf, &payload); err != nil {
 						if c.subscription.Errors != nil {
