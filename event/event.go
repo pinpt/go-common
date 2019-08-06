@@ -187,15 +187,20 @@ func (c *SubscriptionChannel) run() {
 				return
 			}
 		} else {
-			client, err := api.NewHTTPAPIClientDefault()
+			resp, err = http.DefaultClient.Do(req) // use the default client so we can reasonable defaults and no retry
 			if err != nil {
-				if c.subscription.Errors != nil {
-					c.subscription.Errors <- err
+				// if shutdown/closed, go ahead and return
+				c.mu.Lock()
+				select {
+				case <-c.ctx.Done():
+					c.mu.Unlock()
+					return
+				case <-c.done:
+					c.mu.Unlock()
+					return
+				default:
 				}
-				return
-			}
-			resp, err = client.Do(req)
-			if err != nil {
+				c.mu.Unlock()
 				if c.subscription.Errors != nil {
 					c.subscription.Errors <- err
 				}
@@ -208,8 +213,12 @@ func (c *SubscriptionChannel) run() {
 				var rerr struct {
 					Error string `json:"message"`
 				}
-				json.NewDecoder(resp.Body).Decode(&rerr)
-				c.subscription.Errors <- fmt.Errorf("error creating subscription: %v", rerr.Error)
+				buf, _ := ioutil.ReadAll(resp.Body)
+				if err := json.Unmarshal(buf, &rerr); err != nil {
+					c.subscription.Errors <- fmt.Errorf("error creating subscription: %v (status code=%d)", rerr.Error, resp.StatusCode)
+				} else {
+					c.subscription.Errors <- fmt.Errorf("error creating subscription: %v (status code=%d)", string(buf), resp.StatusCode)
+				}
 			}
 			resp.Body.Close()
 			return
