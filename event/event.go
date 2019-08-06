@@ -145,8 +145,11 @@ func (c *SubscriptionChannel) Close() error {
 	return nil
 }
 
+var MaxErrorCount = 10
+
 func (c *SubscriptionChannel) run() {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, c.subscription.Channel), "consume")
+	var errors int
 	for {
 		// check to see if we're done
 		select {
@@ -207,6 +210,17 @@ func (c *SubscriptionChannel) run() {
 				return
 			}
 		}
+		if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway {
+			errors++
+			// fmt.Println("got an error, will retry", resp.StatusCode, errors)
+			if errors <= MaxErrorCount {
+				// expotential backoff
+				time.Sleep((time.Millisecond * 250) * time.Duration(errors))
+				continue
+			}
+			c.subscription.Errors <- fmt.Errorf("error creating subscription. the server appears to be down after %v attempts", errors)
+			return
+		}
 		// check the status code and if not OK, return the error
 		if resp.StatusCode != http.StatusOK {
 			if c.subscription.Errors != nil {
@@ -223,6 +237,7 @@ func (c *SubscriptionChannel) run() {
 			resp.Body.Close()
 			return
 		}
+		errors = 0
 		finished := make(chan bool)
 		// start a go routine to read the response since it will block for a period of idle time reading one
 		// event at a time as we receive it
@@ -247,6 +262,7 @@ func (c *SubscriptionChannel) run() {
 						}
 						return
 					}
+					// fmt.Println(">>> received event", payload)
 					// check once more that we're not cancelled
 					c.mu.Lock()
 					select {
@@ -255,6 +271,7 @@ func (c *SubscriptionChannel) run() {
 						return
 					default:
 						c.ch <- payload
+						// fmt.Println("<<< sent event", payload)
 						c.mu.Unlock()
 					}
 				} else {
