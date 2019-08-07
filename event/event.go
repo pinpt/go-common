@@ -179,6 +179,7 @@ func (c *SubscriptionChannel) run() {
 		req.Header.Set("Cache-Control", "no-cache")
 		req.Header.Set("Accept", "application/x-ndjson")
 		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Accept-Encoding", "base64")
 		var resp *http.Response
 		if strings.Contains(u, "ppoint.io") {
 			client := &http.Client{
@@ -277,19 +278,34 @@ func (c *SubscriptionChannel) run() {
 				resp.Body.Close()
 				wg.Done()
 			}()
+			doBase64 := resp.Header.Get("Encoding") == "base64"
 			scanner := bufio.NewScanner(resp.Body)
 			scanner.Split(bufio.ScanLines)
 			for scanner.Scan() {
 				if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
+					txt := scanner.Text()
+					if doBase64 {
+						b, err := base64.StdEncoding.DecodeString(txt)
+						if err != nil {
+							if c.subscription.Errors != nil {
+								c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data (Base64): %v (%v)", err, txt)
+							} else {
+								panic(err)
+							}
+							return
+						}
+						txt = string(b)
+					}
 					var payload SubscriptionEvent
-					if err := json.Unmarshal(scanner.Bytes(), &payload); err != nil {
+					if err := json.Unmarshal([]byte(txt), &payload); err != nil {
 						if c.subscription.Errors != nil {
-							c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data: %v", err)
+							c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data: %v (%v)", err, txt)
 						} else {
 							panic(err)
 						}
+						return
 					}
-					log.Debug(c.subscription.Logger, "received event", "event", payload)
+					log.Debug(c.subscription.Logger, "received event", "payload", payload)
 					c.mu.Lock()
 					c.ch <- payload
 					c.mu.Unlock()
