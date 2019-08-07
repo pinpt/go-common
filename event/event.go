@@ -174,10 +174,11 @@ func (c *SubscriptionChannel) run() {
 			return
 		}
 		req = req.WithContext(c.ctx)
-		req.Header.Set("Content-Type", jsonContentType)
-		req.Header.Set("Accept", jsonContentType)
 		api.SetUserAgent(req)
 		api.SetAuthorization(req, c.subscription.APIKey)
+		req.Header.Set("Cache-Control", "no-cache")
+		req.Header.Set("Accept", "application/x-ndjson")
+		req.Header.Set("Connection", "keep-alive")
 		var resp *http.Response
 		if strings.Contains(u, "ppoint.io") {
 			client := &http.Client{
@@ -277,6 +278,7 @@ func (c *SubscriptionChannel) run() {
 				wg.Done()
 			}()
 			scanner := bufio.NewScanner(resp.Body)
+			scanner.Split(bufio.ScanLines)
 			for scanner.Scan() {
 				if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
 					var payload SubscriptionEvent
