@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/go-common/datamodel"
 	pjson "github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/log"
 	pstrings "github.com/pinpt/go-common/strings"
 )
 
@@ -28,6 +28,7 @@ const jsonContentType = "application/json"
 type PublishEvent struct {
 	Object  datamodel.Model
 	Headers map[string]string
+	Logger  log.Logger `json:"-"`
 }
 
 // EventPayload is the container for a model event
@@ -79,6 +80,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if err != nil {
 			return err
 		}
+	}
+	if event.Logger != nil {
+		log.Debug(event.Logger, "sent event", "payload", payload, "event", event)
 	}
 	defer resp.Body.Close()
 	bts, err := ioutil.ReadAll(resp.Body)
@@ -163,6 +167,8 @@ func (c *SubscriptionChannel) run() {
 		if err != nil {
 			if c.subscription.Errors != nil {
 				c.subscription.Errors <- err
+			} else {
+				panic(err)
 			}
 			return
 		}
@@ -186,6 +192,8 @@ func (c *SubscriptionChannel) run() {
 			if err != nil {
 				if c.subscription.Errors != nil {
 					c.subscription.Errors <- err
+				} else {
+					panic(err)
 				}
 				return
 			}
@@ -206,10 +214,13 @@ func (c *SubscriptionChannel) run() {
 				c.mu.Unlock()
 				if c.subscription.Errors != nil {
 					c.subscription.Errors <- err
+				} else {
+					panic(err)
 				}
 				return
 			}
 		}
+		log.Debug(c.subscription.Logger, "created a subscription", "status", resp.StatusCode, "subscription", c.subscription)
 		if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway {
 			errors++
 			// fmt.Println("got an error, will retry", resp.StatusCode, errors)
@@ -233,64 +244,51 @@ func (c *SubscriptionChannel) run() {
 				} else {
 					c.subscription.Errors <- fmt.Errorf("error creating subscription: %v (status code=%d)", string(buf), resp.StatusCode)
 				}
+			} else {
+				buf, _ := ioutil.ReadAll(resp.Body)
+				panic("error receiving response: " + string(buf))
 			}
 			resp.Body.Close()
 			return
 		}
 		errors = 0
-		finished := make(chan bool)
+		var wg sync.WaitGroup
+		wg.Add(1)
 		// start a go routine to read the response since it will block for a period of idle time reading one
 		// event at a time as we receive it
 		go func() {
 			defer func() {
 				resp.Body.Close()
-				finished <- true
-				close(finished)
+				wg.Done()
 			}()
-			r := bufio.NewReader(resp.Body)
-			for {
-				// read one line at a time as we receive it
-				buf, err := r.ReadBytes('\n')
-				if err == context.Canceled || err == io.EOF {
-					return
-				}
-				if buf != nil && len(bytes.TrimSpace(buf)) > 0 {
+			scanner := bufio.NewScanner(resp.Body)
+			for scanner.Scan() {
+				if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
 					var payload SubscriptionEvent
-					if err := json.Unmarshal(buf, &payload); err != nil {
+					if err := json.Unmarshal(scanner.Bytes(), &payload); err != nil {
 						if c.subscription.Errors != nil {
 							c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data: %v", err)
+						} else {
+							panic(err)
 						}
-						return
 					}
-					// fmt.Println(">>> received event", payload)
-					// check once more that we're not cancelled
+					log.Debug(c.subscription.Logger, "received event", "event", payload)
 					c.mu.Lock()
-					select {
-					case <-c.done:
-						c.mu.Unlock()
-						return
-					default:
-						c.ch <- payload
-						// fmt.Println("<<< sent event", payload)
-						c.mu.Unlock()
-					}
-				} else {
-					select {
-					case <-c.done:
-						return
-					default:
+					c.ch <- payload
+					c.mu.Unlock()
+				}
+			}
+			if scanner.Err() != nil {
+				if scanner.Err() != context.Canceled {
+					if c.subscription.Errors != nil {
+						c.subscription.Errors <- scanner.Err()
+					} else {
+						panic(err)
 					}
 				}
 			}
 		}()
-		// block until either we're closed or we finish the stream
-		// and then loop and do it again
-		select {
-		case <-c.done:
-			return
-		case <-finished:
-			continue
-		}
+		wg.Wait()
 	}
 }
 
@@ -306,12 +304,16 @@ type Subscription struct {
 	APIKey       string            `json:"-"`
 	BufferSize   int               `json:"-"`
 	Errors       chan<- error      `json:"-"`
+	Logger       log.Logger        `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
 // and send them back to the return channel. once you're done, you must call Close on the channel to stop
 // receiving events
 func NewSubscription(ctx context.Context, subscription Subscription) (*SubscriptionChannel, error) {
+	if subscription.Logger == nil {
+		subscription.Logger = log.NewNoOpTestLogger()
+	}
 	newctx, cancel := context.WithCancel(ctx)
 	subch := &SubscriptionChannel{
 		ctx:          newctx,
