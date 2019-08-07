@@ -1,8 +1,6 @@
 package event
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -16,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/go-common/datamodel"
 	pjson "github.com/pinpt/go-common/json"
@@ -150,90 +149,124 @@ func (c *SubscriptionChannel) Close() error {
 	return nil
 }
 
-var MaxErrorCount = 10
+var MaxErrorCount = 25
 
 func (c *SubscriptionChannel) run() {
-	u := pstrings.JoinURL(api.BackendURL(api.EventService, c.subscription.Channel), "consume")
+	origin := api.BackendURL(api.EventService, c.subscription.Channel)
+	if strings.HasSuffix(origin, "/") {
+		origin = origin[0 : len(origin)-1]
+	}
+	u := strings.ReplaceAll(pstrings.JoinURL(origin, "consume"), "https://", "wss://")
+	headers := make(http.Header)
+	headers.Set("Origin", origin)
+	headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
+
+	if strings.Contains(u, "ppoint.io") {
+		headers.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local
+		headers.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
+	}
+
 	var errors int
+
 	for {
-		// check to see if we're done
-		select {
-		case <-c.ctx.Done():
+		c.mu.Lock()
+		finished := c.closed
+		c.mu.Unlock()
+		if finished {
 			return
-		case <-c.done:
-			return
-		default:
 		}
-		req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(pjson.Stringify(c.subscription)))
+		wch, _, err := websocket.DefaultDialer.Dial(u, headers)
 		if err != nil {
+			var isRetryableError bool
+			if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF")) {
+				isRetryableError = true
+			} else if err != nil {
+				e := fmt.Errorf("error creating subscription. %v", err)
+				if c.subscription.Errors != nil {
+					c.subscription.Errors <- e
+				} else {
+					panic(e)
+				}
+				return
+			}
+			if isRetryableError {
+				errors++
+				// fmt.Println("got an error, will retry", resp.StatusCode, errors)
+				if errors <= MaxErrorCount {
+					// expotential backoff
+					time.Sleep((time.Millisecond * 250) * time.Duration(errors))
+					continue
+				}
+				e := fmt.Errorf("error creating subscription. the server appears to be down after %v attempts", errors)
+				if c.subscription.Errors != nil {
+					c.subscription.Errors <- e
+				} else {
+					panic(e)
+				}
+				return
+			}
+		}
+
+		// send the subscription first
+		if err := wch.WriteJSON(c.subscription); err != nil {
 			if c.subscription.Errors != nil {
 				c.subscription.Errors <- err
 			} else {
 				panic(err)
 			}
+			wch.Close()
 			return
 		}
-		req = req.WithContext(c.ctx)
-		api.SetUserAgent(req)
-		api.SetAuthorization(req, c.subscription.APIKey)
-		req.Header.Set("Cache-Control", "no-cache")
-		req.Header.Set("Accept", "application/x-ndjson")
-		req.Header.Set("Connection", "keep-alive")
-		req.Header.Set("Accept-Encoding", "base64")
-		var resp *http.Response
-		if strings.Contains(u, "ppoint.io") {
-			client := &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			}
-			req.Header.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local
-			req.Header.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
-			resp, err = client.Do(req)
-		} else {
-			resp, err = http.DefaultClient.Do(req) // use the default client so we can reasonable defaults and no retry
-			if err != nil {
-				// if shutdown/closed, go ahead and return
-				c.mu.Lock()
-				select {
-				case <-c.ctx.Done():
-					c.mu.Unlock()
-					return
-				case <-c.done:
-					c.mu.Unlock()
-					return
-				default:
+
+		errors = 0
+
+		// now we just read messages until we're EOF
+		var closed bool
+		var errored bool
+		for !closed {
+			var payload SubscriptionEvent
+			if err := wch.ReadJSON(&payload); err != nil {
+				if err == io.EOF || websocket.IsCloseError(err) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+					closed = true
+					errored = true
+					break
 				}
+				c.mu.Lock()
+				done := c.closed
 				c.mu.Unlock()
+				if done {
+					closed = true
+					break
+				}
 				if c.subscription.Errors != nil {
 					c.subscription.Errors <- err
 				} else {
 					panic(err)
 				}
+				wch.Close()
 				return
 			}
-		}
-		var isRetryableError bool
-		if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF")) {
-			isRetryableError = true
-		} else if err != nil {
-			e := fmt.Errorf("error creating subscription. %v", err)
-			if c.subscription.Errors != nil {
-				c.subscription.Errors <- e
-			} else {
-				panic(e)
+			log.Debug(c.subscription.Logger, "received event", "payload", payload)
+			c.mu.Lock()
+			if !c.closed {
+				c.ch <- payload
 			}
-			return
-		}
-		if resp != nil {
-			log.Debug(c.subscription.Logger, "created a subscription", "status", resp.StatusCode, "subscription", c.subscription)
-			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway {
-				isRetryableError = true
+			c.mu.Unlock()
+			// check to see if we're done
+			select {
+			case <-c.ctx.Done():
+				closed = true
+				break
+			case <-c.done:
+				closed = true
+				break
+			default:
 			}
 		}
-		if isRetryableError {
+		wch.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		wch.Close()
+
+		if errored {
 			errors++
 			// fmt.Println("got an error, will retry", resp.StatusCode, errors)
 			if errors <= MaxErrorCount {
@@ -247,81 +280,7 @@ func (c *SubscriptionChannel) run() {
 			} else {
 				panic(e)
 			}
-			return
 		}
-		// check the status code and if not OK, return the error
-		if resp.StatusCode != http.StatusOK {
-			if c.subscription.Errors != nil {
-				var rerr struct {
-					Error string `json:"message"`
-				}
-				buf, _ := ioutil.ReadAll(resp.Body)
-				if err := json.Unmarshal(buf, &rerr); err != nil {
-					c.subscription.Errors <- fmt.Errorf("error creating subscription: %v (status code=%d)", rerr.Error, resp.StatusCode)
-				} else {
-					c.subscription.Errors <- fmt.Errorf("error creating subscription: %v (status code=%d)", string(buf), resp.StatusCode)
-				}
-			} else {
-				buf, _ := ioutil.ReadAll(resp.Body)
-				panic("error receiving response: " + string(buf))
-			}
-			resp.Body.Close()
-			return
-		}
-		errors = 0
-		var wg sync.WaitGroup
-		wg.Add(1)
-		// start a go routine to read the response since it will block for a period of idle time reading one
-		// event at a time as we receive it
-		go func() {
-			defer func() {
-				resp.Body.Close()
-				wg.Done()
-			}()
-			doBase64 := resp.Header.Get("Encoding") == "base64"
-			scanner := bufio.NewScanner(resp.Body)
-			scanner.Split(bufio.ScanLines)
-			for scanner.Scan() {
-				if len(bytes.TrimSpace(scanner.Bytes())) > 0 {
-					txt := scanner.Text()
-					if doBase64 {
-						b, err := base64.StdEncoding.DecodeString(txt)
-						if err != nil {
-							if c.subscription.Errors != nil {
-								c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data (Base64): %v (%v)", err, txt)
-							} else {
-								panic(err)
-							}
-							return
-						}
-						txt = string(b)
-					}
-					var payload SubscriptionEvent
-					if err := json.Unmarshal([]byte(txt), &payload); err != nil {
-						if c.subscription.Errors != nil {
-							c.subscription.Errors <- fmt.Errorf("error decoding subscription payload data: %v (%v)", err, txt)
-						} else {
-							panic(err)
-						}
-						return
-					}
-					log.Debug(c.subscription.Logger, "received event", "payload", payload)
-					c.mu.Lock()
-					c.ch <- payload
-					c.mu.Unlock()
-				}
-			}
-			if scanner.Err() != nil {
-				if scanner.Err() != context.Canceled && scanner.Err() != io.ErrUnexpectedEOF {
-					if c.subscription.Errors != nil {
-						c.subscription.Errors <- fmt.Errorf("error receiving subscription data: %v", scanner.Err())
-					} else {
-						panic(err)
-					}
-				}
-			}
-		}()
-		wg.Wait()
 	}
 }
 

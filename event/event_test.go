@@ -1046,7 +1046,7 @@ func TestSendAndReceiveMultipleAsync(t *testing.T) {
 			count++
 		}
 	}()
-	iterations := 500
+	iterations := 100
 	for i := 0; i < iterations; i++ {
 		msg := fmt.Sprintf("%d", i)
 		echo := &Echo{
@@ -1100,7 +1100,7 @@ func TestSendAndReceiveMultipleAsyncWithBuffer(t *testing.T) {
 			count++
 		}
 	}()
-	iterations := 500
+	iterations := 100
 	for i := 0; i < iterations; i++ {
 		msg := fmt.Sprintf("%d", i)
 		echo := &Echo{
