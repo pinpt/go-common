@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -152,7 +153,7 @@ func (c *SubscriptionChannel) Close() error {
 var MaxErrorCount = 10
 
 func (c *SubscriptionChannel) run() {
-	url := pstrings.JoinURL(api.BackendURL(api.EventService, c.subscription.Channel), "consume")
+	u := pstrings.JoinURL(api.BackendURL(api.EventService, c.subscription.Channel), "consume")
 	var errors int
 	for {
 		// check to see if we're done
@@ -163,7 +164,7 @@ func (c *SubscriptionChannel) run() {
 			return
 		default:
 		}
-		req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(c.subscription)))
+		req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(pjson.Stringify(c.subscription)))
 		if err != nil {
 			if c.subscription.Errors != nil {
 				c.subscription.Errors <- err
@@ -178,7 +179,7 @@ func (c *SubscriptionChannel) run() {
 		api.SetUserAgent(req)
 		api.SetAuthorization(req, c.subscription.APIKey)
 		var resp *http.Response
-		if strings.Contains(url, "ppoint.io") {
+		if strings.Contains(u, "ppoint.io") {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
@@ -189,14 +190,6 @@ func (c *SubscriptionChannel) run() {
 			req.Header.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local
 			req.Header.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
 			resp, err = client.Do(req)
-			if err != nil {
-				if c.subscription.Errors != nil {
-					c.subscription.Errors <- err
-				} else {
-					panic(err)
-				}
-				return
-			}
 		} else {
 			resp, err = http.DefaultClient.Do(req) // use the default client so we can reasonable defaults and no retry
 			if err != nil {
@@ -220,8 +213,25 @@ func (c *SubscriptionChannel) run() {
 				return
 			}
 		}
-		log.Debug(c.subscription.Logger, "created a subscription", "status", resp.StatusCode, "subscription", c.subscription)
-		if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway {
+		var isRetryableError bool
+		if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF")) {
+			isRetryableError = true
+		} else if err != nil {
+			e := fmt.Errorf("error creating subscription. %v", err)
+			if c.subscription.Errors != nil {
+				c.subscription.Errors <- e
+			} else {
+				panic(e)
+			}
+			return
+		}
+		if resp != nil {
+			log.Debug(c.subscription.Logger, "created a subscription", "status", resp.StatusCode, "subscription", c.subscription)
+			if resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway {
+				isRetryableError = true
+			}
+		}
+		if isRetryableError {
 			errors++
 			// fmt.Println("got an error, will retry", resp.StatusCode, errors)
 			if errors <= MaxErrorCount {
@@ -229,7 +239,12 @@ func (c *SubscriptionChannel) run() {
 				time.Sleep((time.Millisecond * 250) * time.Duration(errors))
 				continue
 			}
-			c.subscription.Errors <- fmt.Errorf("error creating subscription. the server appears to be down after %v attempts", errors)
+			e := fmt.Errorf("error creating subscription. the server appears to be down after %v attempts", errors)
+			if c.subscription.Errors != nil {
+				c.subscription.Errors <- e
+			} else {
+				panic(e)
+			}
 			return
 		}
 		// check the status code and if not OK, return the error
@@ -279,9 +294,9 @@ func (c *SubscriptionChannel) run() {
 				}
 			}
 			if scanner.Err() != nil {
-				if scanner.Err() != context.Canceled {
+				if scanner.Err() != context.Canceled && scanner.Err() != io.ErrUnexpectedEOF {
 					if c.subscription.Errors != nil {
-						c.subscription.Errors <- scanner.Err()
+						c.subscription.Errors <- fmt.Errorf("error receiving subscription data: %v", scanner.Err())
 					} else {
 						panic(err)
 					}
