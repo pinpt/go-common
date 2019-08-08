@@ -63,6 +63,11 @@
 [[constraint]]
   name = "github.com/cespare/xxhash"
   version = "v2.0.0"
+
 [[constraint]]
   name = "github.com/gorilla/websocket"
   version = "1.4.0"
+
+[[constraint]]
+  name = "github.com/olivere/elastic"
+  version = "v6.2.22"

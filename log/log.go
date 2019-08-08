@@ -934,6 +934,10 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 	logger = newDNALogger(logger)
 	loggers = append(loggers, logger)
 
+	// create a delegate logger to forward to elastic (only will do it if env set)
+	logger = newESLogger(logger)
+	loggers = append(loggers, logger)
+
 	// create a masking logger
 	logger = newMaskingLogger(logger)
 

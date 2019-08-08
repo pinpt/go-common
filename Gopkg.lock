@@ -123,6 +123,19 @@
   version = "v2.8.5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:ad157c87bae81a72ca4cc7b5d2da8907eeedf060ac9828833bfa3013982f6f66"
+  name = "github.com/mailru/easyjson"
+  packages = [
+    ".",
+    "buffer",
+    "jlexer",
+    "jwriter",
+  ]
+  pruneopts = "UT"
+  revision = "b2ccc519800e761ac8000b95e5d57c80a897ff9e"
+
+[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -147,12 +160,32 @@
   revision = "2e52cf6e685269ed8aefec6390f3cac3ef74e730"
 
 [[projects]]
+  digest = "1:c2d643e8b2c25cf18d6e1237233df6457729d9491bbad6fa9598cad8d01466a6"
+  name = "github.com/olivere/elastic"
+  packages = [
+    ".",
+    "config",
+    "uritemplates",
+  ]
+  pruneopts = "UT"
+  revision = "8ebe6a0fc23d9d53fbd8890da8ae7ee7cea78dbe"
+  version = "v6.2.22"
+
+[[projects]]
   digest = "1:6eef8f86f477a009130df82edfc5384be7632b5b09a936058e74973e682627b6"
   name = "github.com/pinpt/httpclient"
   packages = ["."]
   pruneopts = "UT"
   revision = "f8d8c73a0a9fd207b1f3dade42e480907024ce90"
   version = "1.1.0"
+
+[[projects]]
+  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
@@ -234,6 +267,7 @@
     "github.com/linkedin/goavro",
     "github.com/mattn/go-isatty",
     "github.com/oliveagle/jsonpath",
+    "github.com/olivere/elastic",
     "github.com/pinpt/httpclient",
     "github.com/spf13/cobra",
     "github.com/stretchr/testify/assert",
