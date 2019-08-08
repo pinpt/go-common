@@ -31,8 +31,7 @@ func TestTimestampToEpoch(t *testing.T) {
 	assert := assert.New(t)
 	tv := time.Now()
 	now := ToTimestamp(tv)
-	t.Log(TimestampToEpoch(now))
-	assert.Equal(tv.UnixNano()/1000000, TimestampToEpoch(now))
+	assert.Equal(TimeToEpoch(tv), TimestampToEpoch(now))
 }
 
 func TestShortDateFromEpoch(t *testing.T) {
@@ -231,4 +230,19 @@ func TestDateObject(t *testing.T) {
 	dt4, err := NewDateWithTime(dt)
 	assert.NoError(err)
 	assert.Equal(date1.Epoch, dt4.Epoch)
+}
+
+func TestEndOfDay(t *testing.T) {
+	assert := assert.New(t)
+	date1 := NewDateNow()
+	val := EndofDay(date1.Epoch)
+	assert.NotEqual(date1.Epoch, val)
+	t1, _ := ISODateToEpoch("2019-08-08T23:59:59.000Z")
+	assert.Equal(int64(1565308799000), t1)
+	t2, _ := ISODateToEpoch("2019-08-08T23:59:59.999Z")
+	assert.Equal(int64(1565308799999), t2)
+	t3, _ := ISODateToEpoch("2019-08-08T23:59:59.998Z")
+	assert.Equal(int64(1565308799998), t3)
+	t4, _ := ISODateToEpoch("2019-08-08T23:59:59.898Z")
+	assert.Equal(int64(1565308799898), t4)
 }

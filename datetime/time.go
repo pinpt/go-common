@@ -120,7 +120,7 @@ func ISODateToEpoch(date string) (int64, error) {
 func TimestampToEpoch(ts *timestamp.Timestamp) int64 {
 	tv, err := ptypes.Timestamp(ts)
 	if err == nil {
-		return tv.UTC().UnixNano() / 1000000
+		return TimeToEpoch(tv)
 	}
 	return 0
 }
@@ -130,12 +130,15 @@ func TimeToEpoch(tv time.Time) int64 {
 	if tv.IsZero() {
 		return 0
 	}
-	return tv.UTC().UnixNano() / 1000000
+	tv = tv.UTC()
+	// we want to round down to microsecond precision from nano second before we return as milliseconds
+	// so we can get the microseconds in the value of epoch
+	return (tv.UnixNano() + 500000) / 1000000
 }
 
 // EpochNow will return the current time in epoch (in UTC) with millisecond precision
 func EpochNow() int64 {
-	return time.Now().UTC().UnixNano() / 1000000
+	return TimeToEpoch(time.Now())
 }
 
 // ISODateFromTimestamp returns a a RFC 3339 formatted string from a protobuf timestamp
@@ -237,7 +240,7 @@ func DateRangePrevious(ref int64, timeunit int64) (int64, int64) {
 // EndofDay returns the end of the day (midnight) for a given epoch time
 func EndofDay(tv int64) int64 {
 	t := DateFromEpoch(tv).UTC()
-	return TimeToEpoch(time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999, time.UTC))
+	return TimeToEpoch(time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 9999, time.UTC))
 }
 
 // StartofDay returns the start of the day (just after midnight) for a given epoch time
