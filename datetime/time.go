@@ -21,6 +21,7 @@ const (
 	SignalTimeUnit_THIRDQUARTER int32 = 270
 	SignalTimeUnit_ALLTIME      int32 = -1
 	SignalTimeUnit_BIMONTH      int32 = 60
+	DaysInMilliseconds          int64 = 86400000
 )
 
 func GetTimeUnitString(timeUnit int32) string {
@@ -216,6 +217,33 @@ func ToTimestamp(v interface{}) *timestamp.Timestamp {
 		return orm.ToTimestamp(tv)
 	}
 	return nil
+}
+
+// DateRange will return the beginning and end of a date range for a given time unit
+func DateRange(ref time.Time, timeunit int64) (int64, int64) {
+	end := EndofDay(TimeToEpoch(ref))
+	begin := 1000 + (end - DaysInMilliseconds*timeunit)
+	return StartofDay(begin), end
+}
+
+// DateRangePrevious will previous time date for the previous range from timeunit
+func DateRangePrevious(ref int64, timeunit int64) (int64, int64) {
+	end := EndofDay(ref)
+	begin := (end - DaysInMilliseconds*timeunit)
+	priorstart, priorend := DateRange(DateFromEpoch(begin), timeunit)
+	return priorstart, priorend // we go to the next day
+}
+
+// EndofDay returns the end of the day (midnight) for a given epoch time
+func EndofDay(tv int64) int64 {
+	t := DateFromEpoch(tv).UTC()
+	return TimeToEpoch(time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999, time.UTC))
+}
+
+// StartofDay returns the start of the day (just after midnight) for a given epoch time
+func StartofDay(tv int64) int64 {
+	t := DateFromEpoch(tv).UTC()
+	return TimeToEpoch(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC))
 }
 
 // ToTimeRange will return a start and end time range in epoch using tv as the reference day and adding days (use negative number to subtract)
