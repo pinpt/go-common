@@ -17,6 +17,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/go-common/datamodel"
+	"github.com/pinpt/go-common/datetime"
+	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/log"
 	pstrings "github.com/pinpt/go-common/strings"
@@ -98,6 +100,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	}
 	if respStr != "OK" {
 		var rerr struct {
+			Success bool
 			Message string
 		}
 		if err := json.Unmarshal(bts, &rerr); err != nil {
@@ -119,6 +122,19 @@ type SubscriptionEvent struct {
 	Offset    string            `json:"offset,omitempty"`
 }
 
+type action struct {
+	ID     string      `json:"id"`
+	Action string      `json:"action"`
+	Data   interface{} `json:"data"`
+}
+
+type actionResponse struct {
+	ID      string             `json:"id"`
+	Success bool               `json:"success"`
+	Message *string            `json:"message"`
+	Data    *SubscriptionEvent `json:"data"`
+}
+
 // SubscriptionChannel is a channel for receiving events
 type SubscriptionChannel struct {
 	ctx          context.Context
@@ -128,6 +144,7 @@ type SubscriptionChannel struct {
 	mu           sync.Mutex
 	closed       bool
 	cancel       context.CancelFunc
+	conn         *websocket.Conn
 }
 
 // Channel returns a read-only channel to receive SubscriptionEvent
@@ -142,7 +159,10 @@ func (c *SubscriptionChannel) Close() error {
 	if !c.closed {
 		c.cancel()
 		c.closed = true
-		c.done <- true
+		if c.conn != nil {
+			c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, ""))
+			c.conn.Close()
+		}
 		close(c.done)
 		close(c.ch)
 	}
@@ -156,7 +176,7 @@ func (c *SubscriptionChannel) run() {
 	if strings.HasSuffix(origin, "/") {
 		origin = origin[0 : len(origin)-1]
 	}
-	u := strings.ReplaceAll(pstrings.JoinURL(origin, "consume"), "https://", "wss://")
+	u := strings.ReplaceAll(pstrings.JoinURL(origin, "ws"), "https://", "wss://")
 	headers := make(http.Header)
 	headers.Set("Origin", origin)
 	headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
@@ -173,7 +193,7 @@ func (c *SubscriptionChannel) run() {
 		finished := c.closed
 		c.mu.Unlock()
 		if finished {
-			return
+			break
 		}
 		wch, _, err := websocket.DefaultDialer.Dial(u, headers)
 		if err != nil {
@@ -187,7 +207,7 @@ func (c *SubscriptionChannel) run() {
 				} else {
 					panic(e)
 				}
-				return
+				break
 			}
 			if isRetryableError {
 				errors++
@@ -203,29 +223,41 @@ func (c *SubscriptionChannel) run() {
 				} else {
 					panic(e)
 				}
-				return
+				break
 			}
 		}
 
+		// assign
+		c.mu.Lock()
+		c.conn = wch
+		c.mu.Unlock()
+
+		action := action{
+			ID:     hash.Values(datetime.EpochNow(), c.subscription.APIKey, c.subscription.GroupID, c.subscription.Topics),
+			Data:   pjson.Stringify(c.subscription),
+			Action: "subscribe",
+		}
+
 		// send the subscription first
-		if err := wch.WriteJSON(c.subscription); err != nil {
+		if err := wch.WriteJSON(action); err != nil {
 			if c.subscription.Errors != nil {
 				c.subscription.Errors <- err
 			} else {
 				panic(err)
 			}
 			wch.Close()
-			return
+			break
 		}
 
 		errors = 0
+		var errored bool
+		var closed bool
+		var acked bool
 
 		// now we just read messages until we're EOF
-		var closed bool
-		var errored bool
 		for !closed {
-			var payload SubscriptionEvent
-			if err := wch.ReadJSON(&payload); err != nil {
+			var actionresp actionResponse
+			if err := wch.ReadJSON(&actionresp); err != nil {
 				if err == io.EOF || websocket.IsCloseError(err) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
 					closed = true
 					errored = true
@@ -244,26 +276,44 @@ func (c *SubscriptionChannel) run() {
 					panic(err)
 				}
 				wch.Close()
-				return
-			}
-			log.Debug(c.subscription.Logger, "received event", "payload", payload)
-			c.mu.Lock()
-			if !c.closed {
-				c.ch <- payload
-			}
-			c.mu.Unlock()
-			// check to see if we're done
-			select {
-			case <-c.ctx.Done():
-				closed = true
 				break
-			case <-c.done:
-				closed = true
-				break
-			default:
+			}
+			log.Debug(c.subscription.Logger, "received event", "response", actionresp)
+			if action.ID == actionresp.ID {
+				if !acked {
+					// if the subscribe ack worked, great ... continue
+					if actionresp.Success {
+						acked = true
+						continue
+					}
+					if c.subscription.Errors != nil {
+						c.subscription.Errors <- fmt.Errorf(*actionresp.Message)
+					} else {
+						panic(*actionresp.Message)
+					}
+					wch.Close()
+					break
+				}
+				if actionresp.Data != nil {
+					c.mu.Lock()
+					if !c.closed {
+						c.ch <- *actionresp.Data
+					}
+					c.mu.Unlock()
+				}
+				// check to see if we're done
+				select {
+				case <-c.ctx.Done():
+					closed = true
+					break
+				case <-c.done:
+					closed = true
+					break
+				default:
+				}
 			}
 		}
-		wch.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+
 		wch.Close()
 
 		if errored {
@@ -292,6 +342,7 @@ type Subscription struct {
 	IdleDuration string            `json:"idle_duration"`
 	Limit        int               `json:"limit"`
 	Offset       string            `json:"offset"`
+	After        int64             `json:"after"`
 	Channel      string            `json:"-"`
 	APIKey       string            `json:"-"`
 	BufferSize   int               `json:"-"`
