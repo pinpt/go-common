@@ -8,12 +8,13 @@ import (
 
 // Config holds the configuration for connection to the broker
 type Config struct {
-	Brokers  []string
-	Username string
-	Password string
-	Extra    map[string]interface{}
-	Registry RegistryClient
-	Offset   string
+	Brokers           []string
+	Username          string
+	Password          string
+	Extra             map[string]interface{}
+	Registry          RegistryClient
+	Offset            string
+	DisableAutoCommit bool
 }
 
 // NewConfigMap returns a ConfigMap from a Config
@@ -25,6 +26,9 @@ func NewConfigMap(config Config) *ck.ConfigMap {
 		"message.max.bytes":   1000000000, // allow the consumer/producer to be as big but the broker to enforce
 		"bootstrap.servers":   strings.Join(config.Brokers, ","),
 		"client.id":           "pinpt/go-common",
+	}
+	if config.DisableAutoCommit {
+		c.SetKey("enable.auto.commit", "false")
 	}
 	if config.Username != "" {
 		c.SetKey("sasl.mechanism", "PLAIN")

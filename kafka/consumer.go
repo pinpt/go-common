@@ -33,6 +33,7 @@ type Consumer struct {
 	DefaultPollTime time.Duration
 	mu              sync.Mutex
 	closed          bool
+	autocommit      bool
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -128,7 +129,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					} else {
 						encoding = eventing.AvroEncoding
 					}
-					if err := callback.DataReceived(eventing.Message{
+					msg := eventing.Message{
 						Encoding:  encoding,
 						Key:       string(e.Key),
 						Value:     buf,
@@ -136,7 +137,12 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						Timestamp: e.Timestamp,
 						Topic:     topic,
 						Partition: e.TopicPartition.Partition,
-					}); err != nil {
+					}
+					if !c.autocommit {
+						msg.Message = e
+						msg.Consumer = c.consumer
+					}
+					if err := callback.DataReceived(msg); err != nil {
 						callback.ErrorReceived(err)
 					}
 				case ck.PartitionEOF:
@@ -190,6 +196,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		consumer:        consumer,
 		done:            make(chan struct{}, 1),
 		DefaultPollTime: time.Millisecond * 500,
+		autocommit:      !config.DisableAutoCommit,
 	}
 	return c, nil
 }

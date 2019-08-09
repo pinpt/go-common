@@ -2,10 +2,12 @@ package eventing
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/linkedin/goavro"
+	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
 // ValueEncodingType is the type of encoding for the Value payload
@@ -29,6 +31,27 @@ type Message struct {
 	Extra     map[string]interface{}
 	Topic     string
 	Partition int32
+
+	// internal, do not set
+	Consumer *ck.Consumer
+	Message  *ck.Message
+}
+
+// IsAutoCommit returns true if the message is automatically commit or false if you must call Commit when completed
+func (m Message) IsAutoCommit() bool {
+	return m.Message == nil
+}
+
+// Commit is used to commit the processing of this event and store the offset
+func (m Message) Commit() error {
+	if m.Message != nil {
+		// fmt.Println(m.Message)
+		_, err := m.Consumer.CommitMessage(m.Message)
+		m.Message = nil
+		m.Consumer = nil
+		return err
+	}
+	return fmt.Errorf("message isn't auto commit")
 }
 
 // Producer will emit events to consumers
