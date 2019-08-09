@@ -313,7 +313,7 @@ func (c *SubscriptionChannel) run() {
 							// wait for our commit before continuing
 							select {
 							case <-subdata.commitch:
-								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
+								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata}); err != nil {
 									if c.subscription.Errors != nil {
 										c.subscription.Errors <- err
 									} else {
