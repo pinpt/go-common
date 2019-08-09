@@ -118,6 +118,7 @@ type SubscriptionEvent struct {
 	ID        string            `json:"message_id"`
 	Timestamp time.Time         `json:"timestamp"`
 	Headers   map[string]string `json:"headers,omitempty"`
+	Key       string            `json:"key"`
 	Type      string            `json:"type"`
 	Model     string            `json:"model"`
 	Data      string            `json:"object"`
