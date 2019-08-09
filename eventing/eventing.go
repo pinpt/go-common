@@ -2,7 +2,7 @@ package eventing
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 
@@ -19,6 +19,9 @@ const (
 	// AvroEncoding is avro encoding for the Value payload
 	AvroEncoding ValueEncodingType = "avro"
 )
+
+// ErrMessageNotAutoCommit is returned if you call commit on a message that isn't in auto commit mode
+var ErrMessageNotAutoCommit = errors.New("message isn't auto commit")
 
 // Message encapsulates data for the event system
 type Message struct {
@@ -50,7 +53,7 @@ func (m Message) Commit() error {
 		m.Consumer = nil
 		return err
 	}
-	return fmt.Errorf("message isn't auto commit")
+	return ErrMessageNotAutoCommit
 }
 
 // Producer will emit events to consumers

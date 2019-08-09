@@ -115,7 +115,6 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 
 // SubscriptionEvent is received from the event server
 type SubscriptionEvent struct {
-	ID        string            `json:"message_id"`
 	Timestamp time.Time         `json:"timestamp"`
 	Headers   map[string]string `json:"headers,omitempty"`
 	Type      string            `json:"type"`
