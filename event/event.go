@@ -35,10 +35,12 @@ type PublishEvent struct {
 
 // EventPayload is the container for a model event
 type payload struct {
-	Type    string                  `json:"type"`
-	Model   datamodel.ModelNameType `json:"model"`
-	Headers map[string]string       `json:"headers,omitempty"`
-	Data    string                  `json:"data"`
+	ID        string                  `json:"message_id"`
+	Timestamp time.Time               `json:"timestamp"`
+	Type      string                  `json:"type"`
+	Model     datamodel.ModelNameType `json:"model"`
+	Headers   map[string]string       `json:"headers,omitempty"`
+	Data      string                  `json:"data"`
 }
 
 // Publish will publish an event to the event api server
@@ -113,13 +115,19 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 
 // SubscriptionEvent is received from the event server
 type SubscriptionEvent struct {
+	ID        string            `json:"message_id"`
 	Timestamp time.Time         `json:"timestamp"`
 	Headers   map[string]string `json:"headers,omitempty"`
-	Key       string            `json:"key"`
 	Type      string            `json:"type"`
 	Model     string            `json:"model"`
 	Data      string            `json:"object"`
-	Offset    string            `json:"offset,omitempty"`
+
+	commitch chan bool
+}
+
+// Commit for committing a message when auto commit is false
+func (e SubscriptionEvent) Commit() {
+	e.commitch <- true
 }
 
 type action struct {
@@ -232,14 +240,14 @@ func (c *SubscriptionChannel) run() {
 		c.conn = wch
 		c.mu.Unlock()
 
-		action := action{
+		subaction := action{
 			ID:     hash.Values(datetime.EpochNow(), c.subscription.APIKey, c.subscription.GroupID, c.subscription.Topics),
 			Data:   pjson.Stringify(c.subscription),
 			Action: "subscribe",
 		}
 
 		// send the subscription first
-		if err := wch.WriteJSON(action); err != nil {
+		if err := wch.WriteJSON(subaction); err != nil {
 			if c.subscription.Errors != nil {
 				c.subscription.Errors <- err
 			} else {
@@ -279,7 +287,7 @@ func (c *SubscriptionChannel) run() {
 				break
 			}
 			log.Debug(c.subscription.Logger, "received event", "response", actionresp)
-			if action.ID == actionresp.ID {
+			if subaction.ID == actionresp.ID {
 				if !acked {
 					// if the subscribe ack worked, great ... continue
 					if actionresp.Success {
@@ -297,7 +305,27 @@ func (c *SubscriptionChannel) run() {
 				if actionresp.Data != nil {
 					c.mu.Lock()
 					if !c.closed {
-						c.ch <- *actionresp.Data
+						subdata := actionresp.Data
+						if c.subscription.DisableAutoCommit {
+							subdata.commitch = make(chan bool)
+						}
+						c.ch <- *subdata
+						if c.subscription.DisableAutoCommit {
+							// wait for our commit before continuing
+							select {
+							case <-subdata.commitch:
+								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
+									if c.subscription.Errors != nil {
+										c.subscription.Errors <- err
+									} else {
+										panic(err)
+									}
+								}
+								break
+							case <-c.ctx.Done():
+								break
+							}
+						}
 					}
 					c.mu.Unlock()
 				}
@@ -336,18 +364,19 @@ func (c *SubscriptionChannel) run() {
 
 // Subscription is the information for creating a subscription channel to receive events from the event server
 type Subscription struct {
-	GroupID      string            `json:"group_id"`
-	Topics       []string          `json:"topics"`
-	Headers      map[string]string `json:"headers"`
-	IdleDuration string            `json:"idle_duration"`
-	Limit        int               `json:"limit"`
-	Offset       string            `json:"offset"`
-	After        int64             `json:"after"`
-	Channel      string            `json:"-"`
-	APIKey       string            `json:"-"`
-	BufferSize   int               `json:"-"`
-	Errors       chan<- error      `json:"-"`
-	Logger       log.Logger        `json:"-"`
+	GroupID           string            `json:"group_id"`
+	Topics            []string          `json:"topics"`
+	Headers           map[string]string `json:"headers"`
+	IdleDuration      string            `json:"idle_duration"`
+	Limit             int               `json:"limit"`
+	Offset            string            `json:"offset"`
+	After             int64             `json:"after"`
+	DisableAutoCommit bool              `json:"disable_autocommit"`
+	Channel           string            `json:"-"`
+	APIKey            string            `json:"-"`
+	BufferSize        int               `json:"-"`
+	Errors            chan<- error      `json:"-"`
+	Logger            log.Logger        `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)

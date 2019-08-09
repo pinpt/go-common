@@ -45,7 +45,6 @@ func (m Message) IsAutoCommit() bool {
 // Commit is used to commit the processing of this event and store the offset
 func (m Message) Commit() error {
 	if m.Message != nil {
-		// fmt.Println(m.Message)
 		_, err := m.Consumer.CommitMessage(m.Message)
 		m.Message = nil
 		m.Consumer = nil

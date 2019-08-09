@@ -1117,3 +1117,63 @@ func TestSendAndReceiveMultipleAsyncWithBuffer(t *testing.T) {
 	wg.Wait()
 	assert.Equal(iterations, count)
 }
+
+func TestSendAndReceiveMultipleAsyncWithAutocommitDisabled(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	errors := make(chan error, 1)
+	sub, err := NewSubscription(context.Background(), Subscription{
+		GroupID:           fmt.Sprintf("testgroup:%v", datetime.EpochNow()),
+		Topics:            []string{EchoTopic.String()},
+		IdleDuration:      "1m",
+		Errors:            errors,
+		Channel:           "dev",
+		Offset:            "latest",
+		DisableAutoCommit: true,
+	})
+	assert.NoError(err)
+	go func() {
+		for err := range errors {
+			fmt.Println("ERR", err)
+			assert.NoError(err)
+			sub.Close()
+			break
+		}
+	}()
+	defer sub.Close()
+	time.Sleep(time.Second * 5) // let the subscription setup (since we're using latest)
+	var wg sync.WaitGroup
+	var count int
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for msg := range sub.Channel() {
+			msg.Commit()
+			count++
+		}
+	}()
+	iterations := 100
+	for i := 0; i < iterations; i++ {
+		msg := fmt.Sprintf("%d", i)
+		echo := &Echo{
+			Message: &msg,
+		}
+		event := PublishEvent{
+			Object: echo,
+		}
+		err = Publish(context.Background(), event, "dev", "")
+		assert.NoError(err)
+	}
+	time.Sleep(time.Second) // wait for all the events to come in
+	assert.NoError(sub.Close())
+	wg.Wait()
+	assert.Equal(iterations, count)
+	select {
+	case err := <-errors:
+		assert.NoError(err)
+	default:
+	}
+}
