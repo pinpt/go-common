@@ -9,6 +9,7 @@ import (
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/event"
 	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/log"
 )
 
 // ModelFactory creates new instances of models
@@ -33,6 +34,8 @@ type Config struct {
 	Factory ModelFactory
 	// Offset controls where to start reading from. if not provided, will be from the latest
 	Offset string
+	// set the logger to use
+	Logger log.Logger
 }
 
 // Action defines a specific action interface for running an action in response to an event
@@ -95,6 +98,7 @@ func (s *ActionSubscription) run() {
 			s.config.Errors <- fmt.Errorf("no data type for %v", e.Model)
 			return
 		}
+		var commitCalled bool
 		// run the action
 		msg := eventing.Message{
 			Encoding:  eventing.ValueEncodingType(e.Type),
@@ -104,6 +108,11 @@ func (s *ActionSubscription) run() {
 			Headers:   e.Headers,
 			Timestamp: e.Timestamp,
 			Topic:     instance.GetTopicName().String(),
+			CommitOverride: func(_ eventing.Message) error {
+				e.Commit()
+				commitCalled = true
+				return nil
+			},
 		}
 		result, err := s.action.Execute(datamodel.NewModelReceiveEvent(msg, instance))
 		if err != nil {
@@ -121,19 +130,28 @@ func (s *ActionSubscription) run() {
 				return
 			}
 		}
+		if !commitCalled {
+			// commit the event after processing it...
+			e.Commit()
+		}
 	}
 }
 
 // Register an action and return a subscription. You must call Close on the response when you're done (or shutting down)
 func Register(ctx context.Context, action Action, config Config) (*ActionSubscription, error) {
+	if config.Factory == nil {
+		return nil, fmt.Errorf("missing Factory property")
+	}
 	subscription := event.Subscription{
-		GroupID: config.GroupID,
-		Topics:  []string{config.Topic},
-		Headers: config.Headers,
-		Channel: config.Channel,
-		APIKey:  config.APIKey,
-		Errors:  config.Errors,
-		Offset:  config.Offset,
+		GroupID:           config.GroupID,
+		Topics:            []string{config.Topic},
+		Headers:           config.Headers,
+		Channel:           config.Channel,
+		APIKey:            config.APIKey,
+		Errors:            config.Errors,
+		Offset:            config.Offset,
+		Logger:            config.Logger,
+		DisableAutoCommit: true,
 	}
 	ch, err := event.NewSubscription(ctx, subscription)
 	if err != nil {

@@ -63,6 +63,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	api.SetAuthorization(req, apiKey)
 	req = req.WithContext(ctx)
 	var resp *http.Response
+	var resperr error
 	if strings.Contains(url, "ppoint.io") {
 		client := &http.Client{
 			Transport: &http.Transport{
@@ -71,19 +72,19 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 				},
 			},
 		}
-		resp, err = client.Do(req)
-		if err != nil {
-			return err
-		}
+		resp, resperr = client.Do(req)
 	} else {
 		client, err := api.NewHTTPAPIClientDefault()
 		if err != nil {
 			return err
 		}
-		resp, err = client.Do(req)
-		if err != nil {
-			return err
+		resp, resperr = client.Do(req)
+	}
+	if resperr != nil {
+		if event.Logger != nil {
+			log.Error(event.Logger, "sent event error", "payload", payload, "event", event, "err", err)
 		}
+		return resperr
 	}
 	if event.Logger != nil {
 		log.Debug(event.Logger, "sent event", "payload", payload, "event", event)

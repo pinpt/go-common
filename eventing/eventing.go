@@ -23,6 +23,8 @@ const (
 // ErrMessageNotAutoCommit is returned if you call commit on a message that isn't in auto commit mode
 var ErrMessageNotAutoCommit = errors.New("message isn't auto commit")
 
+type CommitOverride func(m Message) error
+
 // Message encapsulates data for the event system
 type Message struct {
 	Encoding  ValueEncodingType
@@ -36,13 +38,14 @@ type Message struct {
 	Partition int32
 
 	// internal, do not set
-	Consumer *ck.Consumer
-	Message  *ck.Message
+	Consumer       *ck.Consumer
+	Message        *ck.Message
+	CommitOverride CommitOverride
 }
 
 // IsAutoCommit returns true if the message is automatically commit or false if you must call Commit when completed
 func (m Message) IsAutoCommit() bool {
-	return m.Message == nil
+	return m.Message == nil && m.CommitOverride == nil
 }
 
 // Commit is used to commit the processing of this event and store the offset
@@ -52,6 +55,9 @@ func (m Message) Commit() error {
 		m.Message = nil
 		m.Consumer = nil
 		return err
+	}
+	if m.CommitOverride != nil {
+		return m.CommitOverride(m)
 	}
 	return ErrMessageNotAutoCommit
 }
