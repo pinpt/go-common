@@ -140,10 +140,20 @@ func NewProducer(config Config) (*Producer, error) {
 	c := NewConfigMap(config)
 	// See below link for other configuration options
 	// https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
-	c.SetKey("compression.codec", "snappy")
-	c.SetKey("go.delivery.reports", false)
-	c.SetKey("queue.buffering.max.messages", 500000) // defaults to 100000
-	c.SetKey("queue.buffering.max.ms", 1)            //defaults to 0.5
+	if err := c.SetKey("compression.codec", "snappy"); err != nil {
+		return nil, err
+	}
+	if err := c.SetKey("go.delivery.reports", false); err != nil {
+		return nil, err
+	}
+	// defaults to 100000
+	if err := c.SetKey("queue.buffering.max.messages", 500000); err != nil {
+		return nil, err
+	}
+	// defaults to 0.5
+	if err := c.SetKey("queue.buffering.max.ms", 1); err != nil {
+		return nil, err
+	}
 	producer, err := ck.NewProducer(c)
 	if err != nil {
 		return nil, err

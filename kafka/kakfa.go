@@ -15,20 +15,25 @@ type Config struct {
 	Registry          RegistryClient
 	Offset            string
 	DisableAutoCommit bool
+	ResetOffset       bool
 }
 
 // NewConfigMap returns a ConfigMap from a Config
 func NewConfigMap(config Config) *ck.ConfigMap {
 	c := &ck.ConfigMap{
-		"request.timeout.ms":  20000,
-		"retry.backoff.ms":    500,
-		"api.version.request": true,
-		"message.max.bytes":   1000000000, // allow the consumer/producer to be as big but the broker to enforce
-		"bootstrap.servers":   strings.Join(config.Brokers, ","),
-		"client.id":           "pinpt/go-common",
+		"request.timeout.ms":       20000,
+		"retry.backoff.ms":         500,
+		"api.version.request":      true,
+		"message.max.bytes":        1000000000, // allow the consumer/producer to be as big but the broker to enforce
+		"bootstrap.servers":        strings.Join(config.Brokers, ","),
+		"client.id":                "pinpt/go-common",
+		"enable.auto.offset.store": true,
+		"session.timeout.ms":       10000,
+		"heartbeat.interval.ms":    1000,
 	}
 	if config.DisableAutoCommit {
 		c.SetKey("enable.auto.commit", "false")
+		c.SetKey("enable.auto.offset.store", false)
 	}
 	if config.Username != "" {
 		c.SetKey("sasl.mechanism", "PLAIN")

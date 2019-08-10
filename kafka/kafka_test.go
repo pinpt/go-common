@@ -99,6 +99,10 @@ func TestSendReceiveCallbackWithAutoCommit(t *testing.T) {
 	consumer, err := NewConsumer(config, "testgroup", "testtopic")
 	assert.NoError(err)
 	defer consumer.Close()
+	admin, err := NewAdminClientUsingConsumer(consumer)
+	assert.NoError(err)
+	assert.NoError(admin.DeleteTopic("testtopic"))
+	assert.NoError(admin.NewTopic("testtopic", TopicConfig{NumPartitions: 1, ReplicationFactor: 1}))
 	done := make(chan bool, 1)
 	consumer.Consume(&eventing.ConsumerCallbackAdapter{
 		OnDataReceived: func(msg eventing.Message) error {
@@ -122,6 +126,75 @@ func TestSendReceiveCallbackWithAutoCommit(t *testing.T) {
 		},
 	}))
 	<-done
+}
+
+func TestSendReceiveCallbackWithResetOffset(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers:           []string{"localhost:9092"},
+		DisableAutoCommit: true,
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	assert.NotNil(consumer)
+	defer consumer.Close()
+	admin, err := NewAdminClientUsingConsumer(consumer)
+	assert.NoError(err)
+	assert.NoError(admin.DeleteTopic("testtopic"))
+	assert.NoError(admin.NewTopic("testtopic", TopicConfig{NumPartitions: 1, ReplicationFactor: 1}))
+	done := make(chan bool)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnDataReceived: func(msg eventing.Message) error {
+			assert.Equal("foo", msg.Key)
+			assert.True(bytes.Equal([]byte("value"), msg.Value))
+			assert.Equal("bar", msg.Headers["foo"])
+			assert.Equal("testtopic", msg.Topic)
+			assert.Equal(int64(0), msg.Offset)
+			assert.False(msg.Timestamp.IsZero())
+			assert.False(msg.IsAutoCommit())
+			assert.NoError(msg.Commit())
+			done <- true
+			return nil
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+	consumer.Close()
+	producer.Close()
+	done2 := make(chan bool)
+	config.ResetOffset = true // reset to acquire from the beginning
+	consumer2, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer2.Close()
+	consumer2.Consume(&eventing.ConsumerCallbackAdapter{
+		OnDataReceived: func(msg eventing.Message) error {
+			assert.Equal("foo", msg.Key)
+			assert.True(bytes.Equal([]byte("value"), msg.Value))
+			assert.Equal("bar", msg.Headers["foo"])
+			assert.Equal("testtopic", msg.Topic)
+			assert.Equal(int64(0), msg.Offset)
+			assert.False(msg.Timestamp.IsZero())
+			assert.False(msg.IsAutoCommit())
+			assert.NoError(msg.Commit())
+			done2 <- true
+			return nil
+		},
+	})
+	<-done2
 }
 
 type eofcallback struct {

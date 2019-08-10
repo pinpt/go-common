@@ -21,7 +21,7 @@ type AdminClient interface {
 	// NewTopic will create a new topic
 	NewTopic(name string, config TopicConfig) error
 	// DeleteTopic will delete a topic
-	DeleteTopic(name string, config TopicConfig) error
+	DeleteTopic(name string) error
 }
 
 type AdminClientImpl struct {
@@ -61,7 +61,7 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 }
 
 // DeleteTopic will delete a topic
-func (c *AdminClientImpl) DeleteTopic(name string, config TopicConfig) error {
+func (c *AdminClientImpl) DeleteTopic(name string) error {
 	res, err := c.client.DeleteTopics(context.Background(), []string{name})
 	if err != nil {
 		return err

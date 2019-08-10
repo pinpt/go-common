@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -34,6 +35,8 @@ type Consumer struct {
 	mu              sync.Mutex
 	closed          bool
 	autocommit      bool
+	shouldreset     bool
+	hasreset        bool
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -77,7 +80,6 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				c.mu.Lock()
 				ev := c.consumer.Poll(int(c.DefaultPollTime / time.Millisecond))
 				c.mu.Unlock()
-				// fmt.Println(ev, reflect.TypeOf(ev))
 				if ev == nil {
 					continue
 				}
@@ -90,9 +92,33 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev))
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
-					c.consumer.Assign(e.Partitions)
+					if c.shouldreset && !c.hasreset {
+						// if we are resetting our offset, we want to do that after we
+						// receive the new assignments ... so we can instruct the
+						// consumer to beginning from here instaed of the stored location
+						newoffset, _ := ck.NewOffset(int64(0))
+						// we have to make a copy since the incoming isn't a pointer struct
+						topicpartitions := make([]ck.TopicPartition, 0)
+						for _, partition := range e.Partitions {
+							topicpartitions = append(topicpartitions, ck.TopicPartition{
+								Topic:     partition.Topic,
+								Partition: partition.Partition,
+								Offset:    newoffset,
+							})
+						}
+						c.hasreset = true
+						if err := c.consumer.Assign(topicpartitions); err != nil {
+							fmt.Println("ERROR on assign partitions (reset)", err)
+						}
+						continue
+					}
+					if err := c.consumer.Assign(e.Partitions); err != nil {
+						fmt.Println("ERROR on assign partitions", err)
+					}
 				case ck.RevokedPartitions:
-					c.consumer.Unassign()
+					if err := c.consumer.Unassign(); err != nil {
+						fmt.Println("ERROR on unassign partitions", err)
+					}
 				case ck.Error:
 					// Generic client instance-level errors, such as
 					// broker connection failures, authentication issues, etc.
@@ -129,6 +155,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					} else {
 						encoding = eventing.AvroEncoding
 					}
+					offset, err := strconv.ParseInt(e.TopicPartition.Offset.String(), 10, 64)
+					if err != nil {
+						fmt.Printf("error parsing the offset (%v): %v\n", e.TopicPartition.Offset.String(), err)
+					}
 					msg := eventing.Message{
 						Encoding:  encoding,
 						Key:       string(e.Key),
@@ -137,6 +167,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						Timestamp: e.Timestamp,
 						Topic:     topic,
 						Partition: e.TopicPartition.Partition,
+						Offset:    offset,
 					}
 					if !c.autocommit {
 						msg.Message = e
@@ -175,20 +206,43 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		return nil, ErrMissingTopics
 	}
 	cfg := NewConfigMap(config)
-	cfg.SetKey("group.id", groupid)
-	cfg.SetKey("enable.partition.eof", true)
-	cfg.SetKey("go.events.channel.enable", false)
-	cfg.SetKey("go.application.rebalance.enable", true)
+	if err := cfg.SetKey("group.id", groupid); err != nil {
+		return nil, err
+	}
+	if err := cfg.SetKey("enable.partition.eof", true); err != nil {
+		return nil, err
+	}
+	if err := cfg.SetKey("go.events.channel.enable", false); err != nil {
+		return nil, err
+	}
+	if err := cfg.SetKey("go.application.rebalance.enable", true); err != nil {
+		return nil, err
+	}
 	if config.Offset == "" {
-		cfg.SetKey("auto.offset.reset", ck.OffsetBeginning)
+		if err := cfg.SetKey("auto.offset.reset", ck.OffsetBeginning); err != nil {
+			return nil, err
+		}
 	} else {
-		cfg.SetKey("auto.offset.reset", config.Offset)
+		if err := cfg.SetKey("auto.offset.reset", config.Offset); err != nil {
+			return nil, err
+		}
+	}
+	val, _ := cfg.Get("auto.offset.reset", nil)
+	if val != nil {
+		switch t := val.(type) {
+		case ck.Offset:
+			break
+		case string:
+			switch t {
+			case "earliest", "latest", "none", "smallest", "largest", "beginning":
+				break
+			default:
+				return nil, fmt.Errorf("error for kafka consumer setting 'auto.offset.reset'. must be one of: earliest, latest, none, smallest, largest or beginning. was: %v", val)
+			}
+		}
 	}
 	consumer, err := ck.NewConsumer(cfg)
 	if err != nil {
-		return nil, err
-	}
-	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err
 	}
 	c := &Consumer{
@@ -197,6 +251,10 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		done:            make(chan struct{}, 1),
 		DefaultPollTime: time.Millisecond * 500,
 		autocommit:      !config.DisableAutoCommit,
+		shouldreset:     config.ResetOffset,
+	}
+	if err := consumer.SubscribeTopics(topics, nil); err != nil {
+		return nil, err
 	}
 	return c, nil
 }

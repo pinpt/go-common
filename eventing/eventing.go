@@ -36,6 +36,7 @@ type Message struct {
 	Extra     map[string]interface{}
 	Topic     string
 	Partition int32
+	Offset    int64
 
 	// internal, do not set
 	Consumer       *ck.Consumer
