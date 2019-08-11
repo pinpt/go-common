@@ -304,43 +304,43 @@ func (c *SubscriptionChannel) run() {
 					wch.Close()
 					break
 				}
-				if actionresp.Data != nil {
-					c.mu.Lock()
-					if !c.closed {
-						subdata := actionresp.Data
-						if c.subscription.DisableAutoCommit {
-							subdata.commitch = make(chan bool)
-						}
-						c.ch <- *subdata
-						if c.subscription.DisableAutoCommit {
-							// wait for our commit before continuing
-							select {
-							case <-subdata.commitch:
-								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
-									if c.subscription.Errors != nil {
-										c.subscription.Errors <- err
-									} else {
-										panic(err)
-									}
+			}
+			if actionresp.Data != nil {
+				c.mu.Lock()
+				if !c.closed {
+					subdata := actionresp.Data
+					if c.subscription.DisableAutoCommit {
+						subdata.commitch = make(chan bool)
+					}
+					c.ch <- *subdata
+					if c.subscription.DisableAutoCommit {
+						// wait for our commit before continuing
+						select {
+						case <-subdata.commitch:
+							if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
+								if c.subscription.Errors != nil {
+									c.subscription.Errors <- err
+								} else {
+									panic(err)
 								}
-								break
-							case <-c.ctx.Done():
-								break
 							}
+							break
+						case <-c.ctx.Done():
+							break
 						}
 					}
-					c.mu.Unlock()
 				}
-				// check to see if we're done
-				select {
-				case <-c.ctx.Done():
-					closed = true
-					break
-				case <-c.done:
-					closed = true
-					break
-				default:
-				}
+				c.mu.Unlock()
+			}
+			// check to see if we're done
+			select {
+			case <-c.ctx.Done():
+				closed = true
+				break
+			case <-c.done:
+				closed = true
+				break
+			default:
 			}
 		}
 
