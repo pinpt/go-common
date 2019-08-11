@@ -15,28 +15,9 @@ func TestISODate(t *testing.T) {
 	tv := time.Now()
 	td := ISODate()
 	ts, err := ISODateToTime(td)
-	now := ToTimestamp("now")
 	assert.Nil(err)
 	assert.Equal(ISODateFromTime(tv), td)
 	assert.Equal(ISODateFromTime(ts), ISODateFromTime(tv))
-	assert.Equal(ISODateFromTime(ts), ISODateFromTimestamp(now))
-	assert.Equal(ShortDate(td), ShortDateFromTimestamp(now))
-}
-
-func TestTimestampToEpoch(t *testing.T) {
-	t.Parallel()
-	assert := assert.New(t)
-	tv := time.Now()
-	now := ToTimestamp(tv)
-	assert.Equal(TimeToEpoch(tv), TimestampToEpoch(now))
-}
-
-func TestShortDateFromEpoch(t *testing.T) {
-	t.Parallel()
-	assert := assert.New(t)
-	tv := time.Now()
-	now := ToTimestamp(tv)
-	assert.Equal(ShortDateFromTimestamp(ToTimestamp(tv)), ShortDateFromEpoch(TimestampToEpoch(now)))
 }
 
 func TestToTimeRange(t *testing.T) {
@@ -142,13 +123,6 @@ func TestTimeToEpochWithEmptyTime(t *testing.T) {
 
 	assert.EqualValues(0, TimeToEpoch(time.Time{}))
 }
-func TestTimestampFromEpoch(t *testing.T) {
-	t.Parallel()
-
-	assert := assert.New(t)
-
-	assert.Equal(&timestamp.Timestamp{Seconds: 1511296725, Nanos: 531000000}, TimestampFromEpoch(1511296725531))
-}
 
 func TestShortDateFromTimestamp(t *testing.T) {
 	t.Parallel()
@@ -165,14 +139,6 @@ func TestShortDate(t *testing.T) {
 
 	assert.Contains(ShortDate("2006-01-02415:04:035T"), "<error parsing date: ")
 	assert.Contains(ShortDate("2006-01-02415:04:035"), "2006-01-02415:04:035")
-}
-
-func TestToTimestamp(t *testing.T) {
-	t.Parallel()
-
-	assert := assert.New(t)
-
-	assert.Nil(ToTimestamp(nil))
 }
 
 func TestGetDateEmpty(t *testing.T) {

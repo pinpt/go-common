@@ -175,11 +175,6 @@ func DateFromEpoch(t int64) time.Time {
 	return time.Unix(0, t*1000000)
 }
 
-// TimestampFromEpoch will return a timestamp from an epoch value in milliseconds
-func TimestampFromEpoch(t int64) *timestamp.Timestamp {
-	return ToTimestamp(DateFromEpoch(t))
-}
-
 // ShortDateFromEpoch will return a short date from a epoch value in milliseconds
 func ShortDateFromEpoch(t int64) string {
 	tv := DateFromEpoch(t)
