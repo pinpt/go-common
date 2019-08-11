@@ -5,9 +5,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 const (
@@ -114,15 +111,6 @@ func ISODateToEpoch(date string) (int64, error) {
 	return TimeToEpoch(ts), nil
 }
 
-// TimestampToEpoch will convert a timestamp to epoch (in UTC) with millisecond precision
-func TimestampToEpoch(ts *timestamp.Timestamp) int64 {
-	tv, err := ptypes.Timestamp(ts)
-	if err == nil {
-		return TimeToEpoch(tv)
-	}
-	return 0
-}
-
 // TimeToEpoch will convert a time to epoch (in UTC) with millisecond precision
 func TimeToEpoch(tv time.Time) int64 {
 	if tv.IsZero() {
@@ -137,37 +125,6 @@ func TimeToEpoch(tv time.Time) int64 {
 // EpochNow will return the current time in epoch (in UTC) with millisecond precision
 func EpochNow() int64 {
 	return TimeToEpoch(time.Now())
-}
-
-// ISODateFromTimestamp returns a a RFC 3339 formatted string from a protobuf timestamp
-func ISODateFromTimestamp(t *timestamp.Timestamp) string {
-	tv, err := ptypes.Timestamp(t)
-	if err == nil {
-		return ISODateFromTime(tv)
-	}
-	return fmt.Sprintf("<invalid date:%v:%v>", t, err)
-}
-
-// ShortDateFromTimestamp returns a DATE (no time) formatted string from a protobuf timestamp
-func ShortDateFromTimestamp(t *timestamp.Timestamp) string {
-	if t == nil {
-		return ""
-	}
-	tv, err := ptypes.Timestamp(t)
-	if err == nil {
-		return tv.UTC().Format("2006-01-02")
-	}
-	return fmt.Sprintf("<invalid date:%v:%v>", t, err)
-}
-
-// ShortDateToTimestamp will return a timestamp from a time truncated time to the day
-func ShortDateToTimestamp(tv time.Time) *timestamp.Timestamp {
-	tv = tv.Truncate(time.Hour * 24)
-	ts, err := ptypes.TimestampProto(tv)
-	if err != nil {
-		return nil
-	}
-	return ts
 }
 
 // DateFromEpoch returns a time.Time from an epoch value in milliseconds

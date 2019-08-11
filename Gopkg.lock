@@ -53,20 +53,6 @@
   version = "v1.7.0"
 
 [[projects]]
-  digest = "1:17fe264ee908afc795734e8c4e63db2accabaf57326dbf21763a7d6b86096260"
-  name = "github.com/golang/protobuf"
-  packages = [
-    "proto",
-    "ptypes",
-    "ptypes/any",
-    "ptypes/duration",
-    "ptypes/timestamp",
-  ]
-  pruneopts = "UT"
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:e4f5819333ac698d294fe04dbf640f84719658d5c7ce195b10060cc37292ce79"
   name = "github.com/golang/snappy"
   packages = ["."]
@@ -235,8 +221,6 @@
     "github.com/fatih/color",
     "github.com/go-kit/kit/log",
     "github.com/go-kit/kit/log/level",
-    "github.com/golang/protobuf/ptypes",
-    "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/gorilla/websocket",
     "github.com/linkedin/goavro",
     "github.com/mattn/go-isatty",

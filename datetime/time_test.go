@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -99,37 +98,11 @@ func TestISODateOffsetToTimeWithEmptyString(t *testing.T) {
 	assert.True(timeVal.IsZero())
 }
 
-func TestShortDateToTimestamp(t *testing.T) {
-	t.Parallel()
-
-	assert := assert.New(t)
-
-	date := time.Date(int(2006), time.February, int(2), int(15), int(4), int(5), int(0), time.Local)
-
-	ok := ShortDateToTimestamp(date)
-
-	assert.Equal(&timestamp.Timestamp{Seconds: 1138838400, Nanos: 0}, ok)
-
-	date = time.Date(int(0), time.February, int(2), int(15), int(4), int(5), int(0), time.Local)
-
-	ok = ShortDateToTimestamp(date)
-
-	assert.Nil(ok)
-}
-
 func TestTimeToEpochWithEmptyTime(t *testing.T) {
 	t.Parallel()
 	assert := assert.New(t)
 
 	assert.EqualValues(0, TimeToEpoch(time.Time{}))
-}
-
-func TestShortDateFromTimestamp(t *testing.T) {
-	t.Parallel()
-
-	assert := assert.New(t)
-
-	assert.Equal("", ShortDateFromTimestamp(nil))
 }
 
 func TestShortDate(t *testing.T) {
