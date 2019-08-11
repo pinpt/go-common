@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,12 +16,10 @@ func TestISODate(t *testing.T) {
 	td := ISODate()
 	ts, err := ISODateToTime(td)
 	now := ToTimestamp("now")
-	st := mysql.NullTime{Time: tv, Valid: true}
 	assert.Nil(err)
 	assert.Equal(ISODateFromTime(tv), td)
 	assert.Equal(ISODateFromTime(ts), ISODateFromTime(tv))
 	assert.Equal(ISODateFromTime(ts), ISODateFromTimestamp(now))
-	assert.Equal(ISODateFromSQLNullTime(st), td)
 	assert.Equal(ShortDate(td), ShortDateFromTimestamp(now))
 }
 

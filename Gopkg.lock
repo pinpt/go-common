@@ -45,14 +45,6 @@
   version = "v0.3.0"
 
 [[projects]]
-  digest = "1:adea5a94903eb4384abef30f3d878dc9ff6b6b5b0722da25b82e5169216dfb61"
-  name = "github.com/go-sql-driver/mysql"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "d523deb1b23d913de5bdada721a6071e71283618"
-  version = "v1.4.0"
-
-[[projects]]
   digest = "1:c4a2528ccbcabf90f9f3c464a5fc9e302d592861bbfd0b7135a7de8a943d0406"
   name = "github.com/go-stack/stack"
   packages = ["."]
@@ -97,14 +89,6 @@
   pruneopts = "UT"
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
-
-[[projects]]
-  digest = "1:9eddcfbbc797dd81c6335772d8b33e189d4fb76a29dd047a05ef8d121996f22e"
-  name = "github.com/jhaynie/go-gator"
-  packages = ["orm"]
-  pruneopts = "UT"
-  revision = "ca7ccc0cf82e05d7ea8edc18b0e9d0d08b79156f"
-  version = "2.2.0"
 
 [[projects]]
   branch = "master"
@@ -236,14 +220,6 @@
   revision = "ce36f3865eeb42541ce3f87f32f8462c5687befa"
 
 [[projects]]
-  digest = "1:c25289f43ac4a68d88b02245742347c94f1e108c534dda442188015ff80669b3"
-  name = "google.golang.org/appengine"
-  packages = ["cloudsql"]
-  pruneopts = "UT"
-  revision = "b1f26356af11148e710935ed1ac8a7f5702c7612"
-  version = "v1.1.0"
-
-[[projects]]
   digest = "1:9169e569b3e6517da7de4476059f8fa889d508007e53fa5fc6a2ea4ffc5ae199"
   name = "gopkg.in/confluentinc/confluent-kafka-go.v1"
   packages = ["kafka"]
@@ -259,11 +235,9 @@
     "github.com/fatih/color",
     "github.com/go-kit/kit/log",
     "github.com/go-kit/kit/log/level",
-    "github.com/go-sql-driver/mysql",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/timestamp",
     "github.com/gorilla/websocket",
-    "github.com/jhaynie/go-gator/orm",
     "github.com/linkedin/goavro",
     "github.com/mattn/go-isatty",
     "github.com/oliveagle/jsonpath",

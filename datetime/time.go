@@ -6,10 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/jhaynie/go-gator/orm"
 )
 
 const (
@@ -150,11 +148,6 @@ func ISODateFromTimestamp(t *timestamp.Timestamp) string {
 	return fmt.Sprintf("<invalid date:%v:%v>", t, err)
 }
 
-// ISODateFromSQLNullTime returns a a RFC 3339 formatted string from a mysql.NullTime
-func ISODateFromSQLNullTime(t mysql.NullTime) string {
-	return ISODateFromTime(t.Time)
-}
-
 // ShortDateFromTimestamp returns a DATE (no time) formatted string from a protobuf timestamp
 func ShortDateFromTimestamp(t *timestamp.Timestamp) string {
 	if t == nil {
@@ -208,18 +201,6 @@ func ShortDate(date string) string {
 		return t.UTC().Format("2006-01-02")
 	}
 	return date
-}
-
-// ToTimestamp converts a string to a protobuf Timestamp or nil if it can't be converted
-func ToTimestamp(v interface{}) *timestamp.Timestamp {
-	if v == nil {
-		return nil
-	}
-	tv := orm.ToSQLDate(v)
-	if tv.Valid {
-		return orm.ToTimestamp(tv)
-	}
-	return nil
 }
 
 // DateRange will return the beginning and end of a date range for a given time unit
