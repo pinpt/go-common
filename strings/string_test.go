@@ -3,6 +3,7 @@ package strings
 import (
 	"io"
 	"io/ioutil"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,4 +64,11 @@ func TestNewCloseableStringReader(t *testing.T) {
 	buf, err := ioutil.ReadAll(r)
 	assert.NoError(err)
 	assert.Equal("hi", string(buf))
+}
+
+func TestNewUUIDV4(t *testing.T) {
+	assert := assert.New(t)
+	val := NewUUIDV4()
+	assert.NotEmpty(val)
+	assert.Regexp(regexp.MustCompile(`^\w{8}-\w{4}-\w{4}-\w{4}-\w{12}$`), val)
 }
