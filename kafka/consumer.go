@@ -168,10 +168,11 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						Topic:     topic,
 						Partition: e.TopicPartition.Partition,
 						Offset:    offset,
-					}
-					if !c.autocommit {
-						msg.Message = e
-						msg.Consumer = c.consumer
+						CommitOverride: func(m eventing.Message) error {
+							_, err := c.consumer.CommitMessage(e)
+							return err
+						},
+						AutoCommit: c.autocommit,
 					}
 					if err := callback.DataReceived(msg); err != nil {
 						callback.ErrorReceived(err)

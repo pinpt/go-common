@@ -113,6 +113,7 @@ func (s *ActionSubscription) run() {
 				commitCalled = true
 				return nil
 			},
+			AutoCommit: false,
 		}
 		result, err := s.action.Execute(datamodel.NewModelReceiveEvent(msg, instance))
 		if err != nil {
