@@ -3,11 +3,13 @@ package kafka
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/pinpt/go-common/eventing"
 	"github.com/stretchr/testify/assert"
+	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
 func TestCreateTopicFromProducer(t *testing.T) {
@@ -81,6 +83,175 @@ func TestSendReceiveCallback(t *testing.T) {
 		},
 	}))
 	<-done
+}
+
+func TestSendReceiveWithKafkaMessageFilter(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	var shouldprocesscalled bool
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+		ShouldProcessKafkaMessage: func(e *ck.Message) bool {
+			shouldprocesscalled = true
+			return false
+		},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnEOF: func(topic string, partition int32, offset int64) {
+			done <- true
+		},
+		OnDataReceived: func(msg eventing.Message) error {
+			return fmt.Errorf("should not have received a message")
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+	assert.True(shouldprocesscalled)
+}
+
+func TestSendReceiveWithKafkaMessageFilterAsCallback(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	var shouldprocesscalled bool
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnEOF: func(topic string, partition int32, offset int64) {
+			done <- true
+		},
+		OnDataReceived: func(msg eventing.Message) error {
+			return fmt.Errorf("should not have received a message")
+		},
+		OnShouldProcess: func(o interface{}) bool {
+			shouldprocesscalled = true
+			return false
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+	assert.True(shouldprocesscalled)
+}
+
+func TestSendReceiveWithEventMessageFilter(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	var shouldprocesskafkacalled, shouldprocesseventcalled bool
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+		ShouldProcessKafkaMessage: func(e *ck.Message) bool {
+			shouldprocesskafkacalled = true
+			return true
+		},
+		ShouldProcessEventMessage: func(e *eventing.Message) bool {
+			shouldprocesseventcalled = true
+			return false
+		},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnEOF: func(topic string, partition int32, offset int64) {
+			done <- true
+		},
+		OnDataReceived: func(msg eventing.Message) error {
+			return fmt.Errorf("should not have received a message")
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+	assert.True(shouldprocesskafkacalled)
+	assert.True(shouldprocesseventcalled)
+}
+
+func TestSendReceiveWithEventMessageFilterAsCallback(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	var shouldprocesscalled bool
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnEOF: func(topic string, partition int32, offset int64) {
+			done <- true
+		},
+		OnDataReceived: func(msg eventing.Message) error {
+			return fmt.Errorf("should not have received a message")
+		},
+		OnShouldFilter: func(msg *eventing.Message) bool {
+			shouldprocesscalled = true
+			return false
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+	assert.True(shouldprocesscalled)
 }
 
 func TestSendReceiveCallbackWithAutoCommit(t *testing.T) {

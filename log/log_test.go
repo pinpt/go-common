@@ -191,6 +191,18 @@ func TestMasking(t *testing.T) {
 	assert.Equal("pkg=test level=debug msg=hi api_key=12**\n", string(w.b))
 }
 
+func TestMaskingDoesntMutate(t *testing.T) {
+	assert := assert.New(t)
+
+	var w wc
+	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
+	args := []interface{}{"password", "secret"}
+	Debug(log, "hi", args...)
+	log.Close()
+	assert.Equal("pkg=test level=debug msg=hi password=sec***\n", string(w.b))
+	assert.Equal("secret", args[1])
+}
+
 func TestLevelFromString(t *testing.T) {
 	assert := assert.New(t)
 	assert.Equal(InfoLevel, LevelFromString("info"))

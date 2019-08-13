@@ -721,7 +721,9 @@ func MaskKV(k, v string) (string, bool) {
 
 func (l *maskingLogger) Log(keyvals ...interface{}) error {
 	// we have to make a copy as to not have a race
-	newvals := append([]interface{}{}, keyvals...)
+	// and to not mutate the original values
+	newvals := make([]interface{}, len(keyvals))
+	copy(newvals, keyvals)
 	for i := 0; i < len(newvals); i += 2 {
 		k := newvals[i]
 		var v interface{} = log.ErrMissingValue

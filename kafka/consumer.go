@@ -137,6 +137,28 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						return
 					}
 				case *ck.Message:
+					// check to see if the consumer implements the callback filter interface
+					// and if so, let it determine
+					if ci, ok := callback.(eventing.ConsumerCallbackMessageFilter); ok {
+						if !ci.ShouldProcess(e) {
+							if !c.autocommit {
+								c.consumer.CommitMessage(e)
+							}
+							// if we have rejected it, we should return
+							continue
+						}
+					}
+					// check to see if the consumer wants to decide on handling the kafka
+					// message before handing it off for deserialization
+					if c.config.ShouldProcessKafkaMessage != nil {
+						if !c.config.ShouldProcessKafkaMessage(e) {
+							if !c.autocommit {
+								c.consumer.CommitMessage(e)
+							}
+							// if we have rejected it, we should return
+							continue
+						}
+					}
 					headers := make(map[string]string)
 					if e.Headers != nil {
 						for _, h := range e.Headers {
@@ -173,6 +195,27 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							return err
 						},
 						AutoCommit: c.autocommit,
+					}
+					// check to see if the consumer implements the callback filter interface
+					// and if so, let it determine
+					if ci, ok := callback.(eventing.ConsumerCallbackEventFilter); ok {
+						if !ci.ShouldFilter(&msg) {
+							if !c.autocommit {
+								c.consumer.CommitMessage(e)
+							}
+							// if we have rejected it, we should return
+							continue
+						}
+					}
+					// check to see if the config wants to filter the messages
+					if c.config.ShouldProcessEventMessage != nil {
+						if !c.config.ShouldProcessEventMessage(&msg) {
+							if !c.autocommit {
+								c.consumer.CommitMessage(e)
+							}
+							// if we have rejected it, we should return
+							continue
+						}
 					}
 					if err := callback.DataReceived(msg); err != nil {
 						callback.ErrorReceived(err)
