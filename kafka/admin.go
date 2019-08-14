@@ -22,6 +22,8 @@ type AdminClient interface {
 	NewTopic(name string, config TopicConfig) error
 	// DeleteTopic will delete a topic
 	DeleteTopic(name string) error
+	// GetTopic details
+	GetTopic(name string) (*ck.TopicMetadata, error)
 }
 
 type AdminClientImpl struct {
@@ -70,6 +72,16 @@ func (c *AdminClientImpl) DeleteTopic(name string) error {
 		return res[0].Error
 	}
 	return nil
+}
+
+// GetTopic will return the metadata for a given topic
+func (c *AdminClientImpl) GetTopic(name string) (*ck.TopicMetadata, error) {
+	md, err := c.client.GetMetadata(&name, false, 10000)
+	if err != nil {
+		return nil, err
+	}
+	tmd := md.Topics[name]
+	return &tmd, nil
 }
 
 // NewAdminClientUsingProducer will create a new AdminClient from a Producer

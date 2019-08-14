@@ -278,6 +278,7 @@ func getESGlobalesbulker() *esbulker {
 func newESLogger(next Logger) LoggerCloser {
 	url := os.Getenv("PP_ELASTIC_URL")
 	if url != "" {
+		Info(next, "sending elastic logs", "url", url, "hostname", os.Getenv("PP_HOSTNAME"))
 		return &eslog{
 			next:     next,
 			esbulker: getESGlobalesbulker(),
