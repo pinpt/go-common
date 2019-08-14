@@ -109,7 +109,6 @@ func (b *esbulker) Close() error {
 	b.stopC <- struct{}{}
 	<-b.stopC
 	close(b.stopC)
-	b.p.Flush()
 	b.p.Close()
 	return nil
 }
@@ -221,7 +220,6 @@ func (l *eslog) Close() error {
 	if l.esbulker != nil {
 		esGlobalLock.Lock()
 		defer esGlobalLock.Unlock()
-		l.esbulker.Flush()
 		esClients-- // refcount, once we get to 0, release
 		if esClients == 0 {
 			l.esbulker.Close()
