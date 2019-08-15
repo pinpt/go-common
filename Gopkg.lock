@@ -150,12 +150,12 @@
   version = "v6.2.22"
 
 [[projects]]
-  digest = "1:cf1d50f0d59ea783d797310528fcfea1e7d6dc8dc225d575c24aa56737b55636"
+  digest = "1:ed714e78fb8bb03c0c1b11702e017493faecb1d8b7eb604182184aa9490b8904"
   name = "github.com/pinpt/httpclient"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d5b1a3dad0cc4d092866eb91bb511a38f01946b3"
-  version = "1.2.1"
+  revision = "09e0028c9067e2f9c7480f7ebe374efc83f12ebb"
+  version = "2.0.0"
 
 [[projects]]
   digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"

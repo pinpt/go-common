@@ -46,7 +46,7 @@
 
 [[constraint]]
   name = "github.com/pinpt/httpclient"
-  version = "1.1.0"
+  version = "2.0.0"
 
 [[constraint]]
   name = "github.com/oliveagle/jsonpath"
