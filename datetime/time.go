@@ -66,7 +66,6 @@ func ISODateFromTime(t time.Time) string {
 // ISODateToTime returns a RFC 3339 formatted string as a timestamp
 func ISODateToTime(date string) (time.Time, error) {
 	if strings.HasSuffix(date, "Z") {
-		fmt.Println("checkpoint1")
 		return time.Parse("2006-01-02T15:04:05Z", date)
 	}
 	return ISODateOffsetToTime(date)
