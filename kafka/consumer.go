@@ -63,6 +63,17 @@ func (c *Consumer) Ping() bool {
 	return err == nil && len(md.Topics) == 1
 }
 
+func toEventingPartitions(topicpartitions []ck.TopicPartition) []eventing.TopicPartition {
+	tp := make([]eventing.TopicPartition, 0)
+	for _, partition := range topicpartitions {
+		tp = append(tp, eventing.TopicPartition{
+			Partition: partition.Partition,
+			Offset:    int64(partition.Offset),
+		})
+	}
+	return tp
+}
+
 // Consume will start consuming from the consumer using the callback
 func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 	go func() {
@@ -108,16 +119,32 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						}
 						c.hasreset = true
 						if err := c.consumer.Assign(topicpartitions); err != nil {
-							fmt.Println("ERROR on assign partitions (reset)", err)
+							callback.ErrorReceived(err)
+							return
+						}
+						if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+							ci.PartitionAssignment(toEventingPartitions(topicpartitions))
 						}
 						continue
 					}
 					if err := c.consumer.Assign(e.Partitions); err != nil {
-						fmt.Println("ERROR on assign partitions", err)
+						callback.ErrorReceived(err)
+						return
+					}
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.PartitionAssignment(toEventingPartitions(e.Partitions))
 					}
 				case ck.RevokedPartitions:
 					if err := c.consumer.Unassign(); err != nil {
-						fmt.Println("ERROR on unassign partitions", err)
+						callback.ErrorReceived(err)
+						return
+					}
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.PartitionRevocation(toEventingPartitions(e.Partitions))
+					}
+				case ck.OffsetsCommitted:
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.OffsetsCommitted(toEventingPartitions(e.Offsets))
 					}
 				case ck.Error:
 					// Generic client instance-level errors, such as
@@ -232,9 +259,9 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// The definition of the statistics JSON
 					// object can be found here:
 					// https://github.com/edenhill/librdkafka/blob/master/STATISTICS.md
-					var stats map[string]interface{}
-					if err := json.Unmarshal([]byte(e.String()), &stats); err == nil {
-						if cb, ok := callback.(ConsumerStatsCallback); ok {
+					if cb, ok := callback.(ConsumerStatsCallback); ok {
+						var stats map[string]interface{}
+						if err := json.Unmarshal([]byte(e.String()), &stats); err == nil {
 							cb.Stats(stats)
 						}
 					}

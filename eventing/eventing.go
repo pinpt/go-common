@@ -79,9 +79,20 @@ type ConsumerCallbackAdapter struct {
 	// OnShouldFilter is called before forwarding to the consumer
 	// to give the consumer control over filtering messages
 	OnShouldFilter func(m *Message) bool
+	// OnPartitionAssignment is called when partitions are assigned to the consumer
+	OnPartitionAssignment func(partitions []TopicPartition)
+	// OnPartitionRevocation is called when partitions are unassigned to the consumer
+	OnPartitionRevocation func(partitions []TopicPartition)
+	// OnOffsetsCommitted is called when offsets are committed
+	OnOffsetsCommitted func(offsets []TopicPartition)
 	// mutex
 	mu sync.Mutex
 }
+
+var _ ConsumerCallback = (*ConsumerCallbackAdapter)(nil)
+var _ ConsumerCallbackPartitionLifecycle = (*ConsumerCallbackAdapter)(nil)
+var _ ConsumerCallbackMessageFilter = (*ConsumerCallbackAdapter)(nil)
+var _ ConsumerCallbackEventFilter = (*ConsumerCallbackAdapter)(nil)
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
 	cb.mu.Lock()
@@ -128,6 +139,9 @@ func (cb *ConsumerCallbackAdapter) Close() error {
 	cb.OnStats = nil
 	cb.OnShouldProcess = nil
 	cb.OnShouldFilter = nil
+	cb.OnPartitionAssignment = nil
+	cb.OnPartitionRevocation = nil
+	cb.OnOffsetsCommitted = nil
 	cb.mu.Unlock()
 	return nil
 }
@@ -152,12 +166,58 @@ func (cb *ConsumerCallbackAdapter) ShouldFilter(m *Message) bool {
 	return true
 }
 
+// OnPartitionAssignment is called when partitions are assigned to the consumer
+func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartition) {
+	cb.mu.Lock()
+	h := cb.OnPartitionAssignment
+	cb.mu.Unlock()
+	if h != nil {
+		h(partitions)
+	}
+}
+
+// OnPartitionRevocation is called when partitions are unassigned to the consumer
+func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartition) {
+	cb.mu.Lock()
+	h := cb.OnPartitionRevocation
+	cb.mu.Unlock()
+	if h != nil {
+		h(partitions)
+	}
+}
+
+// OnOffsetsCommitted is called when offsets are committed
+func (cb *ConsumerCallbackAdapter) OffsetsCommitted(offsets []TopicPartition) {
+	cb.mu.Lock()
+	h := cb.OnOffsetsCommitted
+	cb.mu.Unlock()
+	if h != nil {
+		h(offsets)
+	}
+}
+
 // ConsumerCallback will receive events from producers
 type ConsumerCallback interface {
 	// OnDataReceived is called when an event is received
 	DataReceived(msg Message) error
 	// OnErrorReceived is called when an error is received
 	ErrorReceived(err error)
+}
+
+// TopicPartition has information about the partition
+type TopicPartition struct {
+	Partition int32
+	Offset    int64
+}
+
+// ConsumerCallbackPartitionLifecycle will receive events for partition lifecycle changes
+type ConsumerCallbackPartitionLifecycle interface {
+	// OnPartitionAssignment is called when partitions are assigned to the consumer
+	PartitionAssignment(partitions []TopicPartition)
+	// OnPartitionRevocation is called when partitions are unassigned to the consumer
+	PartitionRevocation(partitions []TopicPartition)
+	// OnOffsetsCommitted is called when offsets are committed
+	OffsetsCommitted(offsets []TopicPartition)
 }
 
 // ConsumerCallbackMessageFilter is a filter for handling forwarding
