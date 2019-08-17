@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:ce834ee7eff3bbf47931b5f1ca7a406ae92b0448d1b26e0480ad53958c37c0a5"
+  name = "github.com/bsm/redislock"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "60529f1f500dc4067b939a981172b79be43705b2"
+  version = "v0.3.0"
+
+[[projects]]
   digest = "1:998cf998358a303ac2430c386ba3fd3398477d6013153d3c6e11432765cc9ae6"
   name = "github.com/cespare/xxhash"
   packages = ["."]
@@ -43,6 +51,22 @@
   pruneopts = "UT"
   revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
   version = "v0.4.0"
+
+[[projects]]
+  digest = "1:6bafc5f7351645dce4cd04ec4db791bdb421d43da13c3fcef8b90cca01ba7621"
+  name = "github.com/go-redis/redis"
+  packages = [
+    ".",
+    "internal",
+    "internal/consistenthash",
+    "internal/hashtag",
+    "internal/pool",
+    "internal/proto",
+    "internal/util",
+  ]
+  pruneopts = "UT"
+  revision = "c5c4ad6a4cae24f3867af1a0513709fc944a87f3"
+  version = "v6.15.4"
 
 [[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
@@ -225,10 +249,12 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/bsm/redislock",
     "github.com/cespare/xxhash",
     "github.com/fatih/color",
     "github.com/go-kit/kit/log",
     "github.com/go-kit/kit/log/level",
+    "github.com/go-redis/redis",
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
     "github.com/linkedin/goavro",
