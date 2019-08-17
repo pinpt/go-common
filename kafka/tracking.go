@@ -17,12 +17,12 @@ import (
 type EOFCallback interface {
 	eventing.ConsumerCallback
 
-	// GroupEOF is called when the consumer group reaches EOF across all partitions
+	// GroupEOF is called when the consumer group reaches EOF all partitions
 	GroupEOF(count int64)
 }
 
-// TrackingConsumer is a utility which will track a consumer group and detect when the consumer group
-// has reached EOF across all the partitions in the group (even if on different physical machines)
+// TrackingConsumer is an utility which will track a consumer group and detect when the consumer group
+// has it EOF across all the partitions in the consumer group
 type TrackingConsumer struct {
 	topic          string
 	redisPubSubKey string
@@ -173,7 +173,7 @@ func (tc *TrackingConsumer) PartitionAssignment(partitions []eventing.TopicParti
 		p.SIsMember(tc.redisEOFKey, partition.Partition)
 	}
 	res, err := p.Exec()
-	if err != nil {
+	if err != nil && err != redisdb.Nil {
 		tc.mu.Unlock()
 		lock.Release()
 		tc.ErrorReceived(fmt.Errorf("error executing assignments for %v. %v", tc.topic, err))
@@ -214,7 +214,7 @@ func (tc *TrackingConsumer) PartitionRevocation(partitions []eventing.TopicParti
 			p.SRem(tc.redisEOFKey, partition.Partition)
 		}
 	}
-	if _, err := p.Exec(); err != nil {
+	if _, err := p.Exec(); err != nil && err != redisdb.Nil {
 		tc.mu.Unlock()
 		lock.Release()
 		tc.ErrorReceived(fmt.Errorf("error executing revocation assignment for %v. %v", tc.topic, err))
@@ -259,7 +259,7 @@ func (tc *TrackingConsumer) globalEOF(total int64) {
 	for _, partition := range tc.assignments {
 		p.HDel(tc.redisCountKey, strconv.Itoa(int(partition.Partition)))
 	}
-	if _, err := p.Exec(); err != nil {
+	if _, err := p.Exec(); err != nil && err != redisdb.Nil {
 		tc.ErrorReceived(fmt.Errorf("error resetting redis values for %v. %v", tc.topic, err))
 	}
 
