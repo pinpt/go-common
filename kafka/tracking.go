@@ -17,12 +17,12 @@ import (
 type EOFCallback interface {
 	eventing.ConsumerCallback
 
-	// GroupEOF is called when the consumer group reaches EOF all partitions
+	// GroupEOF is called when the consumer group reaches EOF across all partitions
 	GroupEOF(count int64)
 }
 
-// TrackingConsumer is an utility which will track a consumer group and detect when the consumer group
-// has it EOF across all the partitions in the consumer group
+// TrackingConsumer is a utility which will track a consumer group and detect when the consumer group
+// has reached EOF across all the partitions in the group (even if on different physical machines)
 type TrackingConsumer struct {
 	topic          string
 	redisPubSubKey string
