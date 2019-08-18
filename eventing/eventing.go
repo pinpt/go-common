@@ -245,4 +245,8 @@ type Consumer interface {
 	Close() error
 	// Consume will start consuming from the consumer using the callback
 	Consume(callback ConsumerCallback)
+	// Pause will allow the consumer to be stopped temporarily from processing further messages
+	Pause() error
+	// Resume will allow the paused consumer to be resumed
+	Resume() error
 }

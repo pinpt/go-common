@@ -56,6 +56,24 @@ func (c *Consumer) Close() error {
 	return err
 }
 
+// Pause will allow the consumer to be stopped temporarily from processing further messages
+func (c *Consumer) Pause() error {
+	assignments, err := c.consumer.Assignment()
+	if err != nil {
+		return fmt.Errorf("error fetching assignment for pausing. %v", err)
+	}
+	return c.consumer.Pause(assignments)
+}
+
+// Resume will allow the paused consumer to be resumed
+func (c *Consumer) Resume() error {
+	assignments, err := c.consumer.Assignment()
+	if err != nil {
+		return fmt.Errorf("error fetching assignment for resuming. %v", err)
+	}
+	return c.consumer.Resume(assignments)
+}
+
 // Ping will cause a ping against the broker by way of fetching metadata from the _schemas topic
 func (c *Consumer) Ping() bool {
 	topic := "_schemas"

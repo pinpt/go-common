@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/pinpt/go-common/datetime"
 	"github.com/pinpt/go-common/eventing"
 	"github.com/stretchr/testify/assert"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
@@ -485,4 +487,59 @@ func TestPing(t *testing.T) {
 	}
 	c := NewRegistryClient(config)
 	assert.True(c.Ping())
+}
+
+func TestPauseAndResume(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	consumer, err := NewConsumer(config, "testgroup", "testtopic")
+	assert.NoError(err)
+	defer consumer.Close()
+	admin, err := NewAdminClientUsingConsumer(consumer)
+	assert.NoError(err)
+	assert.NoError(admin.DeleteTopic("testtopic"))
+	assert.NoError(admin.NewTopic("testtopic", TopicConfig{NumPartitions: 1, ReplicationFactor: 1}))
+	timestamps := make(chan int64, 2)
+	consumer.Consume(&eventing.ConsumerCallbackAdapter{
+		OnDataReceived: func(msg eventing.Message) error {
+			assert.Equal("foo", msg.Key)
+			assert.True(bytes.Equal([]byte("value"), msg.Value))
+			assert.Equal("bar", msg.Headers["foo"])
+			assert.Equal("testtopic", msg.Topic)
+			assert.False(msg.Timestamp.IsZero())
+			timestamps <- datetime.EpochNow()
+			return nil
+		},
+	})
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	first := <-timestamps
+	assert.NoError(consumer.Pause())
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: []byte("value"),
+		Topic: "testtopic",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	time.Sleep(time.Second)
+	assert.NoError(consumer.Resume())
+	second := <-timestamps
+	assert.True(second-first >= 1000)
 }
