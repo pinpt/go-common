@@ -3,7 +3,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"sync"
 	"time"
@@ -94,17 +93,18 @@ func (tc *TrackingConsumer) Stats(stats map[string]interface{}) {
 
 func (tc *TrackingConsumer) Close() error {
 	tc.mu.Lock()
-	defer tc.mu.Unlock()
+	closed := tc.closed
 	tc.closed = true
-	tc.pubsub.Close()
-	if tc.timer != nil {
-		tc.timer.Stop()
-		tc.timer = nil
+	defer tc.mu.Unlock()
+	if !closed {
+		tc.pubsub.Close()
+		if tc.timer != nil {
+			tc.timer.Stop()
+			tc.timer = nil
+		}
+		return tc.consumer.Close()
 	}
-	if c, ok := tc.callback.(io.Closer); ok {
-		c.Close()
-	}
-	return tc.consumer.Close()
+	return nil
 }
 
 func (tc *TrackingConsumer) ShouldProcess(o interface{}) bool {
