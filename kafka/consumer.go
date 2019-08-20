@@ -118,7 +118,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						fmt.Fprintf(os.Stderr, "panic: %v\n", x)
 					}
 				}()
-				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev))
+				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
 					if c.shouldreset && !c.hasreset {

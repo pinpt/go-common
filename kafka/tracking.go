@@ -12,12 +12,16 @@ import (
 	"github.com/pinpt/go-common/eventing"
 )
 
+// DefaultIdleDuration is the default duration once we receive EOF for all partitions to determine
+// if the consumer group is idle
+const DefaultIdleDuration = time.Second
+
 // TrackingConsumerEOF is a handler for receiving the EOF for the consumer group
 type EOFCallback interface {
 	eventing.ConsumerCallback
 
 	// GroupEOF is called when the consumer group reaches EOF all partitions
-	GroupEOF(count int64)
+	GroupEOF(count int64, jobcounts map[string]int64)
 }
 
 // TrackingConsumer is an utility which will track a consumer group and detect when the consumer group
@@ -38,9 +42,9 @@ type TrackingConsumer struct {
 	position       map[int32]int64
 	counts         map[int32]int64
 	eofs           map[int32]bool
+	jobcounts      map[string]int64
 	atEOF          bool
 	records        int64
-	timer          *time.Timer
 	idleduration   time.Duration
 	closed         bool
 	mu             sync.Mutex
@@ -98,10 +102,6 @@ func (tc *TrackingConsumer) Close() error {
 	defer tc.mu.Unlock()
 	if !closed {
 		tc.pubsub.Close()
-		if tc.timer != nil {
-			tc.timer.Stop()
-			tc.timer = nil
-		}
 		return tc.consumer.Close()
 	}
 	return nil
@@ -126,6 +126,7 @@ func (tc *TrackingConsumer) ErrorReceived(err error) {
 }
 
 func (tc *TrackingConsumer) DataReceived(msg eventing.Message) error {
+	// fmt.Println("! data", msg.Key, "msg", msg.Headers["message-id"])
 	tc.mu.Lock()
 	if tc.eofs[msg.Partition] {
 		// if we've marked this position as EOF, we need to notify that's no longer EOF
@@ -134,12 +135,10 @@ func (tc *TrackingConsumer) DataReceived(msg eventing.Message) error {
 	tc.position[msg.Partition] = msg.Offset
 	tc.eofs[msg.Partition] = false
 	tc.counts[msg.Partition]++
+	jobid := msg.Headers["job_id"]
+	tc.jobcounts[jobid]++
 	tc.atEOF = false
 	tc.records++
-	if tc.timer != nil {
-		tc.timer.Stop()
-		tc.timer = nil
-	}
 	tc.mu.Unlock()
 	return tc.callback.DataReceived(msg)
 }
@@ -264,12 +263,18 @@ func (tc *TrackingConsumer) globalEOF(total int64) {
 	}
 
 	tc.records = 0 // reset so that each EOF is delimited by how many records were processed (locally)
+	counts := make(map[string]int64)
+	for k, v := range tc.jobcounts {
+		counts[k] = v
+		delete(tc.jobcounts, k)
+	}
 	tc.mu.Unlock()
 
-	tc.callback.GroupEOF(total)
+	tc.callback.GroupEOF(total, counts)
 }
 
 func (tc *TrackingConsumer) EOF(topic string, partition int32, offset int64) {
+	// fmt.Println("! EOF", topic, partition, offset)
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	tc.eofs[partition] = true
@@ -292,21 +297,23 @@ func (tc *TrackingConsumer) EOF(topic string, partition int32, offset int64) {
 		tc.atEOF = true
 		if tc.records > 0 {
 			if tc.idleduration <= 0 {
-				tc.idleduration = time.Second
+				tc.idleduration = DefaultIdleDuration
 			}
 			// since we can get a message storm with a ton of messages but have small eof events during
 			// blocking waiting for the consumer, we're going to use our idle timer to differentiate
 			// these cases vs when the partition is truly empty
-			tc.timer = time.NewTimer(tc.idleduration)
 			go func() {
+				// check once more now that we're in a separate goroutine
+				// to make sure we're still in an EOF situation
 				tc.mu.Lock()
-				if tc.timer == nil {
-					// this means we're stopped
-					tc.mu.Unlock()
+				cancelled := !tc.atEOF
+				tc.mu.Unlock()
+				if cancelled {
+					// since we spun up the goroutine, we've had another record come in
 					return
 				}
-				tc.mu.Unlock()
-				<-tc.timer.C // wait for our timer to fire
+				// wait for our idle duration
+				<-time.After(tc.idleduration)
 				tc.mu.Lock()
 				defer tc.mu.Unlock()
 				// check to make sure we're still at EOF when the timer fires, if not,
@@ -319,6 +326,7 @@ func (tc *TrackingConsumer) EOF(topic string, partition int32, offset int64) {
 						return
 					}
 					defer lock.Release()
+
 					p := tc.redisClient.Pipeline()
 					var scardOffset int
 					// set the fact that our partitions are in EOF
@@ -350,8 +358,10 @@ func (tc *TrackingConsumer) EOF(topic string, partition int32, offset int64) {
 						for _, val := range totals {
 							total += val
 						}
-						tc.redisClient.Publish(tc.redisPubSubKey, total)
-						// we're going to get it from our own publish message
+						if total > 0 {
+							// we're going to get it from our own publish message
+							tc.redisClient.Publish(tc.redisPubSubKey, total)
+						}
 					} else {
 						// we're going to get it from one of our peers via a subscription event
 						// nothing to do here then...
@@ -433,6 +443,7 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 		position:       make(map[int32]int64),
 		eofs:           make(map[int32]bool),
 		counts:         make(map[int32]int64),
+		jobcounts:      make(map[string]int64),
 	}
 	go tc.run()          // start the background subscription listener
 	consumer.Consume(tc) // start consuming data
@@ -441,16 +452,16 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 
 type callbackWithEOF struct {
 	*eventing.ConsumerCallbackAdapter
-	eof func(total int64)
+	eof func(total int64, jobcounts map[string]int64)
 }
 
 var _ EOFCallback = (*callbackWithEOF)(nil)
 
-func (c *callbackWithEOF) GroupEOF(total int64) {
-	c.eof(total)
+func (c *callbackWithEOF) GroupEOF(total int64, jobcounts map[string]int64) {
+	c.eof(total, jobcounts)
 }
 
 // NewConsumerCallbackWithGroupEOF will create a delegate for handling a ConsumerCallbackAdapter and adding a GroupEOF event as a func handler
-func NewConsumerCallbackWithGroupEOF(callback *eventing.ConsumerCallbackAdapter, h func(total int64)) EOFCallback {
+func NewConsumerCallbackWithGroupEOF(callback *eventing.ConsumerCallbackAdapter, h func(total int64, jobcounts map[string]int64)) EOFCallback {
 	return &callbackWithEOF{callback, h}
 }
