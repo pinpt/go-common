@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -37,6 +38,11 @@ type Consumer struct {
 	autocommit      bool
 	shouldreset     bool
 	hasreset        bool
+
+	waitforassignments  bool
+	receivedassignments bool
+	assignments         chan bool
+	assignmentmu        sync.Mutex
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -92,6 +98,22 @@ func toEventingPartitions(topicpartitions []ck.TopicPartition) []eventing.TopicP
 	return tp
 }
 
+// WaitForAssignments will wait for initial assignments to arrive. If they have already arrived
+// before calling this function, it will not block and immediately return. If they assignments
+// have not arrived, it will block until they arrive.
+func (c *Consumer) WaitForAssignments() {
+	c.assignmentmu.Lock()
+	if c.receivedassignments {
+		c.assignmentmu.Unlock()
+		return
+	}
+	c.assignments = make(chan bool, 1)
+	c.waitforassignments = true
+	c.assignmentmu.Unlock()
+	<-c.assignments
+	close(c.assignments)
+}
+
 // Consume will start consuming from the consumer using the callback
 func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 	go func() {
@@ -116,6 +138,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// don't allow a panic
 					if x := recover(); x != nil {
 						fmt.Fprintf(os.Stderr, "panic: %v\n", x)
+						fmt.Fprintf(os.Stderr, string(debug.Stack()))
 					}
 				}()
 				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
@@ -143,6 +166,13 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
 							ci.PartitionAssignment(toEventingPartitions(topicpartitions))
 						}
+						c.assignmentmu.Lock()
+						c.receivedassignments = true
+						if c.waitforassignments {
+							c.waitforassignments = false
+							c.assignments <- true
+						}
+						c.assignmentmu.Unlock()
 						continue
 					}
 					if err := c.consumer.Assign(e.Partitions); err != nil {
@@ -152,6 +182,13 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
 						ci.PartitionAssignment(toEventingPartitions(e.Partitions))
 					}
+					c.assignmentmu.Lock()
+					c.receivedassignments = true
+					if c.waitforassignments {
+						c.waitforassignments = false
+						c.assignments <- true
+					}
+					c.assignmentmu.Unlock()
 				case ck.RevokedPartitions:
 					if err := c.consumer.Unassign(); err != nil {
 						callback.ErrorReceived(err)
