@@ -16,12 +16,23 @@ import (
 // if the consumer group is idle
 const DefaultIdleDuration = time.Second
 
+// JobKey is information contained in the job header
+type JobKey struct {
+	CustomerID string
+	JobID      string
+	RefType    string
+}
+
+func newJobKey(customerid, jobid, reftype string) JobKey {
+	return JobKey{customerid, jobid, reftype}
+}
+
 // TrackingConsumerEOF is a handler for receiving the EOF for the consumer group
 type EOFCallback interface {
 	eventing.ConsumerCallback
 
 	// GroupEOF is called when the consumer group reaches EOF all partitions
-	GroupEOF(count int64, jobcounts map[string]int64)
+	GroupEOF(count int64, jobcounts map[JobKey]int64)
 }
 
 // TrackingConsumer is an utility which will track a consumer group and detect when the consumer group
@@ -42,7 +53,7 @@ type TrackingConsumer struct {
 	position       map[int32]int64
 	counts         map[int32]int64
 	eofs           map[int32]bool
-	jobcounts      map[string]int64
+	jobcounts      map[JobKey]int64
 	atEOF          bool
 	records        int64
 	idleduration   time.Duration
@@ -135,8 +146,10 @@ func (tc *TrackingConsumer) DataReceived(msg eventing.Message) error {
 	tc.position[msg.Partition] = msg.Offset
 	tc.eofs[msg.Partition] = false
 	tc.counts[msg.Partition]++
+	customerid := msg.Headers["customer_id"]
 	jobid := msg.Headers["job_id"]
-	tc.jobcounts[jobid]++
+	reftype := msg.Headers["ref_type"]
+	tc.jobcounts[newJobKey(customerid, jobid, reftype)]++
 	tc.atEOF = false
 	tc.records++
 	tc.mu.Unlock()
@@ -263,7 +276,7 @@ func (tc *TrackingConsumer) globalEOF(total int64) {
 	}
 
 	tc.records = 0 // reset so that each EOF is delimited by how many records were processed (locally)
-	counts := make(map[string]int64)
+	counts := make(map[JobKey]int64)
 	for k, v := range tc.jobcounts {
 		counts[k] = v
 		delete(tc.jobcounts, k)
@@ -443,7 +456,7 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 		position:       make(map[int32]int64),
 		eofs:           make(map[int32]bool),
 		counts:         make(map[int32]int64),
-		jobcounts:      make(map[string]int64),
+		jobcounts:      make(map[JobKey]int64),
 	}
 	go tc.run()          // start the background subscription listener
 	consumer.Consume(tc) // start consuming data
@@ -452,16 +465,16 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 
 type callbackWithEOF struct {
 	*eventing.ConsumerCallbackAdapter
-	eof func(total int64, jobcounts map[string]int64)
+	eof func(total int64, jobcounts map[JobKey]int64)
 }
 
 var _ EOFCallback = (*callbackWithEOF)(nil)
 
-func (c *callbackWithEOF) GroupEOF(total int64, jobcounts map[string]int64) {
+func (c *callbackWithEOF) GroupEOF(total int64, jobcounts map[JobKey]int64) {
 	c.eof(total, jobcounts)
 }
 
 // NewConsumerCallbackWithGroupEOF will create a delegate for handling a ConsumerCallbackAdapter and adding a GroupEOF event as a func handler
-func NewConsumerCallbackWithGroupEOF(callback *eventing.ConsumerCallbackAdapter, h func(total int64, jobcounts map[string]int64)) EOFCallback {
+func NewConsumerCallbackWithGroupEOF(callback *eventing.ConsumerCallbackAdapter, h func(total int64, jobcounts map[JobKey]int64)) EOFCallback {
 	return &callbackWithEOF{callback, h}
 }
