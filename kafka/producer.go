@@ -103,13 +103,13 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		value = binaryMsg
 	}
 	var err error
-	p.mu.RLock()
+	p.mu.Lock()
 	closed := p.closed
 	if !closed {
 		p.size += int64(len(value))
 		p.count++
 	}
-	p.mu.RUnlock()
+	p.mu.Unlock()
 	if !closed {
 		err = p.producer.Produce(&ck.Message{
 			TopicPartition: tp,
