@@ -21,10 +21,11 @@ type JobKey struct {
 	CustomerID string
 	JobID      string
 	RefType    string
+	Topic      string
 }
 
-func newJobKey(customerid, jobid, reftype string) JobKey {
-	return JobKey{customerid, jobid, reftype}
+func newJobKey(customerid, jobid, reftype, topic string) JobKey {
+	return JobKey{customerid, jobid, reftype, topic}
 }
 
 // TrackingConsumerEOF is a handler for receiving the EOF for the consumer group
@@ -149,7 +150,7 @@ func (tc *TrackingConsumer) DataReceived(msg eventing.Message) error {
 	customerid := msg.Headers["customer_id"]
 	jobid := msg.Headers["job_id"]
 	reftype := msg.Headers["ref_type"]
-	tc.jobcounts[newJobKey(customerid, jobid, reftype)]++
+	tc.jobcounts[newJobKey(customerid, jobid, reftype, msg.Topic)]++
 	tc.atEOF = false
 	tc.records++
 	tc.mu.Unlock()
