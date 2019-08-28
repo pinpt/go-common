@@ -182,3 +182,13 @@ func TestEndOfDay(t *testing.T) {
 	t4, _ := ISODateToEpoch("2019-08-08T23:59:59.898Z")
 	assert.Equal(int64(1565308799898), t4)
 }
+
+func TestNewDateFromEpoch(t *testing.T) {
+	assert := assert.New(t)
+	expDate := NewDateNow()
+	tstDate := NewDateFromEpoch(expDate.Epoch)
+	assert.Equal(expDate.Epoch, tstDate.Epoch, "Epoch not expected")
+	assert.Equal(expDate.Offset, tstDate.Offset, "Offset not expected")
+	assert.Equal(expDate.Rfc3339, tstDate.Rfc3339, "Rfc3339 not expected")
+
+}
