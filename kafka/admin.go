@@ -55,13 +55,13 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 	}
 	switch config.CleanupPolicy {
 	case "delete":
-		cfg["log.cleanup.policy"] = "delete"
+		cfg["cleanup.policy"] = "delete"
 	case "compact":
-		cfg["log.cleanup.policy"] = "compact"
+		cfg["cleanup.policy"] = "compact"
 	default:
-		cfg["log.cleanup.policy"] = "compact"
+		cfg["cleanup.policy"] = "compact"
 	}
-	_, err := c.client.CreateTopics(context.Background(), []ck.TopicSpecification{
+	res, err := c.client.CreateTopics(context.Background(), []ck.TopicSpecification{
 		ck.TopicSpecification{
 			Topic:             name,
 			NumPartitions:     partitions,
@@ -69,7 +69,16 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 			Config:            cfg,
 		},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating topic: %v. %v", name, err)
+	}
+	if len(res) == 0 {
+		return fmt.Errorf("unknown error creating topic: %v", name)
+	}
+	if res[0].Error.Code() != ck.ErrNoError {
+		return fmt.Errorf("error creating topic: %v. %v", name, res[0].Error)
+	}
+	return nil
 }
 
 // DeleteTopic will delete a topic
