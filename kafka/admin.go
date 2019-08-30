@@ -8,12 +8,14 @@ import (
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
+// TopicConfig is the configuration for the topic
 type TopicConfig struct {
 	NumPartitions     int
 	ReplicationFactor int
 	RetentionPeriod   time.Duration
 	MaxMessageSize    int64
 	Config            map[string]string
+	CleanupPolicy     string
 }
 
 // AdminClient provides an interfae for talking with the Kafka admin
@@ -50,6 +52,14 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 	}
 	if config.RetentionPeriod > 0 {
 		cfg["retention.ms"] = fmt.Sprintf("%d", int64(config.RetentionPeriod/time.Millisecond))
+	}
+	switch config.CleanupPolicy {
+	case "delete":
+		cfg["log.cleanup.policy"] = "delete"
+	case "compact":
+		cfg["log.cleanup.policy"] = "compact"
+	default:
+		cfg["log.cleanup.policy"] = "compact"
 	}
 	_, err := c.client.CreateTopics(context.Background(), []ck.TopicSpecification{
 		ck.TopicSpecification{
