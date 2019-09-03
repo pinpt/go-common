@@ -19,7 +19,12 @@ const (
 	DaysInMilliseconds          int64 = 86400000
 )
 
-// RFC3339 This custom format is set because
+// RFC3339
+// There is an edge case where there is no timezone set
+// and that makes the format function return dates like
+// 2019-09-03T20:48:57.073Z.
+// We are using this RFC3339 custom format to
+// always get an offset.
 const RFC3339 = "2006-01-02T15:04:05.999999999-07:00"
 
 func GetTimeUnitString(timeUnit int32) string {
