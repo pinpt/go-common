@@ -142,16 +142,16 @@ func TestGetSignalTime(t *testing.T) {
 	assert.Equal("2016-05-06 00:00:00 +0000 UTC", GetSignalTime(SignalTimeUnit_THIRDQUARTER, realRefDate).String())
 }
 
-// func TestTest(t *testing.T) {
-// 	assert := assert.New(t)
+func TestTest(t *testing.T) {
+	assert := assert.New(t)
 
-// 	epoch := int64(1567542940831)
+	epoch := int64(1567542940831)
 
-// 	val := time.Unix(0, epoch*1000000).Format(time.RFC3339Nano)
-// 	t.Log(val)
+	val := time.Unix(0, epoch*1000000).Format(time.RFC3339Nano)
+	t.Log(val)
 
-// 	assert.Equal(true, false)
-// }
+	assert.Equal(true, false)
+}
 
 func TestDateObject(t *testing.T) {
 	assert := assert.New(t)

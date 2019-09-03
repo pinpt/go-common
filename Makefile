@@ -13,5 +13,6 @@ all: test
 dependencies:
 	@dep ensure
 
+test: export TZ = America/Los_Angeles
 test:
 	@go test -v ./... | grep -v "no test"

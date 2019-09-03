@@ -19,6 +19,9 @@ const (
 	DaysInMilliseconds          int64 = 86400000
 )
 
+// RFC3339 This custom format is set because
+const RFC3339 = "2006-01-02T15:04:05.999999999-07:00"
+
 func GetTimeUnitString(timeUnit int32) string {
 	switch timeUnit {
 	case SignalTimeUnit_NOW:
@@ -313,7 +316,7 @@ func NewDate(val string) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format("2006-01-02T15:04:05.999999999-07:00"),
+		Rfc3339: tv.Round(time.Millisecond).Format(RFC3339),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
@@ -323,7 +326,7 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format("2006-01-02T15:04:05.999999999-07:00"),
+		Rfc3339: tv.Round(time.Millisecond).Format(RFC3339),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
