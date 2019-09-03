@@ -311,7 +311,7 @@ func NewDate(val string) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Rfc3339: tv.Round(time.Millisecond).Format("2006-01-02T15:04:05.999999999-07:00"),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
@@ -321,7 +321,7 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Rfc3339: tv.Round(time.Millisecond).Format("2006-01-02T15:04:05.999999999-07:00"),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
