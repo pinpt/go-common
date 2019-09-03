@@ -189,7 +189,9 @@ func (c *SubscriptionChannel) run() {
 	u := strings.ReplaceAll(pstrings.JoinURL(origin, "ws"), "https://", "wss://")
 	headers := make(http.Header)
 	headers.Set("Origin", origin)
-	headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
+	if c.subscription.APIKey != "" {
+		headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
+	}
 
 	if strings.Contains(u, "ppoint.io") {
 		headers.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local

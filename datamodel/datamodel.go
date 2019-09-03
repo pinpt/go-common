@@ -24,6 +24,18 @@ func (t ModelNameType) String() string {
 	return string(t)
 }
 
+// CleanupPolicy is the constant for cleanup policies supported on the topic
+type CleanupPolicy string
+
+const (
+	// DeleteCleanupPolicy will delete records older than Retention
+	DeleteCleanupPolicy CleanupPolicy = "delete"
+	// CompactCleanupPolicy will compact records older than Retention
+	CompactCleanupPolicy CleanupPolicy = "compact"
+	// DefaultCleanupPolicy is the default policy which is CompactCleanupPolicy
+	DefaultCleanupPolicy CleanupPolicy = CompactCleanupPolicy
+)
+
 // ModelTopicConfig is a configuration for the topic
 type ModelTopicConfig struct {
 	// NumPartitions returns the number of partitions for the topic
@@ -40,6 +52,8 @@ type ModelTopicConfig struct {
 	Timestamp string
 	// TTL is the duration the message is valid
 	TTL time.Duration
+	// CleanupPolicy is the policy for how to deal with older records
+	CleanupPolicy CleanupPolicy
 }
 
 // ModelMaterializeConfig is a configuration for the materialization

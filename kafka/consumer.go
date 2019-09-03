@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -37,6 +38,11 @@ type Consumer struct {
 	autocommit      bool
 	shouldreset     bool
 	hasreset        bool
+
+	waitforassignments  bool
+	receivedassignments bool
+	assignments         chan bool
+	assignmentmu        sync.Mutex
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -56,11 +62,56 @@ func (c *Consumer) Close() error {
 	return err
 }
 
+// Pause will allow the consumer to be stopped temporarily from processing further messages
+func (c *Consumer) Pause() error {
+	assignments, err := c.consumer.Assignment()
+	if err != nil {
+		return fmt.Errorf("error fetching assignment for pausing. %v", err)
+	}
+	return c.consumer.Pause(assignments)
+}
+
+// Resume will allow the paused consumer to be resumed
+func (c *Consumer) Resume() error {
+	assignments, err := c.consumer.Assignment()
+	if err != nil {
+		return fmt.Errorf("error fetching assignment for resuming. %v", err)
+	}
+	return c.consumer.Resume(assignments)
+}
+
 // Ping will cause a ping against the broker by way of fetching metadata from the _schemas topic
 func (c *Consumer) Ping() bool {
 	topic := "_schemas"
 	md, err := c.consumer.GetMetadata(&topic, false, 2000)
 	return err == nil && len(md.Topics) == 1
+}
+
+func toEventingPartitions(topicpartitions []ck.TopicPartition) []eventing.TopicPartition {
+	tp := make([]eventing.TopicPartition, 0)
+	for _, partition := range topicpartitions {
+		tp = append(tp, eventing.TopicPartition{
+			Partition: partition.Partition,
+			Offset:    int64(partition.Offset),
+		})
+	}
+	return tp
+}
+
+// WaitForAssignments will wait for initial assignments to arrive. If they have already arrived
+// before calling this function, it will not block and immediately return. If they assignments
+// have not arrived, it will block until they arrive.
+func (c *Consumer) WaitForAssignments() {
+	c.assignmentmu.Lock()
+	if c.receivedassignments {
+		c.assignmentmu.Unlock()
+		return
+	}
+	c.assignments = make(chan bool, 1)
+	c.waitforassignments = true
+	c.assignmentmu.Unlock()
+	<-c.assignments
+	close(c.assignments)
 }
 
 // Consume will start consuming from the consumer using the callback
@@ -87,9 +138,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// don't allow a panic
 					if x := recover(); x != nil {
 						fmt.Fprintf(os.Stderr, "panic: %v\n", x)
+						fmt.Fprintf(os.Stderr, string(debug.Stack()))
 					}
 				}()
-				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev))
+				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
 					if c.shouldreset && !c.hasreset {
@@ -108,16 +160,46 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						}
 						c.hasreset = true
 						if err := c.consumer.Assign(topicpartitions); err != nil {
-							fmt.Println("ERROR on assign partitions (reset)", err)
+							callback.ErrorReceived(err)
+							return
 						}
+						if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+							ci.PartitionAssignment(toEventingPartitions(topicpartitions))
+						}
+						c.assignmentmu.Lock()
+						c.receivedassignments = true
+						if c.waitforassignments {
+							c.waitforassignments = false
+							c.assignments <- true
+						}
+						c.assignmentmu.Unlock()
 						continue
 					}
 					if err := c.consumer.Assign(e.Partitions); err != nil {
-						fmt.Println("ERROR on assign partitions", err)
+						callback.ErrorReceived(err)
+						return
 					}
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.PartitionAssignment(toEventingPartitions(e.Partitions))
+					}
+					c.assignmentmu.Lock()
+					c.receivedassignments = true
+					if c.waitforassignments {
+						c.waitforassignments = false
+						c.assignments <- true
+					}
+					c.assignmentmu.Unlock()
 				case ck.RevokedPartitions:
 					if err := c.consumer.Unassign(); err != nil {
-						fmt.Println("ERROR on unassign partitions", err)
+						callback.ErrorReceived(err)
+						return
+					}
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.PartitionRevocation(toEventingPartitions(e.Partitions))
+					}
+				case ck.OffsetsCommitted:
+					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
+						ci.OffsetsCommitted(toEventingPartitions(e.Offsets))
 					}
 				case ck.Error:
 					// Generic client instance-level errors, such as
@@ -232,9 +314,9 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// The definition of the statistics JSON
 					// object can be found here:
 					// https://github.com/edenhill/librdkafka/blob/master/STATISTICS.md
-					var stats map[string]interface{}
-					if err := json.Unmarshal([]byte(e.String()), &stats); err == nil {
-						if cb, ok := callback.(ConsumerStatsCallback); ok {
+					if cb, ok := callback.(ConsumerStatsCallback); ok {
+						var stats map[string]interface{}
+						if err := json.Unmarshal([]byte(e.String()), &stats); err == nil {
 							cb.Stats(stats)
 						}
 					}

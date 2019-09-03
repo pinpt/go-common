@@ -230,3 +230,13 @@ func TestErrorWithSolutionDate(t *testing.T) {
 	assert.NotEqual(dateNotExpected, dt.Rfc3339)
 	assert.Equal(dateExpected, dt.Rfc3339)
 }
+
+func TestNewDateFromEpoch(t *testing.T) {
+	assert := assert.New(t)
+	expDate := NewDateNow()
+	tstDate := NewDateFromEpoch(expDate.Epoch)
+	assert.Equal(expDate.Epoch, tstDate.Epoch, "Epoch not expected")
+	assert.Equal(expDate.Offset, tstDate.Offset, "Offset not expected")
+	assert.Equal(expDate.Rfc3339, tstDate.Rfc3339, "Rfc3339 not expected")
+
+}

@@ -325,3 +325,15 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
+
+// NewDateFromEpoch returns a new Date object from a epoch time value
+func NewDateFromEpoch(epoch int64) Date {
+	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	tv, _ := ISODateToTime(val)
+	_, timezone := tv.Zone()
+	return Date{
+		Epoch:   epoch,
+		Rfc3339: val,
+		Offset:  int64(timezone) / 60,
+	}
+}

@@ -8,12 +8,14 @@ import (
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
+// TopicConfig is the configuration for the topic
 type TopicConfig struct {
 	NumPartitions     int
 	ReplicationFactor int
 	RetentionPeriod   time.Duration
 	MaxMessageSize    int64
 	Config            map[string]string
+	CleanupPolicy     string
 }
 
 // AdminClient provides an interfae for talking with the Kafka admin
@@ -51,7 +53,15 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 	if config.RetentionPeriod > 0 {
 		cfg["retention.ms"] = fmt.Sprintf("%d", int64(config.RetentionPeriod/time.Millisecond))
 	}
-	_, err := c.client.CreateTopics(context.Background(), []ck.TopicSpecification{
+	switch config.CleanupPolicy {
+	case "delete":
+		cfg["cleanup.policy"] = "delete"
+	case "compact":
+		cfg["cleanup.policy"] = "compact"
+	default:
+		cfg["cleanup.policy"] = "compact"
+	}
+	res, err := c.client.CreateTopics(context.Background(), []ck.TopicSpecification{
 		ck.TopicSpecification{
 			Topic:             name,
 			NumPartitions:     partitions,
@@ -59,7 +69,16 @@ func (c *AdminClientImpl) NewTopic(name string, config TopicConfig) error {
 			Config:            cfg,
 		},
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("error creating topic: %v. %v", name, err)
+	}
+	if len(res) == 0 {
+		return fmt.Errorf("unknown error creating topic: %v", name)
+	}
+	if res[0].Error.Code() != ck.ErrNoError {
+		return fmt.Errorf("error creating topic: %v. %v", name, res[0].Error)
+	}
+	return nil
 }
 
 // DeleteTopic will delete a topic
