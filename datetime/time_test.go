@@ -141,6 +141,17 @@ func TestGetSignalTime(t *testing.T) {
 	assert.Equal("2016-05-06 00:00:00 +0000 UTC", GetSignalTime(SignalTimeUnit_THIRDQUARTER, realRefDate).String())
 }
 
+// func TestTest(t *testing.T) {
+// 	assert := assert.New(t)
+
+// 	epoch := int64(1567542940831)
+
+// 	val := time.Unix(0, epoch*1000000).Format(time.RFC3339Nano)
+// 	t.Log(val)
+
+// 	assert.Equal(true, false)
+// }
+
 func TestDateObject(t *testing.T) {
 	assert := assert.New(t)
 	date1 := NewDateNow()
@@ -149,15 +160,16 @@ func TestDateObject(t *testing.T) {
 	assert.WithinDuration(dt, time.Now(), time.Second)
 	assert.Equal(int64(tz)/60, date1.Offset)
 	assert.Equal(dt.Format(time.RFC3339Nano), date1.Rfc3339)
-	t.Log("date1.Rfc3339",date1.Rfc3339)
+	t.Log("time.RFC3339Nano", time.RFC3339Nano)
+	t.Log("date1.Rfc3339", date1.Rfc3339)
 	date2, err := NewDate(date1.Rfc3339)
 	assert.NoError(err)
-	t.Log("date2.Epoch",date2.Epoch)
+	t.Log("date2.Epoch", date2.Epoch)
 	dt2 := DateFromEpoch(date2.Epoch)
 	_, tz2 := dt2.Zone()
 	assert.WithinDuration(dt2, time.Now(), time.Second)
 	assert.Equal(int64(tz2)/60, date2.Offset)
-	t.Log("dt2.Format(time.RFC3339Nano)",dt2.Format(time.RFC3339Nano))
+	t.Log("dt2.Format(time.RFC3339Nano)", dt2.Format(time.RFC3339Nano))
 	assert.Equal(dt2.Format(time.RFC3339Nano), date2.Rfc3339) // this is failing
 	_, err = NewDate("x")
 	assert.True(strings.Contains(err.Error(), `parsing time "x"`))
@@ -169,7 +181,7 @@ func TestDateObject(t *testing.T) {
 	dt4, err := NewDateWithTime(dt)
 	assert.NoError(err)
 	assert.Equal(date1.Epoch, dt4.Epoch)
-	assert.Equal(true,false)
+	assert.Equal(true, false)
 }
 
 func TestEndOfDay(t *testing.T) {
