@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pinpt/agent/pkg/sysinfo"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -160,7 +161,8 @@ func TestDateObject(t *testing.T) {
 	assert.WithinDuration(dt, time.Now(), time.Second)
 	assert.Equal(int64(tz)/60, date1.Offset)
 	assert.Equal(dt.Format(time.RFC3339Nano), date1.Rfc3339)
-	t.Log("time.RFC3339Nano", time.RFC3339Nano)
+	t.Log("go-version", sysinfo.GetSystemInfo().GoVersion)
+	t.Log("time.RFC3339Nano", time.RFC3339Nano) // 2006-01-02T15:04:05.999999999Z07:00
 	t.Log("date1.Rfc3339", date1.Rfc3339)
 	date2, err := NewDate(date1.Rfc3339)
 	assert.NoError(err)
