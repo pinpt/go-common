@@ -296,7 +296,7 @@ type Date struct {
 func NewDateNow() Date {
 	epoch := EpochNow()
 	fmt.Println("epoch", epoch)
-	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	val := DateFromEpoch(epoch).Format(RFC3339)
 	fmt.Println("val", val)
 	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
@@ -333,7 +333,7 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 
 // NewDateFromEpoch returns a new Date object from a epoch time value
 func NewDateFromEpoch(epoch int64) Date {
-	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	val := DateFromEpoch(epoch).Format(RFC3339)
 	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
