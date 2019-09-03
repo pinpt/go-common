@@ -292,7 +292,9 @@ type Date struct {
 // NewDateNow returns a Date object as of now
 func NewDateNow() Date {
 	epoch := EpochNow()
+	fmt.Println("epoch", epoch)
 	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	fmt.Println("val", val)
 	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
