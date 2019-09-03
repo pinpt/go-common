@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pinpt/agent/pkg/sysinfo"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -149,19 +148,14 @@ func TestDateObject(t *testing.T) {
 	_, tz := dt.Zone()
 	assert.WithinDuration(dt, time.Now(), time.Second)
 	assert.Equal(int64(tz)/60, date1.Offset)
-	assert.Equal(dt.Format(time.RFC3339Nano), date1.Rfc3339)
-	t.Log("go-version", sysinfo.GetSystemInfo().GoVersion)
-	t.Log("time.RFC3339Nano", time.RFC3339Nano) // 2006-01-02T15:04:05.999999999Z07:00
-	t.Log("date1.Rfc3339", date1.Rfc3339)
+	assert.Equal(dt.Format(RFC3339), date1.Rfc3339)
 	date2, err := NewDate(date1.Rfc3339)
 	assert.NoError(err)
-	t.Log("date2.Epoch", date2.Epoch)
 	dt2 := DateFromEpoch(date2.Epoch)
 	_, tz2 := dt2.Zone()
 	assert.WithinDuration(dt2, time.Now(), time.Second)
 	assert.Equal(int64(tz2)/60, date2.Offset)
-	t.Log("dt2.Format(time.RFC3339Nano)", dt2.Format(time.RFC3339Nano))
-	assert.Equal(dt2.Format(time.RFC3339Nano), date2.Rfc3339) // this is failing
+	assert.Equal(dt2.Format(RFC3339), date2.Rfc3339) // this is failing
 	_, err = NewDate("x")
 	assert.True(strings.Contains(err.Error(), `parsing time "x"`))
 	date3, err := NewDate(ISODate())
@@ -172,7 +166,6 @@ func TestDateObject(t *testing.T) {
 	dt4, err := NewDateWithTime(dt)
 	assert.NoError(err)
 	assert.Equal(date1.Epoch, dt4.Epoch)
-	// assert.Equal(true, false)
 }
 
 func TestEndOfDay(t *testing.T) {
