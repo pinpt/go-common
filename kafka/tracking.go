@@ -60,6 +60,8 @@ type TrackingConsumer struct {
 	idleduration   time.Duration
 	closed         bool
 	mu             sync.Mutex
+	ctx            context.Context
+	cancel         context.CancelFunc
 }
 
 // make sure we implement all the interfaces we expect
@@ -109,11 +111,14 @@ func (tc *TrackingConsumer) Stats(stats map[string]interface{}) {
 
 func (tc *TrackingConsumer) Close() error {
 	tc.mu.Lock()
+	tc.cancel()
 	closed := tc.closed
 	tc.closed = true
+	tc.pubsub.Unsubscribe(tc.redisPubSubKey)
+	tc.pubsub.Close()
+	tc.pubsub = nil
 	defer tc.mu.Unlock()
 	if !closed {
-		tc.pubsub.Close()
 		return tc.consumer.Close()
 	}
 	return nil
@@ -410,6 +415,8 @@ func (tc *TrackingConsumer) run() {
 	tc.pubsub = tc.redisClient.Subscribe(tc.redisPubSubKey)
 	for {
 		select {
+		case <-tc.ctx.Done():
+			return
 		case msg := <-tc.pubsub.Channel():
 			if msg != nil {
 				total, err := strconv.ParseInt(msg.Payload, 10, 64)
@@ -443,7 +450,10 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 	for _, m := range md.Partitions {
 		partitions = append(partitions, m.ID)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	tc := &TrackingConsumer{
+		ctx:            ctx,
+		cancel:         cancel,
 		consumer:       consumer,
 		topic:          topic,
 		partitions:     partitions,
