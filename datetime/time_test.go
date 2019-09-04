@@ -148,14 +148,14 @@ func TestDateObject(t *testing.T) {
 	_, tz := dt.Zone()
 	assert.WithinDuration(dt, time.Now(), time.Second)
 	assert.Equal(int64(tz)/60, date1.Offset)
-	assert.Equal(dt.Format(time.RFC3339Nano), date1.Rfc3339)
+	assert.Equal(dt.Format(RFC3339), date1.Rfc3339)
 	date2, err := NewDate(date1.Rfc3339)
 	assert.NoError(err)
 	dt2 := DateFromEpoch(date2.Epoch)
 	_, tz2 := dt2.Zone()
 	assert.WithinDuration(dt2, time.Now(), time.Second)
 	assert.Equal(int64(tz2)/60, date2.Offset)
-	assert.Equal(dt2.Format(time.RFC3339Nano), date2.Rfc3339)
+	assert.Equal(dt2.Format(RFC3339), date2.Rfc3339) // this is failing
 	_, err = NewDate("x")
 	assert.True(strings.Contains(err.Error(), `parsing time "x"`))
 	date3, err := NewDate(ISODate())
@@ -181,6 +181,54 @@ func TestEndOfDay(t *testing.T) {
 	assert.Equal(int64(1565308799998), t3)
 	t4, _ := ISODateToEpoch("2019-08-08T23:59:59.898Z")
 	assert.Equal(int64(1565308799898), t4)
+}
+
+var githubRawDate = "2018-05-29T14:41:28Z"
+var gihtubDatePreFormated = "2018-05-29T14:41:28.000000+00:00"
+var dateNotExpected = "2018-05-29T14:41:28Z"
+var dateExpected = "2018-05-29T14:41:28+00:00"
+
+func TestError1(t *testing.T) {
+	assert := assert.New(t)
+	dt, err := NewDate(githubRawDate) // This is how we receive the raw date from github
+	assert.NoError(err)
+	assert.NotEqual(dateNotExpected, dt.Rfc3339)
+}
+
+func TestError2(t *testing.T) {
+	assert := assert.New(t)
+	dt, err := NewDate(gihtubDatePreFormated) // if I convert the date to different format
+	assert.NoError(err)
+	assert.NotEqual(dateNotExpected, dt.Rfc3339)
+}
+
+func solutionDate(val string) (*Date, error) {
+	tv, err := ISODateToTime(val)
+	if err != nil {
+		return nil, err
+	}
+	_, timezone := tv.Zone()
+	return &Date{
+		Epoch:   TimeToEpoch(tv),
+		Rfc3339: tv.Round(time.Millisecond).Format("2006-01-02T15:04:05.999999999-07:00"), // Posible format solution
+		Offset:  int64(timezone) / 60,
+	}, nil
+}
+
+func TestError1WithSolutionDate(t *testing.T) {
+	assert := assert.New(t)
+	dt, err := solutionDate(githubRawDate) // Using possible solution
+	assert.NoError(err)
+	assert.NotEqual(dateNotExpected, dt.Rfc3339)
+	assert.Equal(dateExpected, dt.Rfc3339)
+}
+
+func TestErrorWithSolutionDate(t *testing.T) {
+	assert := assert.New(t)
+	dt, err := solutionDate(gihtubDatePreFormated) // Using possible solution
+	assert.NoError(err)
+	assert.NotEqual(dateNotExpected, dt.Rfc3339)
+	assert.Equal(dateExpected, dt.Rfc3339)
 }
 
 func TestNewDateFromEpoch(t *testing.T) {

@@ -19,6 +19,14 @@ const (
 	DaysInMilliseconds          int64 = 86400000
 )
 
+// RFC3339
+// There is an edge case where there is no timezone set
+// and that makes the format function return dates like
+// 2019-09-03T20:48:57.073Z.
+// We are using this RFC3339 custom format to
+// always get an offset.
+const RFC3339 = "2006-01-02T15:04:05.999999999-07:00"
+
 func GetTimeUnitString(timeUnit int32) string {
 	switch timeUnit {
 	case SignalTimeUnit_NOW:
@@ -292,7 +300,9 @@ type Date struct {
 // NewDateNow returns a Date object as of now
 func NewDateNow() Date {
 	epoch := EpochNow()
-	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	fmt.Println("epoch", epoch)
+	val := DateFromEpoch(epoch).Format(RFC3339)
+	fmt.Println("val", val)
 	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
@@ -311,7 +321,7 @@ func NewDate(val string) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Rfc3339: tv.Round(time.Millisecond).Format(RFC3339),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
@@ -321,14 +331,14 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
-		Rfc3339: tv.Round(time.Millisecond).Format(time.RFC3339Nano),
+		Rfc3339: tv.Round(time.Millisecond).Format(RFC3339),
 		Offset:  int64(timezone) / 60,
 	}, nil
 }
 
 // NewDateFromEpoch returns a new Date object from a epoch time value
 func NewDateFromEpoch(epoch int64) Date {
-	val := DateFromEpoch(epoch).Format(time.RFC3339Nano)
+	val := DateFromEpoch(epoch).Format(RFC3339)
 	tv, _ := ISODateToTime(val)
 	_, timezone := tv.Zone()
 	return Date{
