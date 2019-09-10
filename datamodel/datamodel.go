@@ -102,6 +102,8 @@ type Model interface {
 	GetTopicKey() string
 	// GetStreamName returns the name of the stream if evented or "" if not
 	GetStreamName() string
+	// GetTableName returns the name of the table if evented or "" if not
+	GetTableName() string
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
 	// GetTimestamp returns the timestamp for the model or now if not provided
