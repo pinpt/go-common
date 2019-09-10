@@ -100,6 +100,8 @@ type Model interface {
 	GetTopicConfig() *ModelTopicConfig
 	// GetTopicKey returns the topic message key when sending this model as a ModelSendEvent
 	GetTopicKey() string
+	// GetStreamName returns the name of the stream if evented or "" if not
+	GetStreamName() string
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
 	// GetTimestamp returns the timestamp for the model or now if not provided
