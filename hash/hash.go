@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
+	"strconv"
 
 	"github.com/cespare/xxhash"
 )
@@ -14,6 +16,17 @@ import (
 // we use hashing mainfully for generating consistent key values or equality checks.
 func Values(objects ...interface{}) string {
 	return hashValues(objects...)
+}
+
+// Sum64 returns the int value of the hashed value
+func Sum64(sha string) uint64 {
+	n, _ := strconv.ParseUint(sha, 16, 64)
+	return n
+}
+
+// Modulo returns the modulo of sha value into num
+func Modulo(sha string, num int) int {
+	return int(math.Mod(float64(Sum64(sha)), float64(num)))
 }
 
 func hashValues(objects ...interface{}) string {

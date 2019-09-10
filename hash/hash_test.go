@@ -125,3 +125,19 @@ func TestInterface(t *testing.T) {
 	assert.Equal("e66ae7354fcfee98", Values(i))
 	assert.Equal("bca81cb4e2d6ad15", Values(&i)) // because it's converted to json
 }
+
+func TestSum64(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal("ea8842e9ea2638fa", Values("hi"))
+	assert.Equal(uint64(16899831174130972922), Sum64("ea8842e9ea2638fa"))
+	assert.Equal(0, Modulo("ea8842e9ea2638fa", 1))
+	assert.Equal(0, Modulo("ea8842e9ea2638fa", 2))
+	assert.Equal(1, Modulo("ea8842e9ea2638fa", 3))
+	assert.Equal(0, Modulo("ea8842e9ea2638fa", 4))
+	assert.Equal(2, Modulo("ea8842e9ea2638fa", 5))
+	assert.Equal(4, Modulo("ea8842e9ea2638fa", 6))
+	assert.Equal(3, Modulo("ea8842e9ea2638fa", 7))
+	assert.Equal(0, Modulo("ea8842e9ea2638fa", 8))
+	assert.Equal(4, Modulo("ea8842e9ea2638fa", 9))
+	assert.Equal(2, Modulo("ea8842e9ea2638fa", 10))
+}

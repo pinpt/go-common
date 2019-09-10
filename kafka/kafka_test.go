@@ -543,3 +543,22 @@ func TestPauseAndResume(t *testing.T) {
 	second := <-timestamps
 	assert.True(second-first >= 1000)
 }
+
+func TestListTopics(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	admin, err := NewAdminClientUsingProducer(producer)
+	assert.NoError(err)
+	topics, err := admin.ListTopics()
+	assert.NoError(err)
+	assert.NotEmpty(topics)
+}

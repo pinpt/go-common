@@ -26,6 +26,8 @@ type AdminClient interface {
 	DeleteTopic(name string) error
 	// GetTopic details
 	GetTopic(name string) (*ck.TopicMetadata, error)
+	// ListTopics will return all topics
+	ListTopics() ([]*ck.TopicMetadata, error)
 }
 
 type AdminClientImpl struct {
@@ -101,6 +103,19 @@ func (c *AdminClientImpl) GetTopic(name string) (*ck.TopicMetadata, error) {
 	}
 	tmd := md.Topics[name]
 	return &tmd, nil
+}
+
+// ListTopics will return all topics
+func (c *AdminClientImpl) ListTopics() ([]*ck.TopicMetadata, error) {
+	md, err := c.client.GetMetadata(nil, true, 10000)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]*ck.TopicMetadata, 0)
+	for _, t := range md.Topics {
+		res = append(res, &t)
+	}
+	return res, nil
 }
 
 // NewAdminClientUsingProducer will create a new AdminClient from a Producer
