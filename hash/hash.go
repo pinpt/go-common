@@ -3,10 +3,9 @@ package hash
 import (
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
-	"math"
 	"reflect"
-	"strconv"
 
 	"github.com/cespare/xxhash"
 )
@@ -18,19 +17,15 @@ func Values(objects ...interface{}) string {
 	return hashValues(objects...)
 }
 
-// Sum64 returns the int value of the hashed value
-func Sum64(sha string) uint64 {
-	n, _ := strconv.ParseUint(sha, 16, 64)
-	if n == 0 {
-		v := Values(sha) // probably not a hashed value, hash it
-		n, _ = strconv.ParseUint(v, 16, 64)
-	}
-	return n
-}
-
 // Modulo returns the modulo of sha value into num
 func Modulo(sha string, num int) int {
-	return int(math.Mod(float64(Sum64(sha)), float64(num)))
+	hasher := fnv.New32a()
+	hasher.Write([]byte(sha))
+	partition := int(hasher.Sum32()) % num
+	if partition < 0 {
+		partition = -partition
+	}
+	return partition
 }
 
 func hashValues(objects ...interface{}) string {

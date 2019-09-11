@@ -126,26 +126,24 @@ func TestInterface(t *testing.T) {
 	assert.Equal("bca81cb4e2d6ad15", Values(&i)) // because it's converted to json
 }
 
-func TestSum64(t *testing.T) {
+func TestModulo(t *testing.T) {
 	assert := assert.New(t)
 	assert.Equal("ea8842e9ea2638fa", Values("hi"))
-	assert.Equal(uint64(16899831174130972922), Sum64("ea8842e9ea2638fa"))
 	assert.Equal(0, Modulo("ea8842e9ea2638fa", 1))
-	assert.Equal(0, Modulo("ea8842e9ea2638fa", 2))
+	assert.Equal(1, Modulo("ea8842e9ea2638fa", 2))
 	assert.Equal(1, Modulo("ea8842e9ea2638fa", 3))
-	assert.Equal(0, Modulo("ea8842e9ea2638fa", 4))
-	assert.Equal(2, Modulo("ea8842e9ea2638fa", 5))
-	assert.Equal(4, Modulo("ea8842e9ea2638fa", 6))
-	assert.Equal(3, Modulo("ea8842e9ea2638fa", 7))
-	assert.Equal(0, Modulo("ea8842e9ea2638fa", 8))
+	assert.Equal(3, Modulo("ea8842e9ea2638fa", 4))
+	assert.Equal(3, Modulo("ea8842e9ea2638fa", 5))
+	assert.Equal(1, Modulo("ea8842e9ea2638fa", 6))
+	assert.Equal(1, Modulo("ea8842e9ea2638fa", 7))
+	assert.Equal(3, Modulo("ea8842e9ea2638fa", 8))
 	assert.Equal(4, Modulo("ea8842e9ea2638fa", 9))
-	assert.Equal(2, Modulo("ea8842e9ea2638fa", 10))
+	assert.Equal(3, Modulo("ea8842e9ea2638fa", 10))
 
 	// test passing in an unhashed value
 	assert.Equal("26c7827d889f6da3", Values("hello"))
-	assert.Equal(uint64(2794345569481354659), Sum64("hello"))
 	assert.Equal(0, Modulo("hello", 1))
-	assert.Equal(12, Modulo("hello", 20))
+	assert.Equal(3, Modulo("hello", 20))
 
-	assert.Equal(8, Modulo("edf9a6b1c8490ea3", 24))
+	assert.Equal(4, Modulo("edf9a6b1c8490ea3", 24))
 }
