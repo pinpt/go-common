@@ -46,8 +46,6 @@ type ModelTopicConfig struct {
 	Retention time.Duration
 	// MaxSize in bytes for items in the topic
 	MaxSize int64
-	// PartitionKeys is the fields to use for determining the hash for partition selection
-	PartitionKeys []string
 	// Key is the message key field for the topic
 	Key string
 	// Timestamp is the timestamp field for the topic

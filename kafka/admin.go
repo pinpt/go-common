@@ -113,7 +113,8 @@ func (c *AdminClientImpl) ListTopics() ([]*ck.TopicMetadata, error) {
 	}
 	res := make([]*ck.TopicMetadata, 0)
 	for _, t := range md.Topics {
-		res = append(res, &t)
+		c := *(&t) // make a copy since this lib reuses the pointer
+		res = append(res, &c)
 	}
 	return res, nil
 }
