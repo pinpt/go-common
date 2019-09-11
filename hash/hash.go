@@ -21,6 +21,10 @@ func Values(objects ...interface{}) string {
 // Sum64 returns the int value of the hashed value
 func Sum64(sha string) uint64 {
 	n, _ := strconv.ParseUint(sha, 16, 64)
+	if n == 0 {
+		v := Values(sha) // probably not a hashed value, hash it
+		n, _ = strconv.ParseUint(v, 16, 64)
+	}
 	return n
 }
 

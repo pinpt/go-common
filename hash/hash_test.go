@@ -140,4 +140,12 @@ func TestSum64(t *testing.T) {
 	assert.Equal(0, Modulo("ea8842e9ea2638fa", 8))
 	assert.Equal(4, Modulo("ea8842e9ea2638fa", 9))
 	assert.Equal(2, Modulo("ea8842e9ea2638fa", 10))
+
+	// test passing in an unhashed value
+	assert.Equal("26c7827d889f6da3", Values("hello"))
+	assert.Equal(uint64(2794345569481354659), Sum64("hello"))
+	assert.Equal(0, Modulo("hello", 1))
+	assert.Equal(12, Modulo("hello", 20))
+
+	assert.Equal(8, Modulo("edf9a6b1c8490ea3", 24))
 }
