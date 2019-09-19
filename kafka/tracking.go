@@ -413,11 +413,12 @@ func (tc *TrackingConsumer) run() {
 	// and if we do, only one will figure out the global EOF for the entire consumer group (across all partitions)
 	// and we will use redis pub sub to communicate across the consumer groups that we've hit the EOF
 	tc.pubsub = tc.redisClient.Subscribe(tc.redisPubSubKey)
+	ch := tc.pubsub.Channel()
 	for {
 		select {
 		case <-tc.ctx.Done():
 			return
-		case msg := <-tc.pubsub.Channel():
+		case msg := <-ch:
 			if msg != nil {
 				total, err := strconv.ParseInt(msg.Payload, 10, 64)
 				if err != nil {

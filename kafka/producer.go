@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -47,9 +48,8 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 	if msg.Topic == "" {
 		return ErrMissingTopic
 	}
-	var headers []ck.Header
+	headers := make([]ck.Header, 0)
 	if msg.Headers != nil {
-		headers = make([]ck.Header, 0)
 		for k, v := range msg.Headers {
 			headers = append(headers, ck.Header{
 				Key:   k,
@@ -57,6 +57,10 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 			})
 		}
 	}
+	headers = append(headers, ck.Header{
+		Key:   "encoding",
+		Value: []byte(msg.Encoding),
+	})
 	tp := ck.TopicPartition{
 		Topic:     &msg.Topic,
 		Partition: msg.Partition,
@@ -92,15 +96,19 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 			value = binaryValue
 		}
 
-		var binaryMsg []byte
+		binaryMsg := bufferPool.Get().(*bytes.Buffer)
 		// first byte is magic byte, always 0 for now
-		binaryMsg = append(binaryMsg, byte(0))
-		//4-byte schema ID as returned by the Schema Registry
-		binaryMsg = append(binaryMsg, binarySchemaId...)
-		//avro serialized data in Avro’s binary encoding
-		binaryMsg = append(binaryMsg, value...)
-		// reset the value to the new binary encoded value
-		value = binaryMsg
+		binaryMsg.WriteByte(byte(0))
+		// 4-byte schema ID as returned by the Schema Registry
+		binaryMsg.Write(binarySchemaId)
+		// avro serialized data in Avro’s binary encoding
+		binaryMsg.Write(value)
+		// pull it out and then reset
+		value = binaryMsg.Bytes()
+		defer func() {
+			binaryMsg.Reset()
+			bufferPool.Put(binaryMsg)
+		}()
 	}
 	var err error
 	p.mu.Lock()

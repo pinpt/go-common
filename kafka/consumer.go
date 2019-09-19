@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,6 +113,12 @@ func (c *Consumer) WaitForAssignments() {
 	c.assignmentmu.Unlock()
 	<-c.assignments
 	close(c.assignments)
+}
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
 }
 
 // Consume will start consuming from the consumer using the callback
@@ -251,14 +258,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if e.TopicPartition.Topic != nil {
 						topic = *e.TopicPartition.Topic
 					}
-					buf := make([]byte, len(e.Value))
-					copy(buf, e.Value)
-					var encoding eventing.ValueEncodingType
-					if buf[0] == '{' && buf[len(buf)-1] == '}' {
-						encoding = eventing.JSONEncoding
-					} else {
-						encoding = eventing.AvroEncoding
-					}
+					// reuse buffer from our pool
+					buf := bufferPool.Get().(*bytes.Buffer)
+					buf.Write(e.Value)
+					encoding := eventing.ValueEncodingType(headers["encoding"])
 					offset, err := strconv.ParseInt(e.TopicPartition.Offset.String(), 10, 64)
 					if err != nil {
 						fmt.Printf("error parsing the offset (%v): %v\n", e.TopicPartition.Offset.String(), err)
@@ -266,7 +269,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					msg := eventing.Message{
 						Encoding:  encoding,
 						Key:       string(e.Key),
-						Value:     buf,
+						Value:     buf.Bytes(),
 						Headers:   headers,
 						Timestamp: e.Timestamp,
 						Topic:     topic,
@@ -286,6 +289,8 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 								c.consumer.CommitMessage(e)
 							}
 							// if we have rejected it, we should return
+							buf.Reset()
+							bufferPool.Put(buf)
 							continue
 						}
 					}
@@ -296,12 +301,16 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 								c.consumer.CommitMessage(e)
 							}
 							// if we have rejected it, we should return
+							buf.Reset()
+							bufferPool.Put(buf)
 							continue
 						}
 					}
 					if err := callback.DataReceived(msg); err != nil {
 						callback.ErrorReceived(err)
 					}
+					buf.Reset()
+					bufferPool.Put(buf)
 				case ck.PartitionEOF:
 					if cb, ok := callback.(ConsumerEOFCallback); ok {
 						cb.EOF(*e.Topic, e.Partition, int64(e.Offset))

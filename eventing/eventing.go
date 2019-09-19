@@ -17,6 +17,8 @@ const (
 	JSONEncoding ValueEncodingType = "json"
 	// AvroEncoding is avro encoding for the Value payload
 	AvroEncoding ValueEncodingType = "avro"
+	// MsgPackEncoding is msgpack encoding for the Value payload
+	MsgPackEncoding ValueEncodingType = "msgpack"
 )
 
 // ErrMessageNotAutoCommit is returned if you call commit on a message that isn't in auto commit mode
