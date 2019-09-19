@@ -21,6 +21,9 @@ func GetTerminalWidth() uint {
 		uintptr(unsafe.Pointer(ws)))
 
 	if int(retCode) == -1 {
+		if fixedTermWidth > 0 {
+			return fixedTermWidth
+		}
 		return uint(80)
 	}
 	return uint(ws.Col)

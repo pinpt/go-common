@@ -41,10 +41,16 @@ func GetTerminalWidth() uint {
 		r0, _, _ := syscall.Syscall(proc_get_console_screen_buffer_info.Addr(),
 			2, uintptr(h), uintptr(unsafe.Pointer(info)), 0)
 		if int(r0) == 0 {
+			if fixedTermWidth > 0 {
+				return fixedTermWidth
+			}
 			return 80
 		}
 		v := uint(info.maximum_window_size.x - info.window.left)
 		if v > 80 {
+			if fixedTermWidth > 0 {
+				return fixedTermWidth
+			}
 			return v
 		}
 	}
