@@ -476,19 +476,6 @@ func TestConsumerPing(t *testing.T) {
 	assert.True(consumer.Ping())
 }
 
-func TestPing(t *testing.T) {
-	if os.Getenv("CI") != "" {
-		t.SkipNow()
-		return
-	}
-	assert := assert.New(t)
-	config := RegistryConfig{
-		URL: "http://localhost:8081",
-	}
-	c := NewRegistryClient(config)
-	assert.True(c.Ping())
-}
-
 func TestPauseAndResume(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.SkipNow()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/event"
 	"github.com/pinpt/go-common/eventing"
@@ -75,6 +76,15 @@ func (s *ActionSubscription) Close() error {
 	return s.subscription.Close()
 }
 
+// DecodeMsgPack decodes a message pack into an object
+func DecodeMsgPack(buf []byte, object interface{}) error {
+	dec := codec.NewDecoderBytes(buf, new(codec.MsgpackHandle))
+	if err := dec.Decode(object); err != nil {
+		return fmt.Errorf("error decoding %T from msgpack. %v", object, err)
+	}
+	return nil
+}
+
 func (s *ActionSubscription) run() {
 	for e := range s.subscription.Channel() {
 		// create a new instance
@@ -85,8 +95,12 @@ func (s *ActionSubscription) run() {
 		}
 		// deserialize the data into the instance
 		switch e.Type {
-		case "avro":
-			instance.FromAvroBinary([]byte(e.Data))
+		case "msgpack":
+			dec := codec.NewDecoderBytes([]byte(e.Data), new(codec.MsgpackHandle))
+			if err := dec.Decode(instance); err != nil {
+				s.config.Errors <- fmt.Errorf("error decoding %s from msgpack. %v", e.Model, err)
+				return
+			}
 		case "json":
 			kv := make(map[string]interface{})
 			if err := json.Unmarshal([]byte(e.Data), &kv); err != nil {
@@ -102,7 +116,6 @@ func (s *ActionSubscription) run() {
 		// run the action
 		msg := eventing.Message{
 			Encoding:  eventing.ValueEncodingType(e.Type),
-			Codec:     instance.GetAvroCodec(),
 			Key:       e.Key,
 			Value:     []byte(e.Data),
 			Headers:   e.Headers,

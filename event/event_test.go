@@ -2,7 +2,6 @@ package event
 
 import (
 	"bufio"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
@@ -16,10 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/linkedin/goavro"
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/eventing"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
@@ -66,13 +63,10 @@ type Echo struct {
 // ensure that this type implements the data model interface
 var _ datamodel.Model = (*Echo)(nil)
 
-func toEchoObject(o interface{}, isavro bool, isoptional bool, avrotype string) interface{} {
-	if res, ok := datamodel.ToGolangObject(o, isavro, isoptional, avrotype); ok {
-		return res
-	}
+func toEchoObject(o interface{}, isoptional bool) interface{} {
 	switch v := o.(type) {
 	case *Echo:
-		return v.ToMap(isavro)
+		return v.ToMap()
 
 	default:
 		panic("couldn't figure out the object type: " + reflect.TypeOf(v).String())
@@ -87,6 +81,16 @@ func (o *Echo) String() string {
 // GetTopicName returns the name of the topic if evented
 func (o *Echo) GetTopicName() datamodel.TopicNameType {
 	return EchoTopic
+}
+
+// GetStreamName returns the name of the topic if evented
+func (o *Echo) GetStreamName() string {
+	return ""
+}
+
+// GetTableName returns the name of the topic if evented
+func (o *Echo) GetTableName() string {
+	return ""
 }
 
 // GetModelName returns the name of the model
@@ -184,12 +188,6 @@ func (o *Echo) GetTopicConfig() *datamodel.ModelTopicConfig {
 	}
 }
 
-// GetStateKey returns a key for use in state store
-func (o *Echo) GetStateKey() string {
-	key := "id"
-	return fmt.Sprintf("%s_%s", key, o.GetID())
-}
-
 // Clone returns an exact copy of Echo
 func (o *Echo) Clone() datamodel.Model {
 	c := new(Echo)
@@ -220,49 +218,6 @@ func (o *Echo) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-var cachedCodecEcho *goavro.Codec
-
-// GetAvroCodec returns the avro codec for this model
-func (o *Echo) GetAvroCodec() *goavro.Codec {
-	if cachedCodecEcho == nil {
-		c, err := GetEchoAvroSchema()
-		if err != nil {
-			panic(err)
-		}
-		cachedCodecEcho = c
-	}
-	return cachedCodecEcho
-}
-
-// ToAvroBinary returns the data as Avro binary data
-func (o *Echo) ToAvroBinary() ([]byte, *goavro.Codec, error) {
-	kv := o.ToMap(true)
-	jbuf, _ := json.Marshal(kv)
-	codec := o.GetAvroCodec()
-	native, _, err := codec.NativeFromTextual(jbuf)
-	if err != nil {
-		return nil, nil, err
-	}
-	// Convert native Go form to binary Avro data
-	buf, err := codec.BinaryFromNative(nil, native)
-	return buf, codec, err
-}
-
-// FromAvroBinary will convert from Avro binary data into data in this object
-func (o *Echo) FromAvroBinary(value []byte) error {
-	var nullHeader = []byte{byte(0)}
-	// if this still has the schema encoded in the header, move past it to the avro payload
-	if bytes.HasPrefix(value, nullHeader) {
-		value = value[5:]
-	}
-	kv, _, err := o.GetAvroCodec().NativeFromBinary(value)
-	if err != nil {
-		return err
-	}
-	o.FromMap(kv.(map[string]interface{}))
-	return nil
-}
-
 // Stringify returns the object in JSON format as a string
 func (o *Echo) Stringify() string {
 	return pjson.Stringify(o)
@@ -274,18 +229,12 @@ func (o *Echo) IsEqual(other *Echo) bool {
 }
 
 // ToMap returns the object as a map
-func (o *Echo) ToMap(avro ...bool) map[string]interface{} {
-	var isavro bool
-	if len(avro) > 0 && avro[0] {
-		isavro = true
-	}
-	if isavro {
-	}
+func (o *Echo) ToMap() map[string]interface{} {
 	o.setDefaults(false)
 	return map[string]interface{}{
-		"id":         toEchoObject(o.ID, isavro, false, "string"),
-		"message":    toEchoObject(o.Message, isavro, true, "string"),
-		"updated_ts": toEchoObject(o.UpdatedAt, isavro, false, "long"),
+		"id":         toEchoObject(o.ID, false),
+		"message":    toEchoObject(o.Message, true),
+		"updated_ts": toEchoObject(o.UpdatedAt, false),
 	}
 }
 
@@ -385,11 +334,6 @@ func (o *Echo) GetEventAPIConfig() datamodel.EventAPIConfig {
 			Key:    "id",
 		},
 	}
-}
-
-// GetEchoAvroSchema creates the avro schema for Echo
-func GetEchoAvroSchema() (*goavro.Codec, error) {
-	return goavro.NewCodec(GetEchoAvroSchemaSpec())
 }
 
 // TransformEchoFunc is a function for transforming Echo during processing
@@ -674,251 +618,6 @@ func NewEchoSendEvent(o *Echo, opts ...EchoSendEventOpts) *EchoSendEvent {
 		}
 	}
 	return res
-}
-
-// NewEchoProducer will stream data from the channel
-func NewEchoProducer(ctx context.Context, producer eventing.Producer, ch <-chan datamodel.ModelSendEvent, errors chan<- error, empty chan<- bool) <-chan bool {
-	done := make(chan bool, 1)
-	go func() {
-		defer func() { done <- true }()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case item := <-ch:
-				if item == nil {
-					empty <- true
-					return
-				}
-				if object, ok := item.Object().(*Echo); ok {
-					binary, codec, err := object.ToAvroBinary()
-					if err != nil {
-						errors <- fmt.Errorf("error encoding %s to avro binary data. %v", object.String(), err)
-						return
-					}
-					headers := map[string]string{}
-					object.SetEventHeaders(headers)
-					for k, v := range item.Headers() {
-						headers[k] = v
-					}
-					tv := item.Timestamp()
-					if tv.IsZero() {
-						tv = object.GetTimestamp() // if not provided in the message, use the objects value
-					}
-					if tv.IsZero() {
-						tv = time.Now() // if its still zero, use the ingest time
-					}
-					msg := eventing.Message{
-						Encoding:  eventing.AvroEncoding,
-						Key:       item.Key(),
-						Value:     binary,
-						Codec:     codec,
-						Headers:   headers,
-						Timestamp: tv,
-						Topic:     object.GetTopicName().String(),
-					}
-					if err := producer.Send(ctx, msg); err != nil {
-						errors <- fmt.Errorf("error sending %s. %v", object.String(), err)
-					}
-				} else {
-					errors <- fmt.Errorf("invalid event received. expected an object of type test.Echo but received on of type %v", reflect.TypeOf(item.Object()))
-				}
-			}
-		}
-	}()
-	return done
-}
-
-// NewEchoConsumer will stream data from the topic into the provided channel
-func NewEchoConsumer(consumer eventing.Consumer, ch chan<- datamodel.ModelReceiveEvent, errors chan<- error) *eventing.ConsumerCallbackAdapter {
-	adapter := &eventing.ConsumerCallbackAdapter{
-		OnDataReceived: func(msg eventing.Message) error {
-			var object Echo
-			switch msg.Encoding {
-			case eventing.JSONEncoding:
-				if err := json.Unmarshal(msg.Value, &object); err != nil {
-					return fmt.Errorf("error unmarshaling json data into test.Echo: %s", err)
-				}
-			case eventing.AvroEncoding:
-				if err := object.FromAvroBinary(msg.Value); err != nil {
-					return fmt.Errorf("error unmarshaling avro data into test.Echo: %s", err)
-				}
-			default:
-				return fmt.Errorf("unsure of the encoding since it was not set for test.Echo")
-			}
-
-			// ignore messages that have exceeded the TTL
-			cfg := object.GetTopicConfig()
-			if cfg != nil && cfg.TTL != 0 && msg.Timestamp.UTC().Add(cfg.TTL).Sub(time.Now().UTC()) < 0 {
-				return nil
-			}
-			msg.Codec = object.GetAvroCodec() // match the codec
-
-			ch <- &EchoReceiveEvent{&object, msg, false}
-			return nil
-		},
-		OnErrorReceived: func(err error) {
-			errors <- err
-		},
-		OnEOF: func(topic string, partition int32, offset int64) {
-			var object Echo
-			var msg eventing.Message
-			msg.Topic = topic
-			msg.Partition = partition
-			msg.Codec = object.GetAvroCodec() // match the codec
-			ch <- &EchoReceiveEvent{nil, msg, true}
-		},
-	}
-	consumer.Consume(adapter)
-	return adapter
-}
-
-// EchoReceiveEvent is an event detail for receiving data
-type EchoReceiveEvent struct {
-	Echo    *Echo
-	message eventing.Message
-	eof     bool
-}
-
-var _ datamodel.ModelReceiveEvent = (*EchoReceiveEvent)(nil)
-
-// Object returns an instance of the Model that was received
-func (e *EchoReceiveEvent) Object() datamodel.Model {
-	return e.Echo
-}
-
-// Message returns the underlying message data for the event
-func (e *EchoReceiveEvent) Message() eventing.Message {
-	return e.message
-}
-
-// EOF returns true if an EOF event was received. in this case, the Object and Message will return nil
-func (e *EchoReceiveEvent) EOF() bool {
-	return e.eof
-}
-
-// EchoProducer implements the datamodel.ModelEventProducer
-type EchoProducer struct {
-	ch       chan datamodel.ModelSendEvent
-	done     <-chan bool
-	producer eventing.Producer
-	closed   bool
-	mu       sync.Mutex
-	ctx      context.Context
-	cancel   context.CancelFunc
-	empty    chan bool
-}
-
-var _ datamodel.ModelEventProducer = (*EchoProducer)(nil)
-
-// Channel returns the producer channel to produce new events
-func (p *EchoProducer) Channel() chan<- datamodel.ModelSendEvent {
-	return p.ch
-}
-
-// Close is called to shutdown the producer
-func (p *EchoProducer) Close() error {
-	p.mu.Lock()
-	closed := p.closed
-	p.closed = true
-	p.mu.Unlock()
-	if !closed {
-		close(p.ch)
-		<-p.empty
-		p.cancel()
-		<-p.done
-	}
-	return nil
-}
-
-// NewProducerChannel returns a channel which can be used for producing Model events
-func (o *Echo) NewProducerChannel(producer eventing.Producer, errors chan<- error) datamodel.ModelEventProducer {
-	return o.NewProducerChannelSize(producer, 0, errors)
-}
-
-// NewProducerChannelSize returns a channel which can be used for producing Model events
-func (o *Echo) NewProducerChannelSize(producer eventing.Producer, size int, errors chan<- error) datamodel.ModelEventProducer {
-	ch := make(chan datamodel.ModelSendEvent, size)
-	empty := make(chan bool, 1)
-	newctx, cancel := context.WithCancel(context.Background())
-	return &EchoProducer{
-		ch:       ch,
-		ctx:      newctx,
-		cancel:   cancel,
-		producer: producer,
-		empty:    empty,
-		done:     NewEchoProducer(newctx, producer, ch, errors, empty),
-	}
-}
-
-// NewEchoProducerChannel returns a channel which can be used for producing Model events
-func NewEchoProducerChannel(producer eventing.Producer, errors chan<- error) datamodel.ModelEventProducer {
-	return NewEchoProducerChannelSize(producer, 0, errors)
-}
-
-// NewEchoProducerChannelSize returns a channel which can be used for producing Model events
-func NewEchoProducerChannelSize(producer eventing.Producer, size int, errors chan<- error) datamodel.ModelEventProducer {
-	ch := make(chan datamodel.ModelSendEvent, size)
-	empty := make(chan bool, 1)
-	newctx, cancel := context.WithCancel(context.Background())
-	return &EchoProducer{
-		ch:       ch,
-		ctx:      newctx,
-		cancel:   cancel,
-		producer: producer,
-		empty:    empty,
-		done:     NewEchoProducer(newctx, producer, ch, errors, empty),
-	}
-}
-
-// EchoConsumer implements the datamodel.ModelEventConsumer
-type EchoConsumer struct {
-	ch       chan datamodel.ModelReceiveEvent
-	consumer eventing.Consumer
-	callback *eventing.ConsumerCallbackAdapter
-	closed   bool
-	mu       sync.Mutex
-}
-
-var _ datamodel.ModelEventConsumer = (*EchoConsumer)(nil)
-
-// Channel returns the consumer channel to consume new events
-func (c *EchoConsumer) Channel() <-chan datamodel.ModelReceiveEvent {
-	return c.ch
-}
-
-// Close is called to shutdown the producer
-func (c *EchoConsumer) Close() error {
-	c.mu.Lock()
-	closed := c.closed
-	c.closed = true
-	c.mu.Unlock()
-	var err error
-	if !closed {
-		c.callback.Close()
-		err = c.consumer.Close()
-	}
-	return err
-}
-
-// NewConsumerChannel returns a consumer channel which can be used to consume Model events
-func (o *Echo) NewConsumerChannel(consumer eventing.Consumer, errors chan<- error) datamodel.ModelEventConsumer {
-	ch := make(chan datamodel.ModelReceiveEvent)
-	return &EchoConsumer{
-		ch:       ch,
-		callback: NewEchoConsumer(consumer, ch, errors),
-		consumer: consumer,
-	}
-}
-
-// NewEchoConsumerChannel returns a consumer channel which can be used to consume Model events
-func NewEchoConsumerChannel(consumer eventing.Consumer, errors chan<- error) datamodel.ModelEventConsumer {
-	ch := make(chan datamodel.ModelReceiveEvent)
-	return &EchoConsumer{
-		ch:       ch,
-		callback: NewEchoConsumer(consumer, ch, errors),
-		consumer: consumer,
-	}
 }
 
 func TestSendAndReceive(t *testing.T) {

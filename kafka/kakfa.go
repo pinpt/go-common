@@ -19,7 +19,6 @@ type Config struct {
 	Username                  string
 	Password                  string
 	Extra                     map[string]interface{}
-	Registry                  RegistryClient
 	Offset                    string
 	DisableAutoCommit         bool
 	ResetOffset               bool

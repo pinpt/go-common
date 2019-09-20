@@ -1,9 +1,7 @@
 package kafka
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"sync"
 	"time"
@@ -70,46 +68,6 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		timestamp = time.Now()
 	}
 	value := msg.Value
-	if p.config.Registry != nil && msg.Codec != nil && msg.Encoding == eventing.AvroEncoding {
-		subject := msg.Topic + "-value"
-		schemaid, err := p.config.Registry.CreateSubject(subject, msg.Codec)
-		if err != nil {
-			return err
-		}
-		// encode the avro buffer
-		binarySchemaId := make([]byte, 4)
-		binary.BigEndian.PutUint32(binarySchemaId, uint32(schemaid))
-
-		switch msg.Encoding {
-		case eventing.AvroEncoding:
-			break // already in the right format
-		default:
-			native, _, err := msg.Codec.NativeFromTextual(value)
-			if err != nil {
-				return err
-			}
-			// Convert native Go form to binary Avro data
-			binaryValue, err := msg.Codec.BinaryFromNative(nil, native)
-			if err != nil {
-				return err
-			}
-			value = binaryValue
-		}
-
-		binaryMsg := bufferPool.Get().(*bytes.Buffer)
-		// first byte is magic byte, always 0 for now
-		binaryMsg.WriteByte(byte(0))
-		// 4-byte schema ID as returned by the Schema Registry
-		binaryMsg.Write(binarySchemaId)
-		// avro serialized data in Avro’s binary encoding
-		binaryMsg.Write(value)
-		// pull it out and then reset
-		value = binaryMsg.Bytes()
-		defer func() {
-			binaryMsg.Reset()
-			bufferPool.Put(binaryMsg)
-		}()
-	}
 	var err error
 	p.mu.Lock()
 	closed := p.closed
