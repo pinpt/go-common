@@ -68,7 +68,6 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		timestamp = time.Now()
 	}
 	value := msg.Value
-	var err error
 	p.mu.Lock()
 	closed := p.closed
 	if !closed {
@@ -77,15 +76,18 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 	}
 	p.mu.Unlock()
 	if !closed {
-		err = p.producer.Produce(&ck.Message{
+		// make a copy since this is going to be held internally by the producer channel queue
+		val := make([]byte, len(value))
+		copy(val, value)
+		p.producer.ProduceChannel() <- &ck.Message{
 			TopicPartition: tp,
 			Key:            []byte(msg.Key),
-			Value:          value,
+			Value:          val,
 			Timestamp:      timestamp,
 			Headers:        headers,
-		}, nil)
+		}
 	}
-	return err
+	return nil
 }
 
 // Close will close the producer

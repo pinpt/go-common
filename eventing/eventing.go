@@ -13,8 +13,6 @@ type ValueEncodingType string
 const (
 	// JSONEncoding is json encoding for the Value payload
 	JSONEncoding ValueEncodingType = "json"
-	// MsgPackEncoding is msgpack encoding for the Value payload
-	MsgPackEncoding ValueEncodingType = "msgpack"
 )
 
 // ErrMessageNotAutoCommit is returned if you call commit on a message that isn't in auto commit mode

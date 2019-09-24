@@ -93,14 +93,6 @@
   version = "v1.4.1"
 
 [[projects]]
-  digest = "1:5d8539af558ca2ea960a4c11afb12c75ae9e9dca3560f1103318aaa2030e37e2"
-  name = "github.com/hashicorp/go-msgpack"
-  packages = ["codec"]
-  pruneopts = "UT"
-  revision = "ad60660ecf9c5a1eae0ca32182ed72bab5807961"
-  version = "v0.5.5"
-
-[[projects]]
   digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
   name = "github.com/inconshreveable/mousetrap"
   packages = ["."]
@@ -257,7 +249,6 @@
     "github.com/go-redis/redis",
     "github.com/google/uuid",
     "github.com/gorilla/websocket",
-    "github.com/hashicorp/go-msgpack/codec",
     "github.com/mattn/go-isatty",
     "github.com/oliveagle/jsonpath",
     "github.com/olivere/elastic",

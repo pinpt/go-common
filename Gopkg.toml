@@ -79,7 +79,3 @@
 [[constraint]]
   name = "github.com/bsm/redislock"
   version = "0.3.0"
-
-[[constraint]]
-  name = "github.com/hashicorp/go-msgpack"
-  version = "0.5.5"
