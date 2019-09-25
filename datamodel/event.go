@@ -7,7 +7,7 @@ import (
 )
 
 type modelSendEvent struct {
-	object  Model
+	object  StreamedModel
 	headers map[string]string
 }
 
@@ -23,7 +23,7 @@ func (o *modelSendEvent) Key() string {
 }
 
 // Object returns an instance of the Model that will be send
-func (o *modelSendEvent) Object() Model {
+func (o *modelSendEvent) Object() StreamedModel {
 	return o.object
 }
 
@@ -38,17 +38,17 @@ func (o *modelSendEvent) Timestamp() time.Time {
 }
 
 // NewModelSendEvent will send just a model object
-func NewModelSendEvent(object Model) ModelSendEvent {
+func NewModelSendEvent(object StreamedModel) ModelSendEvent {
 	return &modelSendEvent{object, nil}
 }
 
 // NewModelSendEvent will send just a model object and headers
-func NewModelSendEventWithHeaders(object Model, headers map[string]string) ModelSendEvent {
+func NewModelSendEventWithHeaders(object StreamedModel, headers map[string]string) ModelSendEvent {
 	return &modelSendEvent{object, headers}
 }
 
 type modelReceiveEvent struct {
-	object Model
+	object StreamedModel
 	msg    eventing.Message
 	eof    bool
 }
@@ -56,7 +56,7 @@ type modelReceiveEvent struct {
 var _ ModelReceiveEvent = (*modelReceiveEvent)(nil)
 
 // Object returns an instance of the Model that was received
-func (o *modelReceiveEvent) Object() Model {
+func (o *modelReceiveEvent) Object() StreamedModel {
 	return o.object
 }
 
@@ -71,7 +71,7 @@ func (o *modelReceiveEvent) EOF() bool {
 }
 
 // NewModelReceiveEvent returns a new ModelReceiveEvent
-func NewModelReceiveEvent(msg eventing.Message, obj Model) ModelReceiveEvent {
+func NewModelReceiveEvent(msg eventing.Message, obj StreamedModel) ModelReceiveEvent {
 	return &modelReceiveEvent{obj, msg, false}
 }
 

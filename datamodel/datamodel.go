@@ -80,6 +80,13 @@ type Model interface {
 	ToMap() map[string]interface{}
 	// FromMap sets the properties of the instance from the map
 	FromMap(kv map[string]interface{})
+	// GetModelName returns the name of the model
+	GetModelName() ModelNameType
+}
+
+// StreamedModel is a model that is streamed
+type StreamedModel interface {
+	Model
 	// IsMaterialized returns true if the model is materialized
 	IsMaterialized() bool
 	// GetModelMaterializeConfig returns the materialization config if materialized or nil if not
@@ -96,8 +103,6 @@ type Model interface {
 	GetStreamName() string
 	// GetTableName returns the name of the table if evented or "" if not
 	GetTableName() string
-	// GetModelName returns the name of the model
-	GetModelName() ModelNameType
 	// GetTimestamp returns the timestamp for the model or now if not provided
 	GetTimestamp() time.Time
 }
@@ -105,7 +110,7 @@ type Model interface {
 // ModelReceiveEvent is a model event received on an event consumer channel
 type ModelReceiveEvent interface {
 	// Object returns an instance of the Model that was received
-	Object() Model
+	Object() StreamedModel
 	// Message returns the underlying message data for the event
 	Message() eventing.Message
 	// EOF returns true if an EOF event was received. in this case, the Object and Message will return nil
@@ -117,7 +122,7 @@ type ModelSendEvent interface {
 	// Key is the key to use for the message
 	Key() string
 	// Object returns an instance of the Model that will be send
-	Object() Model
+	Object() StreamedModel
 	// Headers returns any headers for the event. can be nil to not send any additional headers
 	Headers() map[string]string
 	// Timestamp returns the event timestamp. If empty, will default to time.Now()
