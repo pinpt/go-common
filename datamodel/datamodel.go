@@ -82,11 +82,6 @@ type Model interface {
 	FromMap(kv map[string]interface{})
 	// GetModelName returns the name of the model
 	GetModelName() ModelNameType
-}
-
-// StreamedModel is a model that is streamed
-type StreamedModel interface {
-	Model
 	// IsMaterialized returns true if the model is materialized
 	IsMaterialized() bool
 	// GetModelMaterializeConfig returns the materialization config if materialized or nil if not
@@ -105,6 +100,12 @@ type StreamedModel interface {
 	GetTableName() string
 	// GetTimestamp returns the timestamp for the model or now if not provided
 	GetTimestamp() time.Time
+}
+
+// StreamedModel is a model that is streamed
+type StreamedModel interface {
+	// FIXME: re-breakout the model (public) from stream model (private) once things settle
+	Model
 }
 
 // ModelReceiveEvent is a model event received on an event consumer channel
