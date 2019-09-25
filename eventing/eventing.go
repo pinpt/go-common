@@ -91,39 +91,27 @@ var _ ConsumerCallbackEventFilter = (*ConsumerCallbackAdapter)(nil)
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
 	cb.mu.Lock()
-	h := cb.OnDataReceived
+	err := cb.OnDataReceived(msg)
 	cb.mu.Unlock()
-	if h != nil {
-		return h(msg)
-	}
-	return nil
+	return err
 }
 
 func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
 	cb.mu.Lock()
-	h := cb.OnErrorReceived
+	cb.OnErrorReceived(err)
 	cb.mu.Unlock()
-	if h != nil {
-		h(err)
-	}
 }
 
 func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
 	cb.mu.Lock()
-	h := cb.OnEOF
+	cb.OnEOF(topic, partition, offset)
 	cb.mu.Unlock()
-	if h != nil {
-		h(topic, partition, offset)
-	}
 }
 
 func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
 	cb.mu.Lock()
-	h := cb.OnStats
+	cb.OnStats(stats)
 	cb.mu.Unlock()
-	if h != nil {
-		h(stats)
-	}
 }
 
 func (cb *ConsumerCallbackAdapter) Close() error {
