@@ -89,28 +89,36 @@ var _ ConsumerCallbackPartitionLifecycle = (*ConsumerCallbackAdapter)(nil)
 var _ ConsumerCallbackMessageFilter = (*ConsumerCallbackAdapter)(nil)
 var _ ConsumerCallbackEventFilter = (*ConsumerCallbackAdapter)(nil)
 
-func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) error {
+func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) (err error) {
 	cb.mu.Lock()
-	err := cb.OnDataReceived(msg)
+	if cb.OnDataReceived != nil {
+		err = cb.OnDataReceived(msg)
+	}
 	cb.mu.Unlock()
-	return err
+	return
 }
 
 func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
 	cb.mu.Lock()
-	cb.OnErrorReceived(err)
+	if cb.OnErrorReceived != nil {
+		cb.OnErrorReceived(err)
+	}
 	cb.mu.Unlock()
 }
 
 func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
 	cb.mu.Lock()
-	cb.OnEOF(topic, partition, offset)
+	if cb.OnEOF != nil {
+		cb.OnEOF(topic, partition, offset)
+	}
 	cb.mu.Unlock()
 }
 
 func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
 	cb.mu.Lock()
-	cb.OnStats(stats)
+	if cb.OnStats != nil {
+		cb.OnStats(stats)
+	}
 	cb.mu.Unlock()
 }
 
