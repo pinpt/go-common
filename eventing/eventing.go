@@ -81,7 +81,7 @@ type ConsumerCallbackAdapter struct {
 	// OnOffsetsCommitted is called when offsets are committed
 	OnOffsetsCommitted func(offsets []TopicPartition)
 	// mutex
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 var _ ConsumerCallback = (*ConsumerCallbackAdapter)(nil)
@@ -90,36 +90,36 @@ var _ ConsumerCallbackMessageFilter = (*ConsumerCallbackAdapter)(nil)
 var _ ConsumerCallbackEventFilter = (*ConsumerCallbackAdapter)(nil)
 
 func (cb *ConsumerCallbackAdapter) DataReceived(msg Message) (err error) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnDataReceived != nil {
 		err = cb.OnDataReceived(msg)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 	return
 }
 
 func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnErrorReceived != nil {
 		cb.OnErrorReceived(err)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnEOF != nil {
 		cb.OnEOF(topic, partition, offset)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnStats != nil {
 		cb.OnStats(stats)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 func (cb *ConsumerCallbackAdapter) Close() error {
@@ -138,48 +138,50 @@ func (cb *ConsumerCallbackAdapter) Close() error {
 }
 
 func (cb *ConsumerCallbackAdapter) ShouldProcess(o interface{}) bool {
-	cb.mu.Lock()
+	cb.mu.RLock()
+	ok := true
 	if cb.OnShouldProcess != nil {
-		return cb.OnShouldProcess(o)
+		ok = cb.OnShouldProcess(o)
 	}
-	cb.mu.Unlock()
-	return true
+	cb.mu.RUnlock()
+	return ok
 }
 
 func (cb *ConsumerCallbackAdapter) ShouldFilter(m *Message) bool {
-	cb.mu.Lock()
+	cb.mu.RLock()
+	ok := true
 	if cb.OnShouldFilter != nil {
-		return cb.OnShouldFilter(m)
+		ok = cb.OnShouldFilter(m)
 	}
-	cb.mu.Unlock()
-	return true
+	cb.mu.RUnlock()
+	return ok
 }
 
 // OnPartitionAssignment is called when partitions are assigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartition) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnPartitionAssignment != nil {
 		cb.OnPartitionAssignment(partitions)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 // OnPartitionRevocation is called when partitions are unassigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartition) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnPartitionRevocation != nil {
 		cb.OnPartitionRevocation(partitions)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 // OnOffsetsCommitted is called when offsets are committed
 func (cb *ConsumerCallbackAdapter) OffsetsCommitted(offsets []TopicPartition) {
-	cb.mu.Lock()
+	cb.mu.RLock()
 	if cb.OnOffsetsCommitted != nil {
 		cb.OnOffsetsCommitted(offsets)
 	}
-	cb.mu.Unlock()
+	cb.mu.RUnlock()
 }
 
 // ConsumerCallback will receive events from producers
