@@ -24,17 +24,22 @@ type Config struct {
 	ResetOffset               bool
 	ShouldProcessKafkaMessage ShouldProcessKafkaMessage
 	ShouldProcessEventMessage ShouldProcessEventMessage
+	ClientID                  string
 }
 
 // NewConfigMap returns a ConfigMap from a Config
 func NewConfigMap(config Config) *ck.ConfigMap {
+	clientid := config.ClientID
+	if clientid == "" {
+		clientid = "pinpt/go-common"
+	}
 	c := &ck.ConfigMap{
 		"request.timeout.ms":       20000,
 		"retry.backoff.ms":         500,
 		"api.version.request":      true,
 		"message.max.bytes":        1000000000, // allow the consumer/producer to be as big but the broker to enforce
 		"bootstrap.servers":        strings.Join(config.Brokers, ","),
-		"client.id":                "pinpt/go-common",
+		"client.id":                clientid,
 		"enable.auto.offset.store": true,
 		"session.timeout.ms":       10000,
 		"heartbeat.interval.ms":    1000,

@@ -139,52 +139,47 @@ func (cb *ConsumerCallbackAdapter) Close() error {
 
 func (cb *ConsumerCallbackAdapter) ShouldProcess(o interface{}) bool {
 	cb.mu.Lock()
-	h := cb.OnShouldProcess
-	cb.mu.Unlock()
-	if h != nil {
-		return h(o)
+	if cb.OnShouldProcess != nil {
+		return cb.OnShouldProcess(o)
 	}
+	cb.mu.Unlock()
 	return true
 }
 
 func (cb *ConsumerCallbackAdapter) ShouldFilter(m *Message) bool {
 	cb.mu.Lock()
-	h := cb.OnShouldFilter
-	cb.mu.Unlock()
-	if h != nil {
-		return h(m)
+	if cb.OnShouldFilter != nil {
+		return cb.OnShouldFilter(m)
 	}
+	cb.mu.Unlock()
 	return true
 }
 
 // OnPartitionAssignment is called when partitions are assigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartition) {
 	cb.mu.Lock()
-	h := cb.OnPartitionAssignment
-	cb.mu.Unlock()
-	if h != nil {
-		h(partitions)
+	if cb.OnPartitionAssignment != nil {
+		cb.OnPartitionAssignment(partitions)
 	}
+	cb.mu.Unlock()
 }
 
 // OnPartitionRevocation is called when partitions are unassigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartition) {
 	cb.mu.Lock()
-	h := cb.OnPartitionRevocation
-	cb.mu.Unlock()
-	if h != nil {
-		h(partitions)
+	if cb.OnPartitionRevocation != nil {
+		cb.OnPartitionRevocation(partitions)
 	}
+	cb.mu.Unlock()
 }
 
 // OnOffsetsCommitted is called when offsets are committed
 func (cb *ConsumerCallbackAdapter) OffsetsCommitted(offsets []TopicPartition) {
 	cb.mu.Lock()
-	h := cb.OnOffsetsCommitted
-	cb.mu.Unlock()
-	if h != nil {
-		h(offsets)
+	if cb.OnOffsetsCommitted != nil {
+		cb.OnOffsetsCommitted(offsets)
 	}
+	cb.mu.Unlock()
 }
 
 // ConsumerCallback will receive events from producers

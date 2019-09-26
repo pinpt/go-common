@@ -181,6 +181,21 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						}
 						c.assignmentmu.Unlock()
 						continue
+					} else {
+						// we have to make a copy since the incoming isn't a pointer struct
+						topicpartitions := make([]ck.TopicPartition, 0)
+						for _, partition := range e.Partitions {
+							var offset ck.Offset
+							if partition.Offset == ck.OffsetInvalid {
+								offset = ck.OffsetBeginning
+							}
+							topicpartitions = append(topicpartitions, ck.TopicPartition{
+								Topic:     partition.Topic,
+								Partition: partition.Partition,
+								Offset:    offset,
+							})
+						}
+						e.Partitions = topicpartitions
 					}
 					if err := c.consumer.Assign(e.Partitions); err != nil {
 						callback.ErrorReceived(err)
