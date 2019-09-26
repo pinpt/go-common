@@ -79,12 +79,15 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		// make a copy since this is going to be held internally by the producer channel queue
 		val := make([]byte, len(value))
 		copy(val, value)
-		p.producer.ProduceChannel() <- &ck.Message{
+		msg := &ck.Message{
 			TopicPartition: tp,
 			Key:            []byte(msg.Key),
 			Value:          val,
 			Timestamp:      timestamp,
 			Headers:        headers,
+		}
+		if err := p.producer.Produce(msg, nil); err != nil {
+			return err
 		}
 	}
 	return nil
