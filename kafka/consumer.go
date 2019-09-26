@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,9 +122,35 @@ var bufferPool = sync.Pool{
 	},
 }
 
+const (
+	checkDuration = time.Second * 15
+	warnDuration  = time.Second * 30
+)
+
 // Consume will start consuming from the consumer using the callback
 func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		var lastMessageMu sync.RWMutex
+		var lastMessage *ck.Message
+		var lastMessageTs time.Time
+		// start a goroutine for monitoring delivery handlers that take too long
+		// to help us debug slow consumers
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(checkDuration):
+					lastMessageMu.RLock()
+					if lastMessage != nil && time.Since(lastMessageTs) >= warnDuration {
+						fmt.Printf("[WARN] consumer %v is taking too long (%v) to process this message: %v\n", c.consumer, time.Since(lastMessageTs), lastMessage)
+					}
+					lastMessageMu.RUnlock()
+				}
+			}
+		}()
+		defer cancel()
 		for {
 			select {
 			case <-c.done:
@@ -148,7 +175,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						fmt.Fprintf(os.Stderr, string(debug.Stack()))
 					}
 				}()
-				// fmt.Println("EVENT", ev, "=>", reflect.ValueOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
+				// fmt.Println("EVENT", ev, "=>", reflect.TypeOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
 					if c.shouldreset && !c.hasreset {
@@ -306,11 +333,20 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							continue
 						}
 					}
+					lastMessageMu.Lock()
+					lastMessageTs = time.Now()
+					lastMessage = e
+					lastMessageMu.Unlock()
 					if err := callback.DataReceived(msg); err != nil {
 						callback.ErrorReceived(err)
 					}
+					// return the buffer to the pool
 					buf.Reset()
 					bufferPool.Put(buf)
+					// reset our message
+					lastMessageMu.Lock()
+					lastMessage = nil
+					lastMessageMu.Unlock()
 				case ck.PartitionEOF:
 					if cb, ok := callback.(ConsumerEOFCallback); ok {
 						cb.EOF(*e.Topic, e.Partition, int64(e.Offset))
@@ -384,7 +420,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		config:          config,
 		consumer:        consumer,
 		done:            make(chan struct{}, 1),
-		DefaultPollTime: time.Millisecond * 500,
+		DefaultPollTime: time.Millisecond * 250,
 		autocommit:      !config.DisableAutoCommit,
 		shouldreset:     config.ResetOffset,
 	}
