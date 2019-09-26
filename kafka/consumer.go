@@ -187,7 +187,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						for _, partition := range e.Partitions {
 							var offset ck.Offset
 							if partition.Offset == ck.OffsetInvalid {
-								offset = ck.OffsetBeginning
+								offset = ck.OffsetEnd
 							}
 							topicpartitions = append(topicpartitions, ck.TopicPartition{
 								Topic:     partition.Topic,
