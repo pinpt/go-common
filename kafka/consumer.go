@@ -58,7 +58,6 @@ func (c *Consumer) Close() error {
 	c.mu.Unlock()
 	var err error
 	if !closed {
-		c.consumer.Unsubscribe()
 		c.done <- struct{}{}
 		err = c.consumer.Close()
 	}
@@ -426,11 +425,15 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	if err != nil {
 		return nil, err
 	}
+	poll := config.DefaultPollTime
+	if poll == 0 {
+		poll = time.Second
+	}
 	c := &Consumer{
 		config:          config,
 		consumer:        consumer,
 		done:            make(chan struct{}, 1),
-		DefaultPollTime: time.Millisecond * 250,
+		DefaultPollTime: poll,
 		autocommit:      !config.DisableAutoCommit,
 		shouldreset:     config.ResetOffset,
 	}

@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"strings"
+	"time"
 
 	"github.com/pinpt/go-common/eventing"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
@@ -25,6 +26,7 @@ type Config struct {
 	ShouldProcessKafkaMessage ShouldProcessKafkaMessage
 	ShouldProcessEventMessage ShouldProcessEventMessage
 	ClientID                  string
+	DefaultPollTime           time.Duration // only for consumers
 }
 
 // NewConfigMap returns a ConfigMap from a Config
@@ -42,7 +44,7 @@ func NewConfigMap(config Config) *ck.ConfigMap {
 		"client.id":                clientid,
 		"enable.auto.offset.store": true,
 		"session.timeout.ms":       10000,
-		"heartbeat.interval.ms":    1000,
+		"heartbeat.interval.ms":    3000,
 	}
 	if config.DisableAutoCommit {
 		c.SetKey("enable.auto.commit", "false")

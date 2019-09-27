@@ -348,7 +348,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater) || strings.Contains(err.Error(), "websocket: close sent") {
+				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) || strings.Contains(err.Error(), "websocket: close sent") {
 					closed = true
 					errored = true
 					break
