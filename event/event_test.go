@@ -566,7 +566,7 @@ func (e *EchoSendEvent) Key() string {
 }
 
 // Object returns an instance of the Model that will be send
-func (e *EchoSendEvent) Object() datamodel.Model {
+func (e *EchoSendEvent) Object() datamodel.StreamedModel {
 	return e.Echo
 }
 

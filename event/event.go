@@ -179,7 +179,7 @@ func (c *SubscriptionChannel) Close() error {
 	return nil
 }
 
-var MaxErrorCount = 25
+var MaxErrorCount = 50
 
 func (c *SubscriptionChannel) run() {
 	origin := api.BackendURL(api.EventService, c.subscription.Channel)
@@ -270,7 +270,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if err == io.EOF || websocket.IsCloseError(err) || websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater) {
 					closed = true
 					errored = true
 					break
