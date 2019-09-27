@@ -41,6 +41,7 @@ type Consumer struct {
 	shouldreset     bool
 	hasreset        bool
 
+	paused              bool
 	waitforassignments  bool
 	receivedassignments bool
 	assignments         chan bool
@@ -70,6 +71,9 @@ func (c *Consumer) Pause() error {
 	if err != nil {
 		return fmt.Errorf("error fetching assignment for pausing. %v", err)
 	}
+	c.mu.Lock()
+	c.paused = true
+	c.mu.Unlock()
 	return c.consumer.Pause(assignments)
 }
 
@@ -79,6 +83,9 @@ func (c *Consumer) Resume() error {
 	if err != nil {
 		return fmt.Errorf("error fetching assignment for resuming. %v", err)
 	}
+	c.mu.Lock()
+	c.paused = false
+	c.mu.Unlock()
 	return c.consumer.Resume(assignments)
 }
 
@@ -144,7 +151,12 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				case <-time.After(checkDuration):
 					lastMessageMu.RLock()
 					if lastMessage != nil && time.Since(lastMessageTs) >= warnDuration {
-						fmt.Printf("[WARN] consumer %v is taking too long (%v) to process this message: %v\n", c.consumer, time.Since(lastMessageTs), lastMessage)
+						c.mu.Lock()
+						paused := c.paused // check to see if paused before warning
+						c.mu.Unlock()
+						if !paused {
+							fmt.Printf("[WARN] consumer %v is taking too long (%v) to process this message: %v\n", c.consumer, time.Since(lastMessageTs), lastMessage)
+						}
 					}
 					lastMessageMu.RUnlock()
 				}
@@ -157,12 +169,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				return
 			default:
 				c.mu.Lock()
-				closed := c.closed
-				c.mu.Unlock()
-				if closed {
+				if c.closed || c.consumer == nil {
+					c.mu.Unlock()
 					return
 				}
-				c.mu.Lock()
 				ev := c.consumer.Poll(int(c.DefaultPollTime / time.Millisecond))
 				c.mu.Unlock()
 				if ev == nil {

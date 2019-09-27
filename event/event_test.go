@@ -1,23 +1,16 @@
 package event
 
 import (
-	"bufio"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
-	"reflect"
-	"regexp"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/fileutil"
 	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/number"
@@ -29,11 +22,8 @@ const (
 	// EchoTopic is the default topic name
 	EchoTopic datamodel.TopicNameType = "test_Echo_topic"
 
-	// EchoStream is the default stream name
-	EchoStream datamodel.TopicNameType = "test_Echo_stream"
-
 	// EchoTable is the default table name
-	EchoTable datamodel.TopicNameType = "test_Echo"
+	EchoTable datamodel.ModelNameType = "test_echo"
 
 	// EchoModelName is the model name
 	EchoModelName datamodel.ModelNameType = "test.Echo"
@@ -41,27 +31,30 @@ const (
 
 const (
 	// EchoIDColumn is the id column name
-	EchoIDColumn = "id"
+	EchoIDColumn = "ID"
 	// EchoMessageColumn is the message column name
-	EchoMessageColumn = "message"
+	EchoMessageColumn = "Message"
 	// EchoUpdatedAtColumn is the updated_ts column name
-	EchoUpdatedAtColumn = "updated_ts"
+	EchoUpdatedAtColumn = "UpdatedAt"
 )
 
 // Echo echo will simplify store data so you can check that it's getting received
 type Echo struct {
 	// ID some sort of id so you can fetch it back
-	ID string `json:"id" bson:"_id" yaml:"id" faker:"-"`
+	ID string `json:"id" codec:"id" bson:"_id" yaml:"id" faker:"-"`
 	// Message a message for testing
-	Message *string `json:"message" bson:"message" yaml:"message" faker:"-"`
+	Message *string `json:"message,omitempty" codec:"message,omitempty" bson:"message" yaml:"message,omitempty" faker:"-"`
 	// UpdatedAt the timestamp that the model was last updated fo real
-	UpdatedAt int64 `json:"updated_ts" bson:"updated_ts" yaml:"updated_ts" faker:"-"`
+	UpdatedAt int64 `json:"updated_ts" codec:"updated_ts" bson:"updated_ts" yaml:"updated_ts" faker:"-"`
 	// Hashcode stores the hash of the value of this object whereby two objects with the same hashcode are functionality equal
-	Hashcode string `json:"hashcode" bson:"hashcode" yaml:"hashcode" faker:"-"`
+	Hashcode string `json:"hashcode" codec:"hashcode" bson:"hashcode" yaml:"hashcode" faker:"-"`
 }
 
 // ensure that this type implements the data model interface
 var _ datamodel.Model = (*Echo)(nil)
+
+// ensure that this type implements the streamed data model interface
+var _ datamodel.StreamedModel = (*Echo)(nil)
 
 func toEchoObject(o interface{}, isoptional bool) interface{} {
 	switch v := o.(type) {
@@ -69,7 +62,7 @@ func toEchoObject(o interface{}, isoptional bool) interface{} {
 		return v.ToMap()
 
 	default:
-		panic("couldn't figure out the object type: " + reflect.TypeOf(v).String())
+		return o
 	}
 }
 
@@ -83,19 +76,24 @@ func (o *Echo) GetTopicName() datamodel.TopicNameType {
 	return EchoTopic
 }
 
-// GetStreamName returns the name of the topic if evented
+// GetStreamName returns the name of the stream
 func (o *Echo) GetStreamName() string {
 	return ""
 }
 
-// GetTableName returns the name of the topic if evented
+// GetTableName returns the name of the table
 func (o *Echo) GetTableName() string {
-	return ""
+	return EchoTable.String()
 }
 
 // GetModelName returns the name of the model
 func (o *Echo) GetModelName() datamodel.ModelNameType {
 	return EchoModelName
+}
+
+// NewEchoID provides a template for generating an ID field for Echo
+func NewEchoID(ID string) string {
+	return hash.Values(ID, "name")
 }
 
 var emptyString string
@@ -177,10 +175,14 @@ func (o *Echo) GetTopicConfig() *datamodel.ModelTopicConfig {
 	if err != nil {
 		ttl = 0
 	}
+	if ttl == 0 && retention != 0 {
+		ttl = retention // they should be the same if not set
+	}
 	return &datamodel.ModelTopicConfig{
 		Key:               "id",
 		Timestamp:         "updated_ts",
 		NumPartitions:     8,
+		CleanupPolicy:     datamodel.CleanupPolicy("delete"),
 		ReplicationFactor: 3,
 		Retention:         retention,
 		MaxSize:           5242880,
@@ -272,7 +274,7 @@ func (o *Echo) FromMap(kv map[string]interface{}) {
 			if val == nil {
 				o.Message = pstrings.Pointer("")
 			} else {
-				// if coming in as avro union, convert it back
+				// if coming in as map, convert it back
 				if kv, ok := val.(map[string]interface{}); ok {
 					val = kv["string"]
 				}
@@ -298,31 +300,6 @@ func (o *Echo) FromMap(kv map[string]interface{}) {
 	o.setDefaults(false)
 }
 
-// GetEchoAvroSchemaSpec creates the avro schema specification for Echo
-func GetEchoAvroSchemaSpec() string {
-	spec := map[string]interface{}{
-		"type":      "record",
-		"namespace": "test",
-		"name":      "Echo",
-		"fields": []map[string]interface{}{
-			map[string]interface{}{
-				"name": "id",
-				"type": "string",
-			},
-			map[string]interface{}{
-				"name":    "message",
-				"type":    []interface{}{"null", "string"},
-				"default": nil,
-			},
-			map[string]interface{}{
-				"name": "updated_ts",
-				"type": "long",
-			},
-		},
-	}
-	return pjson.Stringify(spec, true)
-}
-
 // GetEventAPIConfig returns the EventAPIConfig
 func (o *Echo) GetEventAPIConfig() datamodel.EventAPIConfig {
 	return datamodel.EventAPIConfig{
@@ -334,217 +311,6 @@ func (o *Echo) GetEventAPIConfig() datamodel.EventAPIConfig {
 			Key:    "id",
 		},
 	}
-}
-
-// TransformEchoFunc is a function for transforming Echo during processing
-type TransformEchoFunc func(input *Echo) (*Echo, error)
-
-// NewEchoPipe creates a pipe for processing Echo items
-func NewEchoPipe(input io.ReadCloser, output io.WriteCloser, errors chan error, transforms ...TransformEchoFunc) <-chan bool {
-	done := make(chan bool, 1)
-	inch, indone := NewEchoInputStream(input, errors)
-	var stream chan Echo
-	if len(transforms) > 0 {
-		stream = make(chan Echo, 1000)
-	} else {
-		stream = inch
-	}
-	outdone := NewEchoOutputStream(output, stream, errors)
-	go func() {
-		if len(transforms) > 0 {
-			var stop bool
-			for item := range inch {
-				input := &item
-				for _, transform := range transforms {
-					out, err := transform(input)
-					if err != nil {
-						stop = true
-						errors <- err
-						break
-					}
-					if out == nil {
-						input = nil
-						break
-					} else {
-						input = out
-					}
-				}
-				if stop {
-					break
-				}
-				if input != nil {
-					stream <- *input
-				}
-			}
-			close(stream)
-		}
-		<-indone
-		<-outdone
-		done <- true
-	}()
-	return done
-}
-
-// NewEchoInputStreamDir creates a channel for reading Echo as JSON newlines from a directory of files
-func NewEchoInputStreamDir(dir string, errors chan<- error, transforms ...TransformEchoFunc) (chan Echo, <-chan bool) {
-	files, err := fileutil.FindFiles(dir, regexp.MustCompile("/test/echo\\.json(\\.gz)?$"))
-	if err != nil {
-		errors <- err
-		ch := make(chan Echo)
-		close(ch)
-		done := make(chan bool, 1)
-		done <- true
-		return ch, done
-	}
-	l := len(files)
-	if l > 1 {
-		errors <- fmt.Errorf("too many files matched our finder regular expression for echo")
-		ch := make(chan Echo)
-		close(ch)
-		done := make(chan bool, 1)
-		done <- true
-		return ch, done
-	} else if l == 1 {
-		return NewEchoInputStreamFile(files[0], errors, transforms...)
-	} else {
-		ch := make(chan Echo)
-		close(ch)
-		done := make(chan bool, 1)
-		done <- true
-		return ch, done
-	}
-}
-
-// NewEchoInputStreamFile creates an channel for reading Echo as JSON newlines from filename
-func NewEchoInputStreamFile(filename string, errors chan<- error, transforms ...TransformEchoFunc) (chan Echo, <-chan bool) {
-	of, err := os.Open(filename)
-	if err != nil {
-		errors <- err
-		ch := make(chan Echo)
-		close(ch)
-		done := make(chan bool, 1)
-		done <- true
-		return ch, done
-	}
-	var f io.ReadCloser = of
-	if filepath.Ext(filename) == ".gz" {
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			of.Close()
-			errors <- err
-			ch := make(chan Echo)
-			close(ch)
-			done := make(chan bool, 1)
-			done <- true
-			return ch, done
-		}
-		f = gz
-	}
-	return NewEchoInputStream(f, errors, transforms...)
-}
-
-// NewEchoInputStream creates an channel for reading Echo as JSON newlines from stream
-func NewEchoInputStream(stream io.ReadCloser, errors chan<- error, transforms ...TransformEchoFunc) (chan Echo, <-chan bool) {
-	done := make(chan bool, 1)
-	ch := make(chan Echo, 1000)
-	go func() {
-		defer func() { stream.Close(); close(ch); done <- true }()
-		r := bufio.NewReader(stream)
-		for {
-			buf, err := r.ReadBytes('\n')
-			if err != nil {
-				if err == io.EOF {
-					return
-				}
-				errors <- err
-				return
-			}
-			var item Echo
-			if err := json.Unmarshal(buf, &item); err != nil {
-				errors <- err
-				return
-			}
-			in := &item
-			var skip bool
-			for _, transform := range transforms {
-				in, err = transform(in)
-				if err != nil {
-					errors <- err
-					return
-				}
-				if in == nil {
-					skip = true
-					break
-				}
-			}
-			if !skip {
-				ch <- *in
-			}
-		}
-	}()
-	return ch, done
-}
-
-// NewEchoOutputStreamDir will output json newlines from channel and save in dir
-func NewEchoOutputStreamDir(dir string, ch chan Echo, errors chan<- error, transforms ...TransformEchoFunc) <-chan bool {
-	fp := filepath.Join(dir, "/test/echo\\.json(\\.gz)?$")
-	os.MkdirAll(filepath.Dir(fp), 0777)
-	of, err := os.Create(fp)
-	if err != nil {
-		errors <- err
-		done := make(chan bool, 1)
-		done <- true
-		return done
-	}
-	gz, err := gzip.NewWriterLevel(of, gzip.BestCompression)
-	if err != nil {
-		errors <- err
-		done := make(chan bool, 1)
-		done <- true
-		return done
-	}
-	return NewEchoOutputStream(gz, ch, errors, transforms...)
-}
-
-// NewEchoOutputStream will output json newlines from channel to the stream
-func NewEchoOutputStream(stream io.WriteCloser, ch chan Echo, errors chan<- error, transforms ...TransformEchoFunc) <-chan bool {
-	done := make(chan bool, 1)
-	go func() {
-		defer func() {
-			if gz, ok := stream.(*gzip.Writer); ok {
-				gz.Flush()
-				gz.Close()
-			}
-			stream.Close()
-			done <- true
-		}()
-		for item := range ch {
-			in := &item
-			var skip bool
-			var err error
-			for _, transform := range transforms {
-				in, err = transform(in)
-				if err != nil {
-					errors <- err
-					return
-				}
-				if in == nil {
-					skip = true
-					break
-				}
-			}
-			if !skip {
-				buf, err := json.Marshal(in)
-				if err != nil {
-					errors <- err
-					return
-				}
-				stream.Write(buf)
-				stream.Write([]byte{'\n'})
-			}
-		}
-	}()
-	return done
 }
 
 // EchoSendEvent is an event detail for sending data
@@ -875,4 +641,13 @@ func TestSendAndReceiveMultipleAsyncWithAutocommitDisabled(t *testing.T) {
 		assert.NoError(err)
 	default:
 	}
+}
+
+func TestDeadline(t *testing.T) {
+	assert := assert.New(t)
+	event := PublishEvent{
+		Object: &Echo{},
+	}
+	err := Publish(context.Background(), event, "dev", "", WithDeadline(time.Now()))
+	assert.EqualError(err, ErrDeadlineExceeded.Error())
 }

@@ -43,8 +43,52 @@ type payload struct {
 	Data      string                  `json:"data"`
 }
 
+// PublishConfig is used by Options
+type PublishConfig struct {
+	Debug    bool
+	Deadline time.Time
+	Logger   log.Logger
+}
+
+type Option func(config *PublishConfig) error
+
+// WithDebugOption will turn on debugging
+func WithDebugOption() Option {
+	return func(config *PublishConfig) error {
+		config.Debug = true
+		return nil
+	}
+}
+
+// WithDebugOption will turn on debugging
+func WithDeadline(deadline time.Time) Option {
+	return func(config *PublishConfig) error {
+		config.Deadline = deadline
+		return nil
+	}
+}
+
+// WithLogger will provide a logger to use
+func WithLogger(logger log.Logger) Option {
+	return func(config *PublishConfig) error {
+		config.Logger = logger
+		return nil
+	}
+}
+
+// ErrDeadlineExceeded is an error that's raised when a deadline occurs
+var ErrDeadlineExceeded = errors.New("error: deadline exceeded on publish")
+
+func isHTTPStatusRetryable(statusCode int) bool {
+	switch statusCode {
+	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return true
+	}
+	return false
+}
+
 // Publish will publish an event to the event api server
-func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, debug ...bool) (err error) {
+func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
 	payload := payload{
 		Type:    "json",
@@ -52,66 +96,100 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		Headers: event.Headers,
 		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
 	}
-	if len(debug) > 0 && debug[0] {
-		fmt.Println(pjson.Stringify(payload))
-		fmt.Println(url)
+	started := time.Now()
+	config := &PublishConfig{
+		Debug:    false,
+		Deadline: time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
 	}
-	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
-	req.Header.Set("Content-Type", jsonContentType)
-	req.Header.Set("Accept", jsonContentType)
-	api.SetUserAgent(req)
-	api.SetAuthorization(req, apiKey)
-	req = req.WithContext(ctx)
-	var resp *http.Response
-	var resperr error
-	if strings.Contains(url, "ppoint.io") {
-		client := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
+	var attempts int
+	for {
+		attempts++
+		for _, opt := range options {
+			if err := opt(config); err != nil {
+				return err
+			}
 		}
-		resp, resperr = client.Do(req)
-	} else {
-		client, err := api.NewHTTPAPIClientDefault()
+		if !config.Deadline.IsZero() && config.Deadline.Before(started) {
+			err = ErrDeadlineExceeded
+			return
+		}
+		if config.Debug {
+			fmt.Println(pjson.Stringify(payload))
+			fmt.Println(url)
+		}
+		logger := config.Logger
+		if logger == nil {
+			logger = event.Logger
+		}
+		req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
+		req.Header.Set("Content-Type", jsonContentType)
+		req.Header.Set("Accept", jsonContentType)
+		api.SetUserAgent(req)
+		api.SetAuthorization(req, apiKey)
+		req = req.WithContext(ctx)
+		var resp *http.Response
+		var resperr error
+		if strings.Contains(url, "ppoint.io") {
+			client := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				},
+			}
+			resp, resperr = client.Do(req)
+		} else {
+			client, err := api.NewHTTPAPIClientDefault()
+			if err != nil {
+				return err
+			}
+			resp, resperr = client.Do(req)
+		}
+		if resperr != nil {
+			if logger != nil {
+				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", err)
+			}
+			return resperr
+		}
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+			// if retryable, we'll continue again
+			if isHTTPStatusRetryable(resp.StatusCode) {
+				resp.Body.Close()
+				if logger != nil {
+					log.Debug(logger, "publish encountered a retryable error, will retry again")
+				}
+				time.Sleep(time.Millisecond * time.Duration(100*attempts))
+				continue
+			}
+		} else {
+			if logger != nil {
+				log.Debug(logger, "sent event", "payload", payload, "event", event)
+			}
+		}
+		defer resp.Body.Close()
+		bts, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
-		resp, resperr = client.Do(req)
-	}
-	if resperr != nil {
-		if event.Logger != nil {
-			log.Error(event.Logger, "sent event error", "payload", payload, "event", event, "err", err)
+		respStr := string(bts)
+		if config.Debug {
+			for k, v := range resp.Header {
+				fmt.Println(k, "=>", v[0])
+			}
+			fmt.Println(respStr)
 		}
-		return resperr
-	}
-	if event.Logger != nil {
-		log.Debug(event.Logger, "sent event", "payload", payload, "event", event)
-	}
-	defer resp.Body.Close()
-	bts, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	respStr := string(bts)
-	if len(debug) > 0 && debug[0] {
-		for k, v := range resp.Header {
-			fmt.Println(k, "=>", v[0])
+		if respStr != "OK" {
+			var rerr struct {
+				Success bool
+				Message string
+			}
+			if err := json.Unmarshal(bts, &rerr); err != nil {
+				return fmt.Errorf("%s", respStr)
+			}
+			return errors.New(rerr.Message)
 		}
-		fmt.Println(respStr)
+		return nil
 	}
-	if respStr != "OK" {
-		var rerr struct {
-			Success bool
-			Message string
-		}
-		if err := json.Unmarshal(bts, &rerr); err != nil {
-			return fmt.Errorf("%s", respStr)
-		}
-		return errors.New(rerr.Message)
-	}
-	return nil
 }
 
 // SubscriptionEvent is received from the event server
@@ -270,7 +348,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater) {
+				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater) || strings.Contains(err.Error(), "websocket: close sent") {
 					closed = true
 					errored = true
 					break
