@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pinpt/go-common/datetime"
 	"github.com/pinpt/go-common/eventing"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
@@ -64,7 +65,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 		Partition: msg.Partition,
 	}
 	timestamp := msg.Timestamp
-	if timestamp.IsZero() {
+	if timestamp.IsZero() || datetime.TimeToEpoch(timestamp) == 0 {
 		timestamp = time.Now()
 	}
 	value := msg.Value

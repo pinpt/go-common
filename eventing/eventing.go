@@ -33,8 +33,8 @@ type Message struct {
 	Offset    int64
 
 	// internal, do not set
-	CommitOverride CommitOverride
-	AutoCommit     bool
+	CommitOverride CommitOverride `json:"-"`
+	AutoCommit     bool           `json:"-"`
 }
 
 // IsAutoCommit returns true if the message is automatically commit or false if you must call Commit when completed
