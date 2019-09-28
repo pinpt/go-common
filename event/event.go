@@ -288,7 +288,7 @@ func (c *SubscriptionChannel) run() {
 		wch, _, err := websocket.DefaultDialer.Dial(u, headers)
 		if err != nil {
 			var isRetryableError bool
-			if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF")) {
+			if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake")) {
 				isRetryableError = true
 			} else if err != nil {
 				e := fmt.Errorf("error creating subscription. %v", err)
@@ -301,6 +301,7 @@ func (c *SubscriptionChannel) run() {
 			}
 			if isRetryableError {
 				errors++
+				log.Debug(c.subscription.Logger, "connection failed, will try again", "count", errors)
 				// fmt.Println("got an error, will retry", resp.StatusCode, errors)
 				if errors <= MaxErrorCount {
 					// expotential backoff
@@ -321,6 +322,7 @@ func (c *SubscriptionChannel) run() {
 		c.mu.Lock()
 		c.conn = wch
 		c.mu.Unlock()
+		log.Debug(c.subscription.Logger, "connected")
 
 		subaction := action{
 			ID:     hash.Values(datetime.EpochNow(), c.subscription.APIKey, c.subscription.GroupID, c.subscription.Topics),
@@ -351,6 +353,7 @@ func (c *SubscriptionChannel) run() {
 				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) || strings.Contains(err.Error(), "websocket: close sent") {
 					closed = true
 					errored = true
+					log.Debug(c.subscription.Logger, "connection has been closed, will try to reconnect", "err", err)
 					break
 				}
 				c.mu.Lock()
@@ -442,6 +445,7 @@ func (c *SubscriptionChannel) run() {
 			}
 		}
 	}
+	log.Debug(c.subscription.Logger, "disconnected")
 }
 
 // Subscription is the information for creating a subscription channel to receive events from the event server
