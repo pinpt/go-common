@@ -122,6 +122,19 @@ func (c *Consumer) WaitForAssignments() {
 	close(c.assignments)
 }
 
+// Commit will commit to a specific topic for a given partition and offset
+func (c *Consumer) Commit(topic string, partition int32, offset int64) (err error) {
+	tp := []ck.TopicPartition{
+		ck.TopicPartition{
+			Topic:     &topic,
+			Partition: partition,
+			Offset:    ck.Offset(offset),
+		},
+	}
+	_, err = c.consumer.CommitOffsets(tp)
+	return
+}
+
 var bufferPool = sync.Pool{
 	New: func() interface{} {
 		return new(bytes.Buffer)
