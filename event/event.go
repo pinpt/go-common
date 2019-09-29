@@ -233,6 +233,12 @@ type SubscriptionChannel struct {
 	closed       bool
 	cancel       context.CancelFunc
 	conn         *websocket.Conn
+	ready        chan bool
+}
+
+// WaitForReady will block until we have received the subscription ack
+func (c *SubscriptionChannel) WaitForReady() {
+	<-c.ready
 }
 
 // Channel returns a read-only channel to receive SubscriptionEvent
@@ -377,6 +383,7 @@ func (c *SubscriptionChannel) run() {
 					// if the subscribe ack worked, great ... continue
 					if actionresp.Success {
 						acked = true
+						c.ready <- true
 						continue
 					}
 					if c.subscription.Errors != nil {
@@ -478,6 +485,7 @@ func NewSubscription(ctx context.Context, subscription Subscription) (*Subscript
 		cancel:       cancel,
 		ch:           make(chan SubscriptionEvent, subscription.BufferSize),
 		done:         make(chan bool, 1),
+		ready:        make(chan bool, 1),
 		subscription: subscription,
 	}
 	go subch.run()

@@ -68,6 +68,11 @@ type ActionSubscription struct {
 	mu           sync.Mutex
 }
 
+// WaitForReady will block until the subscription is ack
+func (s *ActionSubscription) WaitForReady() {
+	s.subscription.WaitForReady()
+}
+
 // Close should be called to stop receiving data from event server
 func (s *ActionSubscription) Close() error {
 	s.mu.Lock()
