@@ -128,7 +128,7 @@ func (s *ActionSubscription) run() {
 			if headers == nil {
 				headers = s.config.Headers
 			}
-			if err := event.Publish(s.ctx, event.PublishEvent{Object: result.Object(), Headers: headers}, s.config.Channel, s.config.APIKey); err != nil {
+			if err := event.Publish(s.ctx, event.PublishEvent{Object: result.Object(), Headers: headers, Logger: s.config.Logger}, s.config.Channel, s.config.APIKey); err != nil {
 				s.config.Errors <- fmt.Errorf("error sending response for action %v: %v", e.Model, err)
 				return
 			}

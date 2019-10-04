@@ -128,7 +128,7 @@ func (c *Consumer) Commit(topic string, partition int32, offset int64) (err erro
 		ck.TopicPartition{
 			Topic:     &topic,
 			Partition: partition,
-			Offset:    ck.Offset(offset),
+			Offset:    ck.Offset(offset + 1), // https://github.com/confluentinc/confluent-kafka-go/issues/195
 		},
 	}
 	_, err = c.consumer.CommitOffsets(tp)
