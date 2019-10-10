@@ -59,6 +59,8 @@ func (c *Consumer) Close() error {
 	var err error
 	if !closed {
 		c.done <- struct{}{}
+		c.consumer.Unsubscribe()
+		c.consumer.Unassign()
 		err = c.consumer.Close()
 	}
 	return err
