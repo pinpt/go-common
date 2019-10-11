@@ -53,7 +53,7 @@
   version = "v0.4.0"
 
 [[projects]]
-  digest = "1:61a8ca58fee5891ccd5e9e0503d3cb0636fe15505a7b758d51fe38d38bfce32f"
+  digest = "1:b46f50677ef33284ebde2b285a42b707ff9e1de1f37328d91869859c929ebbd2"
   name = "github.com/go-redis/redis"
   packages = [
     ".",
@@ -65,8 +65,8 @@
     "internal/util",
   ]
   pruneopts = "UT"
-  revision = "17c058513b3e03c5e23136c18582fdd8ac8a3645"
-  version = "v6.15.5"
+  revision = "7f69d5e32072d151eb6936cbe2306413e8117488"
+  version = "v6.15.6"
 
 [[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
@@ -85,12 +85,13 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:e62657cca9badaa308d86e7716083e4c5933bb78e30a17743fc67f50be26f6f4"
+  branch = "httpsproxy"
+  digest = "1:7ea409445a7e8c0b0f6e32fec8c57969555c2bdc1a0534515edc01e33e87a764"
   name = "github.com/gorilla/websocket"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c3e18be99d19e6b3e8f1559eea2c161a665c4b6b"
-  version = "v1.4.1"
+  revision = "d9055c4295fd7dd351660927cf9d8ab5232d0e9f"
+  source = "github.com/pinpt/websocket"
 
 [[projects]]
   digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
@@ -130,12 +131,12 @@
   version = "v0.0.9"
 
 [[projects]]
-  digest = "1:36325ebb862e0382f2f14feef409ba9351271b89ada286ae56836c603d43b59c"
+  digest = "1:d62282425ffb75047679d7e2c3b980eea7f82c05ef5fb9142ee617ebac6e7432"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e1f7b56ace729e4a73a29a6b4fac6cd5fcda7ab3"
-  version = "v0.0.9"
+  revision = "88ba11cfdc67c7588b30042edf244b2875f892b6"
+  version = "v0.0.10"
 
 [[projects]]
   branch = "master"
@@ -146,7 +147,7 @@
   revision = "2e52cf6e685269ed8aefec6390f3cac3ef74e730"
 
 [[projects]]
-  digest = "1:cfcd381c8640b6dfd5a298ebbeb9e06a5e3059de6075522bde3a0d734eedc90f"
+  digest = "1:984d66fdc85f91db890f4b76f68da07e329d09aa6f75f9cd5fe29e259169712f"
   name = "github.com/olivere/elastic"
   packages = [
     ".",
@@ -154,8 +155,8 @@
     "uritemplates",
   ]
   pruneopts = "UT"
-  revision = "91416a867f9a95cdf7332dd1e73264359d0d5c7e"
-  version = "v6.2.23"
+  revision = "3e325f27dea5b4578ddc9378096369bc6888a609"
+  version = "v6.2.24"
 
 [[projects]]
   digest = "1:ed714e78fb8bb03c0c1b11702e017493faecb1d8b7eb604182184aa9490b8904"
@@ -211,15 +212,15 @@
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
   pruneopts = "UT"
-  revision = "227b76d455e791cb042b03e633e2f7fbcfdf74a5"
+  revision = "af544f31c8ac5794d2134b792e9eb714d9d8f9ce"
 
 [[projects]]
   branch = "master"
-  digest = "1:efaeaf7e03393d54963ece1e4c1866915d712a07adf4be8ea8105a67e3418e8f"
+  digest = "1:7c927f17d868be652a4cfe7de23e4292dea5b14d974a1d536e3b7cb7e79fd695"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "ef0ce1748380fdf001bd0ff86a45329a12945357"
+  revision = "b09406accb4736d857a32bf9444cd7edae2ffa79"
 
 [[projects]]
   digest = "1:9169e569b3e6517da7de4476059f8fa889d508007e53fa5fc6a2ea4ffc5ae199"
@@ -230,12 +231,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
+  digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "UT"
-  revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
-  version = "v2.2.2"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
 
 [solve-meta]
   analyzer-name = "dep"

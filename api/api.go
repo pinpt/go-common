@@ -105,41 +105,63 @@ func BackendURL(subdomain string, channel string) string {
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
 }
 
+func incasesensitiveEnv(name string) string {
+	val := strings.ToLower(name)
+	for _, env := range os.Environ() {
+		kv := strings.Split(env, "=")
+		if strings.ToLower(kv[0]) == val {
+			return kv[1]
+		}
+	}
+	return ""
+}
+
+func isUsingProxy() bool {
+	return incasesensitiveEnv("https_proxy") != "" ||
+		incasesensitiveEnv("http_proxy") != "" ||
+		incasesensitiveEnv("all_proxy") != ""
+}
+
 // NewHTTPAPIClient will return a new HTTP client for talking with the Pinpoint API
 // it will only allow a trusted TLS connection with a valid TLS certificate signed
 // by a trusted Certificate Authority and for a DNS name that is owned by Pinpoint
 func NewHTTPAPIClient(config *httpclient.Config) (httpclient.Client, error) {
-	dial := func(network, addr string) (net.Conn, error) {
-		config := &tls.Config{
-			InsecureSkipVerify: false,
-		}
-		conn, err := tls.Dial(network, addr, config)
-		if err != nil {
-			return nil, err
-		}
-		state := conn.ConnectionState()
-		var certtrusted, catrusted bool
-		for _, cert := range state.PeerCertificates {
-			if !cert.IsCA {
-				if isDNSNameTrusted(cert.DNSNames...) {
-					certtrusted = true
+	t := httpdefaults.DefaultTransport()
+	// we can only reliably do TLS cert verfication if we're not using a proxy server
+	if !isUsingProxy() {
+		t.DialTLS = func(network, addr string) (net.Conn, error) {
+			config := &tls.Config{
+				InsecureSkipVerify: false,
+			}
+			conn, err := tls.Dial(network, addr, config)
+			if err != nil {
+				return nil, err
+			}
+			state := conn.ConnectionState()
+			var certtrusted, catrusted bool
+			for _, cert := range state.PeerCertificates {
+				if !cert.IsCA {
+					if isDNSNameTrusted(cert.DNSNames...) {
+						certtrusted = true
+					}
+				}
+				if cert.IsCA && isTrusted(cert, addr) {
+					catrusted = true
+					// cert comes before CA so at this point we can stop
+					break
 				}
 			}
-			if cert.IsCA && isTrusted(cert, addr) {
-				catrusted = true
-				// cert comes before CA so at this point we can stop
-				break
+			if certtrusted && catrusted {
+				return conn, nil
 			}
+			// close up shop, not valid
+			conn.Close()
+			return nil, fmt.Errorf("invalid TLS certificate. expected a valid Certificate signed by a trusted Pinpoint Certificate Authority and well known domain")
 		}
-		if certtrusted && catrusted {
-			return conn, nil
-		}
-		// close up shop, not valid
-		conn.Close()
-		return nil, fmt.Errorf("invalid TLS certificate. expected a valid Certificate signed by a trusted Pinpoint Certificate Authority and well known domain")
+	} else {
+		// if we're using a proxy server, we also need to turn off support for HTTP/2
+		t.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	}
-	t := httpdefaults.DefaultTransport()
-	t.DialTLS = dial
 	client := &http.Client{
 		Transport: t,
 	}

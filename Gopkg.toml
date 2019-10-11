@@ -62,7 +62,8 @@
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
-  version = "1.4.0"
+  source = "github.com/pinpt/websocket"
+  branch = "httpsproxy"
 
 [[constraint]]
   name = "github.com/olivere/elastic"
