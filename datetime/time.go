@@ -163,10 +163,14 @@ func ShortDate(date string) string {
 	return date
 }
 
-// DateRange will return the beginning and end of a date range for a given time unit
+// DateRange will return the beginning and end of a date range for a given time unit.
+// if the timeunit is -1 it will return epoch zero
 func DateRange(ref time.Time, timeunit int64) (int64, int64) {
 	end := EndofDay(TimeToEpoch(ref))
 	begin := 1000 + (end - DaysInMilliseconds*timeunit)
+	if timeunit == int64(-1) {
+		begin = 0
+	}
 	return StartofDay(begin), end
 }
 
@@ -274,7 +278,7 @@ func GetSignalTime(timeUnit int32, refDate time.Time) time.Time {
 	return t.Truncate(time.Hour * 24)
 }
 
-// ToMillSec Convert time to milliseconds int64
+// ToMilliSec Convert time to milliseconds int64
 func ToMilliSec(date time.Time) int64 {
 	return date.UnixNano() / 1000000
 }
