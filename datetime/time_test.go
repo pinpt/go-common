@@ -240,3 +240,21 @@ func TestNewDateFromEpoch(t *testing.T) {
 	assert.Equal(expDate.Rfc3339, tstDate.Rfc3339, "Rfc3339 not expected")
 
 }
+
+func TestDateRange(t *testing.T) {
+	assert := assert.New(t)
+	day, err := time.Parse(time.RFC3339Nano, "2018-06-04T10:05:49.000-04:00")
+	assert.NoError(err)
+	start, end := DateRange(day, 5)
+	assert.EqualValues(StartofDay(day.AddDate(0, 0, -4).Unix()*1000), start)
+	assert.EqualValues(EndofDay(day.Unix()*1000), end)
+}
+
+func TestDateRangeAlltime(t *testing.T) {
+	assert := assert.New(t)
+	day, err := time.Parse(time.RFC3339Nano, "2018-06-04T10:05:49.000-04:00")
+	assert.NoError(err)
+	start, end := DateRange(day, -1)
+	assert.EqualValues(0, start)
+	assert.EqualValues(EndofDay(day.Unix()*1000), end)
+}
