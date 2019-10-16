@@ -270,7 +270,8 @@ func (c *SubscriptionChannel) run() {
 	if strings.HasSuffix(origin, "/") {
 		origin = origin[0 : len(origin)-1]
 	}
-	u := strings.ReplaceAll(pstrings.JoinURL(origin, "ws"), "https://", "wss://")
+	u := strings.ReplaceAll(pstrings.JoinURL(origin, "ws"), "http://", "ws://")
+	u = strings.ReplaceAll(u, "https://", "wss://")
 	headers := make(http.Header)
 	headers.Set("Origin", origin)
 	if c.subscription.APIKey != "" {
@@ -307,7 +308,7 @@ func (c *SubscriptionChannel) run() {
 			}
 			if isRetryableError {
 				errors++
-				log.Debug(c.subscription.Logger, "connection failed, will try again", "count", errors)
+				log.Debug(c.subscription.Logger, "connection failed, will try again", "count", errors, "err", err)
 				// fmt.Println("got an error, will retry", resp.StatusCode, errors)
 				if errors <= MaxErrorCount {
 					// expotential backoff

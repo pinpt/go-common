@@ -90,6 +90,15 @@ const (
 // BackendURL return the base url to the API server
 func BackendURL(subdomain string, channel string) string {
 	switch channel {
+	case "k8":
+		switch subdomain {
+		case AgentService:
+			return os.Getenv("PP_AGENT_SERVICE")
+		case AuthService:
+			return os.Getenv("PP_AUTH_SERVICE")
+		case EventService:
+			return os.Getenv("PP_EVENT_SERVICE")
+		}
 	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
 	case "dev":
