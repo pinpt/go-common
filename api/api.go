@@ -90,7 +90,8 @@ const (
 // BackendURL return the base url to the API server
 func BackendURL(subdomain string, channel string) string {
 	switch channel {
-	case "k8":
+	// internal services set through environment variables
+	case "internal":
 		switch subdomain {
 		case AgentService:
 			return os.Getenv("PP_AGENT_SERVICE")
