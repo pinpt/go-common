@@ -46,6 +46,7 @@ type Consumer struct {
 	receivedassignments bool
 	assignments         chan bool
 	assignmentmu        sync.Mutex
+	topics              []string
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -218,7 +219,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						}
 						c.hasreset = true
 						if err := c.consumer.Assign(topicpartitions); err != nil {
-							callback.ErrorReceived(err)
+							callback.ErrorReceived(fmt.Errorf("error assigning topic %v partitions: %v", topicpartitions, err))
 							return
 						}
 						if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
@@ -234,7 +235,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						continue
 					}
 					if err := c.consumer.Assign(e.Partitions); err != nil {
-						callback.ErrorReceived(err)
+						callback.ErrorReceived(fmt.Errorf("error assigning topic %v partitions: %v", e.Partitions, err))
 						return
 					}
 					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
@@ -249,7 +250,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					c.assignmentmu.Unlock()
 				case ck.RevokedPartitions:
 					if err := c.consumer.Unassign(); err != nil {
-						callback.ErrorReceived(err)
+						callback.ErrorReceived(fmt.Errorf("error unassigning topic %v revoked partitions: %v", c.topics, err))
 						return
 					}
 					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
@@ -272,7 +273,11 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// be raised when the idempotence guarantees can't be
 					// satisfied, these errors are identified by
 					// `e.IsFatal()`.
-					callback.ErrorReceived(e)
+					var label string
+					if e.IsFatal() {
+						label = "fatal "
+					}
+					callback.ErrorReceived(fmt.Errorf("%vkafka error received for %v: %v", label, c.topics, e))
 					if e.IsFatal() {
 						defer c.Close()
 						return
@@ -363,7 +368,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					lastMessage = e
 					lastMessageMu.Unlock()
 					if err := callback.DataReceived(msg); err != nil {
-						callback.ErrorReceived(err)
+						callback.ErrorReceived(fmt.Errorf("error processing %v data: %v", msg.Topic, err))
 					}
 					// return the buffer to the pool
 					buf.Reset()
@@ -452,6 +457,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		DefaultPollTime: poll,
 		autocommit:      !config.DisableAutoCommit,
 		shouldreset:     config.ResetOffset,
+		topics:          topics,
 	}
 	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err
