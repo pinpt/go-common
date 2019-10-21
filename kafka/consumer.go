@@ -272,8 +272,9 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// be raised when the idempotence guarantees can't be
 					// satisfied, these errors are identified by
 					// `e.IsFatal()`.
+					callback.ErrorReceived(e)
 					if e.IsFatal() {
-						callback.ErrorReceived(e)
+						defer c.Close()
 						return
 					}
 				case *ck.Message:
