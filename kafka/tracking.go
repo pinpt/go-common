@@ -414,10 +414,7 @@ func (tc *TrackingConsumer) run() {
 	// and we will use redis pub sub to communicate across the consumer groups that we've hit the EOF
 	tc.pubsub = tc.redisClient.Subscribe(tc.redisPubSubKey)
 	ch := tc.pubsub.Channel()
-	defer func() {
-		tc.pubsub.Unsubscribe(tc.redisPubSubKey)
-		tc.pubsub.Close()
-	}()
+	defer tc.pubsub.Unsubscribe(tc.redisPubSubKey)
 	for {
 		select {
 		case <-tc.ctx.Done():
