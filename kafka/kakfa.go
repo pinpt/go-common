@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ type Config struct {
 	ShouldProcessEventMessage ShouldProcessEventMessage
 	ClientID                  string
 	DefaultPollTime           time.Duration // only for consumers
+	Context                   context.Context
 }
 
 // NewConfigMap returns a ConfigMap from a Config
@@ -60,6 +62,9 @@ func NewConfigMap(config Config) *ck.ConfigMap {
 		for k, v := range config.Extra {
 			c.SetKey(k, v)
 		}
+	}
+	if config.Context == nil {
+		config.Context = context.Background()
 	}
 	return c
 }

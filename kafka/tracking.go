@@ -414,6 +414,10 @@ func (tc *TrackingConsumer) run() {
 	// and we will use redis pub sub to communicate across the consumer groups that we've hit the EOF
 	tc.pubsub = tc.redisClient.Subscribe(tc.redisPubSubKey)
 	ch := tc.pubsub.Channel()
+	defer func() {
+		tc.pubsub.Unsubscribe(tc.redisPubSubKey)
+		tc.pubsub.Close()
+	}()
 	for {
 		select {
 		case <-tc.ctx.Done():
@@ -451,7 +455,7 @@ func NewTrackingConsumer(topic string, groupID string, config Config, redisClien
 	for _, m := range md.Partitions {
 		partitions = append(partitions, m.ID)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(consumer.config.Context)
 	tc := &TrackingConsumer{
 		ctx:            ctx,
 		cancel:         cancel,

@@ -152,7 +152,7 @@ const (
 // Consume will start consuming from the consumer using the callback
 func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 	go func() {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(c.config.Context)
 		var lastMessageMu sync.RWMutex
 		var lastMessage *ck.Message
 		var lastMessageTs time.Time
