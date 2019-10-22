@@ -436,7 +436,9 @@ func (tc *TrackingConsumer) run() {
 
 // NewTrackingConsumer returns a consumer callback adapter which tracks EOF
 func NewTrackingConsumer(topic string, groupID string, config Config, redisClient *redisdb.Client, callback EOFCallback) (*TrackingConsumer, error) {
-	consumer, err := NewConsumer(config, groupID, topic)
+	c := *(&config)
+	c.ClientID = "tracking_" + groupID + "_" + topic
+	consumer, err := NewConsumer(c, groupID, topic)
 	if err != nil {
 		return nil, err
 	}
