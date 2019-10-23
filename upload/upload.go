@@ -35,9 +35,6 @@ const DefaultUploadPartSize = MinUploadPartSize
 // using Upload().
 const DefaultUploadConcurrency = 5
 
-// MaxAttemptsForPart is the max number of attempts for a part before failing
-const MaxAttemptsForPart = 10
-
 // Options for configuring the upload
 type Options struct {
 	// The buffer size (in bytes) to use when buffering data into chunks and
