@@ -52,15 +52,11 @@ type Options struct {
 	// The concurrency pool is not shared between calls to Upload.
 	Concurrency int
 
-	// AttemptsForPart is the max number of attempts to retry (if failed) before
-	// given up. Defaults to MaxAttemptsForPart
-	AttemptsForPart int
-
 	// Headers is the headers that are set on each outbound request. must be in the format name: value
 	Headers []string
 
-	// Body is the content to upload
-	Body io.ReadCloser
+	// Body is the content to upload. It's the responsibility of the caller to close this reader itself
+	Body io.Reader
 
 	// ContentType is the body content type
 	ContentType string
@@ -70,6 +66,9 @@ type Options struct {
 
 	// Job information about the upload which will be saved into a file named job.json in the same folder
 	Job map[string]interface{}
+
+	// HTTPClientConfig is a custom httpclient.Config in case you want to override the behavior
+	HTTPClientConfig *httpclient.Config
 }
 
 type part struct {
@@ -77,16 +76,18 @@ type part struct {
 	reader io.Reader
 }
 
-func newClient() (httpclient.Client, error) {
-	hcConfig := &httpclient.Config{
-		Paginator: httpclient.NoPaginator(),
-		Retryable: httpclient.NewBackoffRetry(10*time.Millisecond, 100*time.Millisecond, 30*time.Second, 2.0),
+func newClient(opts Options) (httpclient.Client, error) {
+	if opts.HTTPClientConfig == nil {
+		opts.HTTPClientConfig = &httpclient.Config{
+			Paginator: httpclient.NoPaginator(),
+			Retryable: httpclient.NewBackoffRetry(10*time.Millisecond, 100*time.Millisecond, 30*time.Second, 2.0),
+		}
 	}
-	return api.NewHTTPAPIClient(hcConfig)
+	return api.NewHTTPAPIClient(opts.HTTPClientConfig)
 }
 
 func upload(opts Options, urlpath string, reader io.Reader) error {
-	client, err := newClient()
+	client, err := newClient(opts)
 	if err != nil {
 		return err
 	}
@@ -121,9 +122,6 @@ func Upload(opts Options) (int, int64, error) {
 	}
 	if len(opts.Headers) == 0 {
 		return 0, 0, fmt.Errorf("missing required Headers")
-	}
-	if opts.AttemptsForPart <= 0 || opts.AttemptsForPart > MaxAttemptsForPart {
-		opts.AttemptsForPart = MaxAttemptsForPart
 	}
 	if opts.Body == nil {
 		return 0, 0, fmt.Errorf("missing required Body")
@@ -166,7 +164,7 @@ func Upload(opts Options) (int, int64, error) {
 		var ok bool
 		for !ok {
 			select {
-			case ch <- part{reader: bytes.NewBuffer(buf[:n]), index: index}:
+			case ch <- part{reader: bytes.NewReader(buf[:n]), index: index}:
 				ok = true
 				break
 			default:
@@ -183,7 +181,6 @@ func Upload(opts Options) (int, int64, error) {
 	}
 	close(ch)
 	wg.Wait()
-	opts.Body.Close() // close the body after done
 	select {
 	case err := <-errors:
 		return 0, 0, err
