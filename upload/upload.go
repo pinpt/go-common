@@ -110,7 +110,8 @@ func upload(opts Options, urlpath string, reader io.Reader) error {
 }
 
 // Upload a file to the upload server in multi part upload
-func Upload(opts Options) (int, error) {
+// returns the number of parts, the total size in bytes of the upload and an optional error (nil if none)
+func Upload(opts Options) (int, int64, error) {
 	if opts.PartSize <= 0 || opts.PartSize < MinUploadPartSize {
 		opts.PartSize = DefaultUploadPartSize
 	}
@@ -118,19 +119,19 @@ func Upload(opts Options) (int, error) {
 		opts.Concurrency = DefaultUploadConcurrency
 	}
 	if len(opts.Cookies) == 0 {
-		return 0, fmt.Errorf("missing required Cookies")
+		return 0, 0, fmt.Errorf("missing required Cookies")
 	}
 	if opts.AttemptsForPart <= 0 || opts.AttemptsForPart > MaxAttemptsForPart {
 		opts.AttemptsForPart = MaxAttemptsForPart
 	}
 	if opts.Body == nil {
-		return 0, fmt.Errorf("missing required Body")
+		return 0, 0, fmt.Errorf("missing required Body")
 	}
 	if opts.ContentType == "" {
-		return 0, fmt.Errorf("missing required ContentType")
+		return 0, 0, fmt.Errorf("missing required ContentType")
 	}
 	if opts.URL == "" {
-		return 0, fmt.Errorf("missing required URL")
+		return 0, 0, fmt.Errorf("missing required URL")
 	}
 	var wg sync.WaitGroup
 	ch := make(chan part, opts.Concurrency)
@@ -148,6 +149,7 @@ func Upload(opts Options) (int, error) {
 		}()
 	}
 	var index int
+	var total int64
 	// split the buffer in chunks of PartSize and upload each part separately
 	// in its own goroutine
 	for {
@@ -157,8 +159,9 @@ func Upload(opts Options) (int, error) {
 			break
 		}
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
+		total += int64(n)
 		var ok bool
 		for !ok {
 			select {
@@ -169,7 +172,7 @@ func Upload(opts Options) (int, error) {
 				// check to make sure not in an error state
 				select {
 				case err := <-errors:
-					return 0, err
+					return 0, 0, err
 				default:
 				}
 				time.Sleep(time.Microsecond)
@@ -182,7 +185,7 @@ func Upload(opts Options) (int, error) {
 	opts.Body.Close() // close the body after done
 	select {
 	case err := <-errors:
-		return 0, err
+		return 0, 0, err
 	default:
 	}
 	// upload the job if we have one once we're done
@@ -191,11 +194,11 @@ func Upload(opts Options) (int, error) {
 		u.Path = path.Join(path.Dir(u.Path), "job.json")
 		buf, err := json.Marshal(opts.Job)
 		if err != nil {
-			return 0, fmt.Errorf("error serializing the job: %v", err)
+			return 0, 0, fmt.Errorf("error serializing the job: %v", err)
 		}
 		if err := upload(opts, u.String(), bytes.NewReader(buf)); err != nil {
-			return 0, fmt.Errorf("error uploading job.json: %v", err)
+			return 0, 0, fmt.Errorf("error uploading job.json: %v", err)
 		}
 	}
-	return index, nil
+	return index, total, nil
 }
