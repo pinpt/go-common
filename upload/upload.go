@@ -56,9 +56,8 @@ type Options struct {
 	// given up. Defaults to MaxAttemptsForPart
 	AttemptsForPart int
 
-	// Cookies is the cookie headers that must be set to provide permission
-	// for uploading
-	Cookies []string
+	// Headers is the headers that are set on each outbound request. must be in the format name: value
+	Headers []string
 
 	// Body is the content to upload
 	Body io.ReadCloser
@@ -95,8 +94,10 @@ func upload(opts Options, urlpath string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Cookie", strings.Join(opts.Cookies, "; "))
-	req.Header.Set("x-amz-acl", "bucket-owner-full-control")
+	for _, header := range opts.Headers {
+		tok := strings.Split(header, ": ")
+		req.Header.Set(tok[0], strings.TrimSpace(tok[1]))
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -118,8 +119,8 @@ func Upload(opts Options) (int, int64, error) {
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = DefaultUploadConcurrency
 	}
-	if len(opts.Cookies) == 0 {
-		return 0, 0, fmt.Errorf("missing required Cookies")
+	if len(opts.Headers) == 0 {
+		return 0, 0, fmt.Errorf("missing required Headers")
 	}
 	if opts.AttemptsForPart <= 0 || opts.AttemptsForPart > MaxAttemptsForPart {
 		opts.AttemptsForPart = MaxAttemptsForPart
