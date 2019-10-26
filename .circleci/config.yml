@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       # CircleCI Go images available at: https://hub.docker.com/r/circleci/golang/
-      - image: circleci/golang:1.11
+      - image: circleci/golang:1.13
 
     working_directory: /go/src/github.com/pinpt/go-common
 
@@ -15,9 +15,9 @@ jobs:
       - checkout
       - run: mkdir -p $TEST_RESULTS
 
-      - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
-      - run: echo 'export PATH=$HOME/.pinpoint:$PATH' >> $BASH_ENV
-      - run: pinpoint build start
+      # - run: bash -c "$(curl -sSL https://raw.githubusercontent.com/pinpt/pinpoint/master/install.sh)"
+      # - run: echo 'export PATH=$HOME/.pinpoint:$PATH' >> $BASH_ENV
+      # - run: pinpoint build start
 
       - restore_cache:
           keys:
@@ -56,11 +56,11 @@ jobs:
             if [ $? -eq 0 ];
             then
               echo "Some test cases failed"
-              pinpoint build finish --status fail --debug=true --channel edge
+              # pinpoint build finish --status fail --debug=true --channel edge
               exit 1
             else
               echo "All tests passed"
-              pinpoint build finish --status pass --debug=true --channel edge
+              # pinpoint build finish --status pass --debug=true --channel edge
               set -e
               go-junit-report <${TEST_RESULTS}/go-test.out > ${TEST_RESULTS}/go-test-report.xml
               exit 0
