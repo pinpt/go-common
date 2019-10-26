@@ -62,6 +62,7 @@ type TrackingConsumer struct {
 	mu             sync.Mutex
 	ctx            context.Context
 	cancel         context.CancelFunc
+	once           sync.Once
 }
 
 // make sure we implement all the interfaces we expect
@@ -110,17 +111,14 @@ func (tc *TrackingConsumer) Stats(stats map[string]interface{}) {
 }
 
 func (tc *TrackingConsumer) Close() error {
-	tc.mu.Lock()
-	tc.cancel()
-	closed := tc.closed
-	tc.closed = true
-	tc.pubsub.Unsubscribe(tc.redisPubSubKey)
-	tc.pubsub.Close()
-	tc.pubsub = nil
-	defer tc.mu.Unlock()
-	if !closed {
-		return tc.consumer.Close()
-	}
+	tc.once.Do(func() {
+		tc.mu.Lock()
+		tc.cancel()
+		tc.closed = true
+		tc.pubsub.Close()
+		tc.mu.Unlock()
+		tc.consumer.Close()
+	})
 	return nil
 }
 
@@ -414,7 +412,6 @@ func (tc *TrackingConsumer) run() {
 	// and we will use redis pub sub to communicate across the consumer groups that we've hit the EOF
 	tc.pubsub = tc.redisClient.Subscribe(tc.redisPubSubKey)
 	ch := tc.pubsub.Channel()
-	defer tc.pubsub.Unsubscribe(tc.redisPubSubKey)
 	for {
 		select {
 		case <-tc.ctx.Done():
