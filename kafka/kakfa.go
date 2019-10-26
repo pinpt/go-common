@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/log"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
@@ -29,6 +30,7 @@ type Config struct {
 	ClientID                  string
 	DefaultPollTime           time.Duration // only for consumers
 	Context                   context.Context
+	Logger                    log.Logger
 }
 
 // NewConfigMap returns a ConfigMap from a Config

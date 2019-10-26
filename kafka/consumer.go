@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/log"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
@@ -50,6 +51,7 @@ type Consumer struct {
 	topics              []string
 	groupid             string
 	connecterror        bool
+	logger              log.Logger
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -176,7 +178,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							return
 						}
 						if !paused {
-							fmt.Printf("[WARN] consumer %v is taking too long (%v) to process this message: %v\n", c.consumer, time.Since(lastMessageTs), lastMessage)
+							log.Error(c.logger, "consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage)
 						}
 					}
 					lastMessageMu.RUnlock()
@@ -348,7 +350,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					encoding := eventing.ValueEncodingType(headers["encoding"])
 					offset, err := strconv.ParseInt(e.TopicPartition.Offset.String(), 10, 64)
 					if err != nil {
-						fmt.Printf("error parsing the offset (%v): %v\n", e.TopicPartition.Offset.String(), err)
+						callback.ErrorReceived(fmt.Errorf("error parsing the offset (%v): %v", e.TopicPartition.Offset.String(), err))
 					}
 					msg := eventing.Message{
 						Encoding:  encoding,
@@ -481,6 +483,9 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	if poll == 0 {
 		poll = time.Second
 	}
+	if config.Logger == nil {
+		config.Logger = log.NewLogger(os.Stdout, log.ConsoleLogFormat, log.DarkLogColorTheme, log.DebugLevel, "kafka")
+	}
 	c := &Consumer{
 		config:          config,
 		consumer:        consumer,
@@ -490,6 +495,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		shouldreset:     config.ResetOffset,
 		topics:          topics,
 		groupid:         groupid,
+		logger:          log.With(config.Logger, "pkg", groupid, "topics", topics),
 	}
 	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err
