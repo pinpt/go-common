@@ -178,7 +178,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							return
 						}
 						if !paused {
-							log.Error(c.logger, "consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage)
+							log.Error(c.logger, fmt.Sprintf("consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage))
 						}
 					}
 					lastMessageMu.RUnlock()
