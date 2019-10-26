@@ -36,7 +36,7 @@ type Consumer struct {
 	consumer        *ck.Consumer
 	done            chan struct{}
 	DefaultPollTime time.Duration
-	mu              sync.Mutex
+	mu              sync.RWMutex
 	closed          bool
 	autocommit      bool
 	shouldreset     bool
@@ -167,10 +167,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				case <-time.After(checkDuration):
 					lastMessageMu.RLock()
 					if lastMessage != nil && time.Since(lastMessageTs) >= warnDuration {
-						c.mu.Lock()
+						c.mu.RLock()
 						closing := c.closed
 						paused := c.paused // check to see if paused before warning
-						c.mu.Unlock()
+						c.mu.RUnlock()
 						if closing {
 							lastMessageMu.RUnlock()
 							return
@@ -189,13 +189,13 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 			case <-c.done:
 				return
 			default:
-				c.mu.Lock()
+				c.mu.RLock()
 				if c.closed || c.consumer == nil {
-					c.mu.Unlock()
+					c.mu.RUnlock()
 					return
 				}
 				ev := c.consumer.Poll(int(c.DefaultPollTime / time.Millisecond))
-				c.mu.Unlock()
+				c.mu.RUnlock()
 				if ev == nil {
 					continue
 				}
@@ -404,6 +404,10 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					lastMessageMu.Lock()
 					lastMessage = nil
 					lastMessageMu.Unlock()
+					// reset since we got a valid message
+					c.mu.Lock()
+					c.connecterror = false
+					c.mu.Unlock()
 				case ck.PartitionEOF:
 					if cb, ok := callback.(ConsumerEOFCallback); ok {
 						cb.EOF(*e.Topic, e.Partition, int64(e.Offset))
