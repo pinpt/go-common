@@ -47,6 +47,7 @@ func NewConfigMap(config Config) *ck.ConfigMap {
 		"enable.auto.offset.store": true,
 		"session.timeout.ms":       10000,
 		"heartbeat.interval.ms":    3000,
+		"log_level":                2,
 	}
 	if config.DisableAutoCommit {
 		c.SetKey("enable.auto.commit", "false")

@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +48,8 @@ type Consumer struct {
 	assignments         chan bool
 	assignmentmu        sync.Mutex
 	topics              []string
+	groupid             string
+	connecterror        bool
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -60,8 +63,6 @@ func (c *Consumer) Close() error {
 	var err error
 	if !closed {
 		c.done <- struct{}{}
-		c.consumer.Unsubscribe()
-		c.consumer.Unassign()
 		err = c.consumer.Close()
 	}
 	return err
@@ -167,8 +168,13 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					lastMessageMu.RLock()
 					if lastMessage != nil && time.Since(lastMessageTs) >= warnDuration {
 						c.mu.Lock()
+						closing := c.closed
 						paused := c.paused // check to see if paused before warning
 						c.mu.Unlock()
+						if closing {
+							lastMessageMu.RUnlock()
+							return
+						}
 						if !paused {
 							fmt.Printf("[WARN] consumer %v is taking too long (%v) to process this message: %v\n", c.consumer, time.Since(lastMessageTs), lastMessage)
 						}
@@ -200,7 +206,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						fmt.Fprintf(os.Stderr, string(debug.Stack()))
 					}
 				}()
-				// fmt.Println("EVENT", ev, "=>", reflect.TypeOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset)
+				// fmt.Println("EVENT", ev, "=>", reflect.TypeOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset, "closed", c.closed)
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
 					if c.shouldreset && !c.hasreset {
@@ -261,6 +267,23 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						ci.OffsetsCommitted(toEventingPartitions(e.Offsets))
 					}
 				case ck.Error:
+					c.mu.Lock()
+					if c.closed || c.consumer == nil {
+						// if shutting down, just ignore
+						c.mu.Unlock()
+						return
+					}
+					isconnectErr := strings.Contains(e.Error(), "Connection refused") || strings.Contains(e.Error(), "Broker transport failure")
+					if isconnectErr {
+						if !c.connecterror {
+							c.connecterror = true
+						} else {
+							// we have already notified so don't do it over and over
+							c.mu.Unlock()
+							return
+						}
+					}
+					c.mu.Unlock()
 					// Generic client instance-level errors, such as
 					// broker connection failures, authentication issues, etc.
 					//
@@ -277,12 +300,16 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					if e.IsFatal() {
 						label = "fatal "
 					}
-					callback.ErrorReceived(fmt.Errorf("%vkafka error received for %v: %v", label, c.topics, e))
+					callback.ErrorReceived(fmt.Errorf("%vkafka error received for %v for groupid: %s. %v", label, c.topics, c.groupid, e))
 					if e.IsFatal() {
 						defer c.Close()
 						return
 					}
 				case *ck.Message:
+					if e.TopicPartition.Error != nil {
+						callback.ErrorReceived(fmt.Errorf("kafka topic error received for %v for groupid: %s. %v", c.topics, c.groupid, e.TopicPartition.Error))
+						continue
+					}
 					// check to see if the consumer implements the callback filter interface
 					// and if so, let it determine
 					if ci, ok := callback.(eventing.ConsumerCallbackMessageFilter); ok {
@@ -458,6 +485,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		autocommit:      !config.DisableAutoCommit,
 		shouldreset:     config.ResetOffset,
 		topics:          topics,
+		groupid:         groupid,
 	}
 	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err
