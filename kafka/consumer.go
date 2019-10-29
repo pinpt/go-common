@@ -178,7 +178,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							return
 						}
 						if !paused {
-							log.Error(c.logger, fmt.Sprintf("consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage))
+							log.Warn(c.logger, fmt.Sprintf("consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage))
 						}
 					}
 					lastMessageMu.RUnlock()
@@ -274,6 +274,11 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						// if shutting down, just ignore
 						c.mu.Unlock()
 						return
+					}
+					// https://github.com/edenhill/librdkafka/issues/1987#issuecomment-422008750
+					if e.Code() == ck.ErrTransport {
+						c.mu.Unlock()
+						continue
 					}
 					isconnectErr := strings.Contains(e.Error(), "Connection refused") || strings.Contains(e.Error(), "Broker transport failure")
 					if isconnectErr {
