@@ -84,6 +84,8 @@ type Model interface {
 	GetModelName() ModelNameType
 	// IsMaterialized returns true if the model is materialized
 	IsMaterialized() bool
+	// IsMutable returns true if the model is mutable
+	IsMutable() bool
 	// GetModelMaterializeConfig returns the materialization config if materialized or nil if not
 	GetModelMaterializeConfig() *ModelMaterializeConfig
 	// IsEvented returns true if the model supports eventing and implements ModelEventProvider
