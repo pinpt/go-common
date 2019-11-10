@@ -280,7 +280,8 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						c.mu.Unlock()
 						continue
 					}
-					isconnectErr := strings.Contains(e.Error(), "Connection refused") || strings.Contains(e.Error(), "Broker transport failure")
+					errstr := e.Error()
+					isconnectErr := strings.Contains(errstr, "Connection refused") || strings.Contains(errstr, "Broker transport failure") || strings.Contains(errstr, "Broker handle destroyed")
 					if isconnectErr {
 						if !c.connecterror {
 							c.connecterror = true
