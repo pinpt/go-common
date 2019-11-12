@@ -65,6 +65,7 @@ func TestOpenFile(t *testing.T) {
 	w.Write([]byte("hello, world\n"))
 	w.Close()
 	err = ioutil.WriteFile("file.gz", b.Bytes(), 0666)
+	assert.NoError(err)
 	ok, err = OpenFile("file.gz")
 	assert.Nil(err)
 	assert.NotNil(ok)

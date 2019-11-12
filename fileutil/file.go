@@ -29,7 +29,7 @@ func Resolve(filename string) (string, error) {
 // FileExists returns true if the path components exist
 func FileExists(filename ...string) bool {
 	fn := filepath.Join(filename...)
-	fn, err := Resolve(fn)
+	_, err := Resolve(fn)
 	if err != nil {
 		return false
 	}
@@ -47,7 +47,21 @@ func ResolveFileName(fn string) string {
 	return fn
 }
 
-// OpenFile will open a file and if it's gzipped return a gzipped reader
+type combinedReader struct {
+	f io.ReadCloser
+	g *gzip.Reader
+}
+
+func (c *combinedReader) Read(p []byte) (int, error) {
+	return c.g.Read(p)
+}
+
+func (c *combinedReader) Close() error {
+	c.g.Close()
+	return c.f.Close()
+}
+
+// OpenFile will open a file and if it's gzipped return a gzipped reader as io.ReadCloser but will close both streams on close
 func OpenFile(fn string) (io.ReadCloser, error) {
 	f, err := os.Open(fn)
 	if err != nil {
@@ -60,7 +74,7 @@ func OpenFile(fn string) (io.ReadCloser, error) {
 			f.Close()
 			return nil, err
 		}
-		result = r
+		result = &combinedReader{f, r}
 	}
 	return result, nil
 }
