@@ -492,6 +492,9 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	if config.Logger == nil {
 		config.Logger = log.NewLogger(os.Stdout, log.ConsoleLogFormat, log.DarkLogColorTheme, log.DebugLevel, "kafka")
 	}
+	if config.Context == nil {
+		config.Context = context.Background()
+	}
 	c := &Consumer{
 		config:          config,
 		consumer:        consumer,
