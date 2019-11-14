@@ -70,7 +70,7 @@ func newClient(opts Options) (httpclient.Client, error) {
 	if opts.HTTPClientConfig == nil {
 		opts.HTTPClientConfig = &httpclient.Config{
 			Paginator: httpclient.NoPaginator(),
-			Retryable: httpclient.NewBackoffRetry(10*time.Millisecond, 100*time.Millisecond, 30*time.Second, 2.0),
+			Retryable: httpclient.NewBackoffRetry(250*time.Millisecond, 100*time.Millisecond, 2*time.Minute, 1.5),
 		}
 	}
 	return api.NewHTTPAPIClient(opts.HTTPClientConfig)
