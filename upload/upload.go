@@ -33,6 +33,9 @@ const DefaultUploadConcurrency = 5
 
 // Options for configuring the upload
 type Options struct {
+	// APIKey is required for communication
+	APIKey string
+
 	// The buffer size (in bytes) to use when buffering data into chunks and
 	// sending them as parts to S3. The minimum allowed part size is 5MB, and
 	// if this value is set to zero, the DefaultUploadPartSize value will be used.
@@ -82,6 +85,7 @@ func upload(opts Options, urlpath string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
+	api.SetAuthorization(req, opts.APIKey)
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -102,6 +106,9 @@ func Upload(opts Options) (int, int64, error) {
 	}
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = DefaultUploadConcurrency
+	}
+	if opts.APIKey == "" {
+		return 0, 0, fmt.Errorf("missing required APIKey")
 	}
 	if opts.Body == nil {
 		return 0, 0, fmt.Errorf("missing required Body")
