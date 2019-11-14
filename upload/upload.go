@@ -2,14 +2,10 @@ package upload
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
-	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -49,9 +45,6 @@ type Options struct {
 	// The concurrency pool is not shared between calls to Upload.
 	Concurrency int
 
-	// Headers is the headers that are set on each outbound request. must be in the format name: value
-	Headers []string
-
 	// Body is the content to upload. It's the responsibility of the caller to close this reader itself
 	Body io.Reader
 
@@ -60,9 +53,6 @@ type Options struct {
 
 	// URL to upload the parts to
 	URL string
-
-	// Job information about the upload which will be saved into a file named job.json in the same folder
-	Job map[string]interface{}
 
 	// HTTPClientConfig is a custom httpclient.Config in case you want to override the behavior
 	HTTPClientConfig *httpclient.Config
@@ -92,15 +82,11 @@ func upload(opts Options, urlpath string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	for _, header := range opts.Headers {
-		tok := strings.Split(header, ": ")
-		req.Header.Set(tok[0], strings.TrimSpace(tok[1]))
-	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode == http.StatusOK {
+	if resp.StatusCode == http.StatusAccepted {
 		io.Copy(ioutil.Discard, resp.Body)
 		resp.Body.Close()
 		return nil
@@ -116,9 +102,6 @@ func Upload(opts Options) (int, int64, error) {
 	}
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = DefaultUploadConcurrency
-	}
-	if len(opts.Headers) == 0 {
-		return 0, 0, fmt.Errorf("missing required Headers")
 	}
 	if opts.Body == nil {
 		return 0, 0, fmt.Errorf("missing required Body")
@@ -182,18 +165,6 @@ func Upload(opts Options) (int, int64, error) {
 	case err := <-errors:
 		return 0, 0, err
 	default:
-	}
-	// upload the job if we have one once we're done
-	if opts.Job != nil {
-		u, _ := url.Parse(opts.URL)
-		u.Path = path.Join(path.Dir(u.Path), "job.json")
-		buf, err := json.Marshal(opts.Job)
-		if err != nil {
-			return 0, 0, fmt.Errorf("error serializing the job: %v", err)
-		}
-		if err := upload(opts, u.String(), bytes.NewReader(buf)); err != nil {
-			return 0, 0, fmt.Errorf("error uploading job.json: %v", err)
-		}
 	}
 	return index, total, nil
 }
