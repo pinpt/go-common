@@ -2,6 +2,7 @@ package upload
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,9 @@ import (
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/httpclient"
 )
+
+// ErrMaxRetriesAttempted is an error returned after multiple retry attempts fail
+var ErrMaxRetriesAttempted = errors.New("upload: error uploading to agent upload server after multiple retried attempts failed")
 
 // NOTE: these defaults are borrowed from https://github.com/aws/aws-sdk-go/blob/master/service/s3/s3manager/upload.go
 
@@ -29,7 +33,7 @@ const DefaultUploadPartSize = MinUploadPartSize
 
 // DefaultUploadConcurrency is the default number of goroutines to spin up when
 // using Upload().
-const DefaultUploadConcurrency = 5
+const DefaultUploadConcurrency = 3
 
 // Options for configuring the upload
 type Options struct {
@@ -66,36 +70,25 @@ type part struct {
 	reader io.Reader
 }
 
-func newClient(opts Options) (httpclient.Client, error) {
-	if opts.HTTPClientConfig == nil {
-		opts.HTTPClientConfig = &httpclient.Config{
-			Paginator: httpclient.NoPaginator(),
-			Retryable: httpclient.NewBackoffRetry(250*time.Millisecond, 100*time.Millisecond, 2*time.Minute, 1.5),
-		}
-	}
-	return api.NewHTTPAPIClient(opts.HTTPClientConfig)
-}
-
 func upload(opts Options, urlpath string, reader io.Reader) error {
-	client, err := newClient(opts)
-	if err != nil {
-		return err
+	for i := 0; i < 20; i++ {
+		req, err := http.NewRequest(http.MethodPut, urlpath, reader)
+		if err != nil {
+			return err
+		}
+		api.SetAuthorization(req, opts.APIKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode == http.StatusAccepted {
+			io.Copy(ioutil.Discard, resp.Body)
+			resp.Body.Close()
+			return nil
+		}
+		time.Sleep(time.Millisecond * 150 * time.Duration(i+1)) // expotential backoff and retry on any errors
 	}
-	req, err := http.NewRequest(http.MethodPut, urlpath, reader)
-	if err != nil {
-		return err
-	}
-	api.SetAuthorization(req, opts.APIKey)
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode == http.StatusAccepted {
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-		return nil
-	}
-	return fmt.Errorf("error uploading %v. status code was %v after multi attempts", urlpath, resp.StatusCode)
+	return ErrMaxRetriesAttempted
 }
 
 // Upload a file to the upload server in multi part upload
