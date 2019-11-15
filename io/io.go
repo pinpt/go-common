@@ -9,12 +9,6 @@ import (
 	"path/filepath"
 )
 
-// ReaderCloser is a helper when using io.TeeRader with a io.ReadCloser
-type ReaderCloser struct {
-	io.Reader
-	io.Closer
-}
-
 // NewStream returns a new output stream. If the filename extension ends with .gz, it will
 // return a gzip output stream
 func NewStream(fn string) (io.WriteCloser, error) {
@@ -38,7 +32,7 @@ func NewStream(fn string) (io.WriteCloser, error) {
 
 type writerWrapper struct {
 	original io.WriteCloser
-	wrapper  io.WriteCloser
+	wrapper  *gzip.Writer
 }
 
 func (s *writerWrapper) Write(p []byte) (n int, _ error) {
@@ -46,8 +40,10 @@ func (s *writerWrapper) Write(p []byte) (n int, _ error) {
 }
 
 func (s *writerWrapper) Close() error {
-	err := s.wrapper.Close()
-	if err != nil {
+	if err := s.wrapper.Flush(); err != nil {
+		return fmt.Errorf("error flushing gzip stream: %v", err)
+	}
+	if err := s.wrapper.Close(); err != nil {
 		return err
 	}
 	return s.original.Close()
