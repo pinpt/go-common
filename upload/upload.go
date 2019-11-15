@@ -81,9 +81,11 @@ func upload(opts Options, urlpath string, reader io.Reader) error {
 		if err != nil {
 			return err
 		}
+		// we don't care about the response in any case so read it all back
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
 		if resp.StatusCode == http.StatusAccepted {
-			io.Copy(ioutil.Discard, resp.Body)
-			resp.Body.Close()
+			// this is good
 			return nil
 		}
 		time.Sleep(time.Millisecond * 150 * time.Duration(i+1)) // expotential backoff and retry on any errors
