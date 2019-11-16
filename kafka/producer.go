@@ -3,11 +3,14 @@ package kafka
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/pinpt/go-common/datetime"
 	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/log"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
@@ -22,6 +25,7 @@ type Producer struct {
 	mu       sync.RWMutex
 	size     int64
 	count    int64
+	ch       chan ck.Event
 }
 
 var _ eventing.Producer = (*Producer)(nil)
@@ -87,7 +91,7 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 			Timestamp:      timestamp,
 			Headers:        headers,
 		}
-		if err := p.producer.Produce(msg, nil); err != nil {
+		if err := p.producer.Produce(msg, p.ch); err != nil {
 			return err
 		}
 	}
@@ -103,8 +107,23 @@ func (p *Producer) Close() error {
 	if !closed {
 		p.producer.Flush(int((5 * time.Second) / time.Millisecond))
 		p.producer.Close()
+		close(p.ch)
 	}
 	return nil
+}
+
+func (p *Producer) run() {
+	for evt := range p.ch {
+		if m, ok := evt.(*ck.Message); ok {
+			if m.TopicPartition.Error != nil {
+				if p.config.Logger != nil {
+					log.Error(p.config.Logger, "error sending kafka message", "topic", *m.TopicPartition.Topic, "err", m.TopicPartition.Error, "id", string(m.Key), "partition", m.TopicPartition.Partition)
+				} else {
+					fmt.Fprintf(os.Stderr, "error sending kafka message to %v. %v\n", *m.TopicPartition.Topic, m.TopicPartition.Error)
+				}
+			}
+		}
+	}
 }
 
 // NewProducer returns a new Producer instance
@@ -130,8 +149,11 @@ func NewProducer(config Config) (*Producer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Producer{
+	p := &Producer{
 		config:   config,
 		producer: producer,
-	}, nil
+		ch:       make(chan ck.Event, 10),
+	}
+	go p.run()
+	return p, nil
 }
