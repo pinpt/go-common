@@ -26,10 +26,10 @@ func TestLogLevels(t *testing.T) {
 	deb.Log("hello", "world")
 	noop := NewNoOpTestLogger()
 	Debug(noop, "not in the log")
-	assert.Contains(b.String(), `"level":"debug","msg":"debug level log","pkg":"test"}`)
-	assert.Contains(b.String(), `"level":"info","msg":"info level log","pkg":"test"}`)
-	assert.Contains(b.String(), `"level":"warn","msg":"warn level log","pkg":"test"}`)
-	assert.Contains(b.String(), `"level":"error","msg":"error level log","pkg":"test"}`)
+	assert.Contains(b.String(), `"level":"debug","message":"debug level log","pkg":"test"}`)
+	assert.Contains(b.String(), `"level":"info","message":"info level log","pkg":"test"}`)
+	assert.Contains(b.String(), `"level":"warn","message":"warn level log","pkg":"test"}`)
+	assert.Contains(b.String(), `"level":"error","message":"error level log","pkg":"test"}`)
 	assert.Contains(b.String(), `"hello":"world","level":"debug","pkg":"test"}`)
 }
 
@@ -54,7 +54,7 @@ func TestWithDefaultTimestampLogOption(t *testing.T) {
 	var b bytes.Buffer
 	log := NewLogger(&b, JSONLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
 	Info(log, "hello")
-	assert.Contains(b.String(), `{"level":"info","msg":"hello","pkg":"test","ts":"`)
+	assert.Contains(b.String(), `{"level":"info","message":"hello","pkg":"test","ts":"`)
 }
 
 func TestLogWithNoneLevel(t *testing.T) {
@@ -71,7 +71,7 @@ func TestLogFmtTheme(t *testing.T) {
 	log := NewLogger(&b, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
 	Info(log, "hello")
 	assert.Contains(b.String(), "pkg=test")
-	assert.Contains(b.String(), "level=info msg=hello")
+	assert.Contains(b.String(), "level=info message=hello")
 }
 
 func TestLogCloser(t *testing.T) {
@@ -84,7 +84,7 @@ func TestLogNoOp(t *testing.T) {
 	assert := assert.New(t)
 	var b bytes.Buffer
 	log := NewLogger(&b, LogFmtLogFormat, DarkLogColorTheme, NoneLevel, "test")
-	log.Log("msg", "hi")
+	log.Log("message", "hi")
 	assert.Empty(b.String())
 }
 
@@ -107,9 +107,9 @@ func TestLogWriterCloser(t *testing.T) {
 	assert := assert.New(t)
 	var w wc
 	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
-	log.Log("msg", "hi")
+	log.Log("message", "hi")
 	assert.NoError(log.Close())
-	assert.Equal("pkg=test level=debug msg=hi\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi\n", string(w.b))
 	assert.True(w.c)
 }
 
@@ -118,13 +118,13 @@ func TestLogKVNil(t *testing.T) {
 	var w wc
 	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
 	Debug(log, "ni")
-	assert.Equal("pkg=test level=debug msg=ni\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=ni\n", string(w.b))
 	Info(log, "ni")
-	assert.Equal("pkg=test level=info msg=ni\n", string(w.b))
+	assert.Equal("pkg=test level=info message=ni\n", string(w.b))
 	Error(log, "ni")
-	assert.Equal("pkg=test level=error msg=ni\n", string(w.b))
+	assert.Equal("pkg=test level=error message=ni\n", string(w.b))
 	Warn(log, "ni")
-	assert.Equal("pkg=test level=warn msg=ni\n", string(w.b))
+	assert.Equal("pkg=test level=warn message=ni\n", string(w.b))
 	assert.NoError(log.Close())
 	assert.True(w.c)
 }
@@ -152,43 +152,43 @@ func TestMasking(t *testing.T) {
 	var w wc
 	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
 	Debug(log, "hi", "password", "secret")
-	assert.Equal("pkg=test level=debug msg=hi password=sec***\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi password=sec***\n", string(w.b))
 	Debug(log, "hi", "secret", "password")
-	assert.Equal("pkg=test level=debug msg=hi secret=pass****\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi secret=pass****\n", string(w.b))
 	Debug(log, "hi", "email", "foo@bar.com")
-	assert.Equal("pkg=test level=debug msg=hi email=f**@b**.com\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi email=f**@b**.com\n", string(w.b))
 	Debug(log, "hi", "otherkey", "foo@bar.com")
-	assert.Equal("pkg=test level=debug msg=hi otherkey=f**@b**.com\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi otherkey=f**@b**.com\n", string(w.b))
 	Debug(log, "your email is foo@bar.com")
-	assert.Equal("pkg=test level=debug msg=\"your email is f**@b**.com\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=\"your email is f**@b**.com\"\n", string(w.b))
 	Debug(log, "hi", "access_key", "secret")
-	assert.Equal("pkg=test level=debug msg=hi access_key=sec***\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi access_key=sec***\n", string(w.b))
 	Debug(log, "hi", "passwd", "1")
-	assert.Equal("pkg=test level=debug msg=hi passwd=*\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi passwd=*\n", string(w.b))
 	Debug(log, "hi", "redisPassword", "1")
-	assert.Equal("pkg=test level=debug msg=hi redisPassword=*\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi redisPassword=*\n", string(w.b))
 	Debug(log, "hi", "stuff", map[string]string{"password": "1234"})
-	assert.Equal("pkg=test level=debug msg=hi stuff=\"{\\\"password\\\":\\\"12**\\\"}\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi stuff=\"{\\\"password\\\":\\\"12**\\\"}\"\n", string(w.b))
 	Debug(log, "hi", "stuff", map[string]interface{}{"password": 1234})
-	assert.Equal("pkg=test level=debug msg=hi stuff=\"{\\\"password\\\":\\\"12**\\\"}\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi stuff=\"{\\\"password\\\":\\\"12**\\\"}\"\n", string(w.b))
 	Debug(log, "hi", "stuff", []string{"password", "1234"})
-	assert.Equal("pkg=test level=debug msg=hi stuff=\"[\\\"password\\\",\\\"12**\\\"]\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi stuff=\"[\\\"password\\\",\\\"12**\\\"]\"\n", string(w.b))
 	Debug(log, "hi", "stuff", []string{"--password", "1234"})
-	assert.Equal("pkg=test level=debug msg=hi stuff=\"[\\\"--password\\\",\\\"12**\\\"]\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi stuff=\"[\\\"--password\\\",\\\"12**\\\"]\"\n", string(w.b))
 	Debug(log, "hi", "my_aws_key", "AKIAIOSFODNN7EXAMPLE")
-	assert.Equal("pkg=test level=debug msg=hi my_aws_key=AKIAIOSFOD**********\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi my_aws_key=AKIAIOSFOD**********\n", string(w.b))
 	Debug(log, "hi", "stuff", []string{"my_aws_key", "AKIAIOSFODNN7EXAMPLE"})
-	assert.Equal("pkg=test level=debug msg=hi stuff=\"[\\\"my_aws_key\\\",\\\"AKIAIOSFOD**********\\\"]\"\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi stuff=\"[\\\"my_aws_key\\\",\\\"AKIAIOSFOD**********\\\"]\"\n", string(w.b))
 	Debug(log, "hi", "key", "AKIAIOSFODNN7EXAMPLE")
-	assert.Equal("pkg=test level=debug msg=hi key=AKIAIOSFOD**********\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi key=AKIAIOSFOD**********\n", string(w.b))
 	Debug(log, "hi", "secret", "AKIAIOSFODNN7EXAMPLE")
-	assert.Equal("pkg=test level=debug msg=hi secret=AKIAIOSFOD**********\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi secret=AKIAIOSFOD**********\n", string(w.b))
 	Debug(log, "hi", "access_key", "AKIAIOSFODNN7EXAMPLE")
-	assert.Equal("pkg=test level=debug msg=hi access_key=AKIAIOSFOD**********\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi access_key=AKIAIOSFOD**********\n", string(w.b))
 	Debug(log, "hi", "apikey", "1234")
-	assert.Equal("pkg=test level=debug msg=hi apikey=12**\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi apikey=12**\n", string(w.b))
 	Debug(log, "hi", "api_key", "1234")
-	assert.Equal("pkg=test level=debug msg=hi api_key=12**\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi api_key=12**\n", string(w.b))
 }
 
 func TestMaskingDoesntMutate(t *testing.T) {
@@ -199,7 +199,7 @@ func TestMaskingDoesntMutate(t *testing.T) {
 	args := []interface{}{"password", "secret"}
 	Debug(log, "hi", args...)
 	log.Close()
-	assert.Equal("pkg=test level=debug msg=hi password=sec***\n", string(w.b))
+	assert.Equal("pkg=test level=debug message=hi password=sec***\n", string(w.b))
 	assert.Equal("secret", args[1])
 }
 
@@ -230,7 +230,7 @@ func TestStripAnsiColors(t *testing.T) {
 		pkg:   "p",
 		theme: DarkLogColorTheme,
 	}
-	l.Log(levelKey, infoLevel, "msg", fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "m"), fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "k"), fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "v"))
+	l.Log(levelKey, infoLevel, "message", fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "m"), fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "k"), fmt.Sprintf("\x1b[%dm%s\x1b[0m", 32, "v"))
 	assert.Equal("INFO   p        m                                                            k=v\n", buf.String())
 }
 
@@ -239,10 +239,10 @@ func TestDeduplicateAndSortKeys(t *testing.T) {
 	var w bytes.Buffer
 	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test")
 	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
-	assert.Equal("pkg=test level=debug msg=hi a=d\n", w.String())
+	assert.Equal("pkg=test level=debug message=hi a=d\n", w.String())
 	w.Reset()
 	Debug(log, "hi", "a", 0, "b", 0, "a", 1, "b", 2, "c", "3")
-	assert.Equal("pkg=test level=debug msg=hi a=1 b=2 c=3\n", w.String())
+	assert.Equal("pkg=test level=debug message=hi a=1 b=2 c=3\n", w.String())
 }
 
 func TestCrashLogger(t *testing.T) {
@@ -250,7 +250,7 @@ func TestCrashLogger(t *testing.T) {
 	var w wc
 	log := NewLogger(&w, JSONLogFormat, DarkLogColorTheme, DebugLevel, "test", WithCrashLogger())
 	Debug(log, "testlog")
-	mylog := "{\"level\":\"debug\",\"msg\":\"testlog\",\"pkg\":\"test\"}\n"
+	mylog := "{\"level\":\"debug\",\"message\":\"testlog\",\"pkg\":\"test\"}\n"
 	assert.Equal(mylog, string(w.b))
 	log.Close()
 	time.Sleep(time.Second)
