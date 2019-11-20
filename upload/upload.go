@@ -16,8 +16,8 @@ import (
 	"github.com/pinpt/httpclient"
 )
 
-// ErrMaxRetriesAttempted is an error returned after multiple retry attempts fail
-var ErrMaxRetriesAttempted = errors.New("upload: error uploading to agent upload server after multiple retried attempts failed")
+// ErrDeadlineReached is an error returned if the Deadline is reached
+var ErrDeadlineReached = errors.New("upload: deadline reached trying to upload")
 
 // NOTE: these defaults are borrowed from https://github.com/aws/aws-sdk-go/blob/master/service/s3/s3manager/upload.go
 
@@ -65,6 +65,10 @@ type Options struct {
 
 	// HTTPClientConfig is a custom httpclient.Config in case you want to override the behavior
 	HTTPClientConfig *httpclient.Config
+
+	// Deadline is the time by which the upload (or any part) should have finished before returning ErrDeadlineReached
+	// defaults to 10 minutes if not provided
+	Deadline time.Time
 }
 
 type part struct {
@@ -73,13 +77,14 @@ type part struct {
 }
 
 func upload(opts Options, urlpath string, part part) error {
-	client := http.DefaultClient
+	client := &http.Client{}
 	if strings.Contains(urlpath, "localhost") || strings.Contains(urlpath, "127.0.0.1") {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
-	for i := 0; i < 20; i++ {
+	var i int
+	for {
 		req, err := http.NewRequest(http.MethodPut, urlpath, bytes.NewReader(part.buf))
 		if err != nil {
 			return err
@@ -97,8 +102,11 @@ func upload(opts Options, urlpath string, part part) error {
 			return nil
 		}
 		time.Sleep(time.Millisecond * 150 * time.Duration(i+1)) // expotential backoff and retry on any errors
+		if time.Now().After(opts.Deadline) {
+			return ErrDeadlineReached
+		}
+		i++
 	}
-	return ErrMaxRetriesAttempted
 }
 
 // Upload a file to the upload server in multi part upload
@@ -121,6 +129,9 @@ func Upload(opts Options) (int, int64, error) {
 	}
 	if opts.URL == "" {
 		return 0, 0, fmt.Errorf("missing required URL")
+	}
+	if opts.Deadline.IsZero() {
+		opts.Deadline = time.Now().Add(time.Minute * 10)
 	}
 	var wg sync.WaitGroup
 	ch := make(chan part, opts.Concurrency)
