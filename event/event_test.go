@@ -159,6 +159,11 @@ func (o *Echo) IsEvented() bool {
 	return true
 }
 
+// IsMutable returns true if the model is mutable
+func (o *Echo) IsMutable() bool {
+	return true
+}
+
 // SetEventHeaders will set any event headers for the object instance
 func (o *Echo) SetEventHeaders(kv map[string]string) {
 	kv["model"] = EchoModelName.String()

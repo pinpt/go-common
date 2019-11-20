@@ -160,6 +160,11 @@ func (o *Track) IsEvented() bool {
 	return true
 }
 
+// IsMutable returns true if the model is mutable
+func (o *Track) IsMutable() bool {
+	return true
+}
+
 // SetEventHeaders will set any event headers for the object instance
 func (o *Track) SetEventHeaders(kv map[string]string) {
 	kv["model"] = TrackModelName.String()
