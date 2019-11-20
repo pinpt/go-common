@@ -2,11 +2,13 @@ package upload
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,18 +68,24 @@ type Options struct {
 }
 
 type part struct {
-	index  int
-	reader io.Reader
+	index int
+	buf   []byte
 }
 
-func upload(opts Options, urlpath string, reader io.Reader) error {
+func upload(opts Options, urlpath string, part part) error {
+	client := http.DefaultClient
+	if strings.Contains(urlpath, "localhost") || strings.Contains(urlpath, "127.0.0.1") {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
 	for i := 0; i < 20; i++ {
-		req, err := http.NewRequest(http.MethodPut, urlpath, reader)
+		req, err := http.NewRequest(http.MethodPut, urlpath, bytes.NewReader(part.buf))
 		if err != nil {
 			return err
 		}
 		api.SetAuthorization(req, opts.APIKey)
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			return err
 		}
@@ -122,7 +130,7 @@ func Upload(opts Options) (int, int64, error) {
 		go func() {
 			defer wg.Done()
 			for r := range ch {
-				if err := upload(opts, fmt.Sprintf("%s.%d", opts.URL, r.index), r.reader); err != nil {
+				if err := upload(opts, fmt.Sprintf("%s.%d", opts.URL, r.index), r); err != nil {
 					errors <- err
 					return
 				}
@@ -146,7 +154,7 @@ func Upload(opts Options) (int, int64, error) {
 		var ok bool
 		for !ok {
 			select {
-			case ch <- part{reader: bytes.NewReader(buf[:n]), index: index}:
+			case ch <- part{buf: buf[:n], index: index}:
 				ok = true
 				break
 			default:
