@@ -145,7 +145,7 @@ var (
 
 const (
 	pkgKey = "pkg"
-	msgKey = "msg"
+	msgKey = "message"
 	tsKey  = "ts"
 )
 
