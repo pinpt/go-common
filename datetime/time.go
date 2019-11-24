@@ -8,52 +8,61 @@ import (
 )
 
 const (
-	SignalTimeUnit_NOW          int32 = 0
-	SignalTimeUnit_MONTH        int32 = 30
-	SignalTimeUnit_QUARTER      int32 = 90
-	SignalTimeUnit_HALFYEAR     int32 = 180
-	SignalTimeUnit_YEAR         int32 = 365
-	SignalTimeUnit_THIRDQUARTER int32 = 270
-	SignalTimeUnit_ALLTIME      int32 = -1
-	SignalTimeUnit_BIMONTH      int32 = 60
-	DaysInMilliseconds          int64 = 86400000
+	// SignalTimeUnitNOW is now
+	SignalTimeUnitNOW int32 = 0
+	// SignalTimeUnitMONTH is 30 days
+	SignalTimeUnitMONTH int32 = 30
+	// SignalTimeUnitQUARTER is 90 days
+	SignalTimeUnitQUARTER int32 = 90
+	// SignalTimeUnitHALFYEAR is 180 days
+	SignalTimeUnitHALFYEAR int32 = 180
+	// SignalTimeUnitYEAR is 365 days
+	SignalTimeUnitYEAR int32 = 365
+	// SignalTimeUnitTHIRDQUARTER is 270 days
+	SignalTimeUnitTHIRDQUARTER int32 = 270
+	// SignalTimeUnitALLTIME is all time
+	SignalTimeUnitALLTIME int32 = -1
+	// SignalTimeUnitBIMONTH is two month
+	SignalTimeUnitBIMONTH int32 = 60
+	// DaysInMilliseconds is one day in milliseconds
+	DaysInMilliseconds int64 = 86400000
 )
 
-// RFC3339
-// There is an edge case where there is no timezone set
+// RFC3339 There is an edge case where there is no timezone set
 // and that makes the format function return dates like
 // 2019-09-03T20:48:57.073Z.
 // We are using this RFC3339 custom format to
 // always get an offset.
 const RFC3339 = "2006-01-02T15:04:05.999999999-07:00"
 
+// GetTimeUnitString will return the timeunit as a string
 func GetTimeUnitString(timeUnit int32) string {
 	switch timeUnit {
-	case SignalTimeUnit_NOW:
+	case SignalTimeUnitNOW:
 		{
 			return "now"
 		}
-	case SignalTimeUnit_MONTH:
+	case SignalTimeUnitMONTH:
 		{
 			return "month"
 		}
-	case SignalTimeUnit_QUARTER:
+	case SignalTimeUnitQUARTER:
 		{
 			return "quarter"
 		}
-	case SignalTimeUnit_BIMONTH:
+	case SignalTimeUnitBIMONTH:
 		{
 			return "bimonth"
 		}
-	case SignalTimeUnit_HALFYEAR:
+	case SignalTimeUnitHALFYEAR:
 		{
 			return "halfyear"
 		}
-	case SignalTimeUnit_THIRDQUARTER:
+	case SignalTimeUnitTHIRDQUARTER:
 		{
 			return "thirdquarter"
 		}
-	case SignalTimeUnit_YEAR:
+	case SignalTimeUnitYEAR:
 		{
 			return "year"
 		}
@@ -206,31 +215,31 @@ func ToTimeRange(tv time.Time, days int) (int64, int64) {
 // GetSignalDate returns a metric date in short form for a time unit from the ref date
 func GetSignalDate(timeUnit int32, refDate time.Time) string {
 	switch timeUnit {
-	case SignalTimeUnit_NOW:
+	case SignalTimeUnitNOW:
 		{
 			return ShortDateFromTime(refDate)
 		}
-	case SignalTimeUnit_MONTH:
+	case SignalTimeUnitMONTH:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -30))
 		}
-	case SignalTimeUnit_BIMONTH:
+	case SignalTimeUnitBIMONTH:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -60))
 		}
-	case SignalTimeUnit_QUARTER:
+	case SignalTimeUnitQUARTER:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -90))
 		}
-	case SignalTimeUnit_HALFYEAR:
+	case SignalTimeUnitHALFYEAR:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -180))
 		}
-	case SignalTimeUnit_THIRDQUARTER:
+	case SignalTimeUnitTHIRDQUARTER:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -270))
 		}
-	case SignalTimeUnit_YEAR:
+	case SignalTimeUnitYEAR:
 		{
 			return ShortDateFromTime(refDate.AddDate(0, 0, -365))
 		}
@@ -245,31 +254,31 @@ func GetSignalDate(timeUnit int32, refDate time.Time) string {
 func GetSignalTime(timeUnit int32, refDate time.Time) time.Time {
 	var t time.Time
 	switch timeUnit {
-	case SignalTimeUnit_NOW:
+	case SignalTimeUnitNOW:
 		{
 			return refDate.UTC().Truncate(time.Hour * 24)
 		}
-	case SignalTimeUnit_MONTH:
+	case SignalTimeUnitMONTH:
 		{
 			t = refDate.UTC().AddDate(0, 0, -30)
 		}
-	case SignalTimeUnit_BIMONTH:
+	case SignalTimeUnitBIMONTH:
 		{
 			t = refDate.UTC().AddDate(0, 0, -60)
 		}
-	case SignalTimeUnit_QUARTER:
+	case SignalTimeUnitQUARTER:
 		{
 			t = refDate.UTC().AddDate(0, 0, -90)
 		}
-	case SignalTimeUnit_HALFYEAR:
+	case SignalTimeUnitHALFYEAR:
 		{
 			t = refDate.UTC().AddDate(0, 0, -180)
 		}
-	case SignalTimeUnit_THIRDQUARTER:
+	case SignalTimeUnitTHIRDQUARTER:
 		{
 			t = refDate.UTC().AddDate(0, 0, -270)
 		}
-	case SignalTimeUnit_YEAR:
+	case SignalTimeUnitYEAR:
 		{
 			t = refDate.UTC().AddDate(0, 0, -365)
 		}
@@ -283,6 +292,7 @@ func ToMilliSec(date time.Time) int64 {
 	return date.UnixNano() / 1000000
 }
 
+// AddDaysToStrDate will add days to string date
 func AddDaysToStrDate(date string, days int) (string, error) {
 	d, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -348,4 +358,18 @@ func NewDateFromEpoch(epoch int64) Date {
 		Rfc3339: val,
 		Offset:  int64(timezone) / 60,
 	}
+}
+
+// EpochMinuteApart returns true if both epochs are less than or equal
+// to one minute apart
+func EpochMinuteApart(epoch1, epoch2 int64) bool {
+	big := epoch1
+	small := epoch2
+	// return tv1.Truncate(time.Minute).Equal(tv2.Truncate(time.Minute))
+	// get the names right
+	if small > big {
+		big = epoch2
+		small = epoch1
+	}
+	return big-small <= 1000*60
 }
