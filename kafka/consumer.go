@@ -2,10 +2,12 @@ package kafka
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"runtime/debug"
 	"strconv"
@@ -145,6 +147,11 @@ var bufferPool = sync.Pool{
 	New: func() interface{} {
 		return new(bytes.Buffer)
 	},
+}
+
+// IsMessageGzipCompressed returns true if the header contains a gzip compressed header indicating that the value is gzip bytes
+func IsMessageGzipCompressed(headers map[string]string) bool {
+	return headers[CompressionHeader] == CompressionGzip
 }
 
 const (
@@ -353,6 +360,18 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					// reuse buffer from our pool
 					buf := bufferPool.Get().(*bytes.Buffer)
 					buf.Write(e.Value)
+					var value []byte
+					if IsMessageGzipCompressed(headers) {
+						gr, err := gzip.NewReader(bytes.NewReader(buf.Bytes()))
+						if err != nil {
+							callback.ErrorReceived(fmt.Errorf("error creating gzip reader (%v): %v", e.TopicPartition.Offset.String(), err))
+						} else {
+							value, _ = ioutil.ReadAll(gr)
+							gr.Close()
+						}
+					} else {
+						value = buf.Bytes()
+					}
 					encoding := eventing.ValueEncodingType(headers["encoding"])
 					offset, err := strconv.ParseInt(e.TopicPartition.Offset.String(), 10, 64)
 					if err != nil {
@@ -361,7 +380,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					msg := eventing.Message{
 						Encoding:  encoding,
 						Key:       string(e.Key),
-						Value:     buf.Bytes(),
+						Value:     value,
 						Headers:   headers,
 						Timestamp: e.Timestamp,
 						Topic:     topic,

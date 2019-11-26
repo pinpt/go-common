@@ -31,6 +31,7 @@ type Config struct {
 	DefaultPollTime           time.Duration // only for consumers
 	Context                   context.Context
 	Logger                    log.Logger
+	Gzip                      bool
 }
 
 // NewConfigMap returns a ConfigMap from a Config

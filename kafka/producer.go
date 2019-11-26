@@ -1,6 +1,8 @@
 package kafka
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +14,13 @@ import (
 	"github.com/pinpt/go-common/eventing"
 	"github.com/pinpt/go-common/log"
 	ck "gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
+)
+
+const (
+	// CompressionHeader is the name of the header used to indicate compressed value
+	CompressionHeader = "pinpt-compression"
+	// CompressionGzip is the value to indicate the compression type
+	CompressionGzip = "gzip"
 )
 
 // ErrMissingTopic is an error that is returned if the topic is missing in the Message
@@ -81,9 +90,26 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 	}
 	p.mu.Unlock()
 	if !closed {
-		// make a copy since this is going to be held internally by the producer channel queue
-		val := make([]byte, len(value))
-		copy(val, value)
+		var val []byte
+		if p.config.Gzip {
+			var buf bytes.Buffer
+			gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+			if err != nil {
+				return fmt.Errorf("error creating gzip writer: %w", err)
+			}
+			gz.Write(value)
+			gz.Close()
+			// do the compression and indicate that we have compressed data
+			val = buf.Bytes()
+			headers = append(headers, ck.Header{
+				Key:   CompressionHeader,
+				Value: []byte(CompressionGzip),
+			})
+		} else {
+			// make a copy since this is going to be held internally by the producer channel queue
+			val = make([]byte, len(value))
+			copy(val, value)
+		}
 		msg := &ck.Message{
 			TopicPartition: tp,
 			Key:            []byte(msg.Key),
@@ -131,8 +157,10 @@ func NewProducer(config Config) (*Producer, error) {
 	c := NewConfigMap(config)
 	// See below link for other configuration options
 	// https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
-	if err := c.SetKey("compression.codec", "snappy"); err != nil {
-		return nil, err
+	if !config.Gzip {
+		if err := c.SetKey("compression.codec", "snappy"); err != nil {
+			return nil, err
+		}
 	}
 	if err := c.SetKey("go.delivery.reports", false); err != nil {
 		return nil, err
