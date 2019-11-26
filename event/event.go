@@ -258,6 +258,7 @@ type SubscriptionChannel struct {
 	cancel       context.CancelFunc
 	conn         *websocket.Conn
 	ready        chan bool
+	headers      map[string]string
 }
 
 // WaitForReady will block until we have received the subscription ack
@@ -305,6 +306,11 @@ func (c *SubscriptionChannel) run() {
 	if strings.Contains(u, "ppoint.io") {
 		headers.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local
 		headers.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
+	}
+
+	// provide ability to set HTTP headers on the subscription
+	for k, v := range c.headers {
+		headers.Set(k, v)
 	}
 
 	var errors int
@@ -495,6 +501,7 @@ type Subscription struct {
 	BufferSize        int               `json:"-"`
 	Errors            chan<- error      `json:"-"`
 	Logger            log.Logger        `json:"-"`
+	HTTPHeaders       map[string]string `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
@@ -512,6 +519,7 @@ func NewSubscription(ctx context.Context, subscription Subscription) (*Subscript
 		done:         make(chan bool, 1),
 		ready:        make(chan bool, 1),
 		subscription: subscription,
+		headers:      subscription.HTTPHeaders,
 	}
 	go subch.run()
 	return subch, nil
