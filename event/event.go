@@ -31,6 +31,9 @@ type PublishEvent struct {
 	Object  datamodel.Model
 	Headers map[string]string
 	Logger  log.Logger `json:"-"`
+
+	// for testing only
+	url string
 }
 
 // EventPayload is the container for a model event
@@ -48,6 +51,7 @@ type PublishConfig struct {
 	Debug    bool
 	Deadline time.Time
 	Logger   log.Logger
+	Header   http.Header
 }
 
 type Option func(config *PublishConfig) error
@@ -76,6 +80,16 @@ func WithLogger(logger log.Logger) Option {
 	}
 }
 
+// WithHeaders will provide an ability to set specific headers on the outgoing HTTP request
+func WithHeaders(headers map[string]string) Option {
+	return func(config *PublishConfig) error {
+		for k, v := range headers {
+			config.Header.Set(k, v)
+		}
+		return nil
+	}
+}
+
 // ErrDeadlineExceeded is an error that's raised when a deadline occurs
 var ErrDeadlineExceeded = errors.New("error: deadline exceeded on publish")
 
@@ -90,6 +104,9 @@ func isHTTPStatusRetryable(statusCode int) bool {
 // Publish will publish an event to the event api server
 func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
+	if event.url != "" {
+		url = event.url // for testing only
+	}
 	payload := payload{
 		Type:    "json",
 		Model:   event.Object.GetModelName(),
@@ -97,8 +114,10 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
 	}
 	started := time.Now()
+	headers := make(http.Header)
 	config := &PublishConfig{
 		Debug:    false,
+		Header:   headers,
 		Deadline: time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
 	}
 	var attempts int
@@ -126,10 +145,15 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		req.Header.Set("Accept", jsonContentType)
 		api.SetUserAgent(req)
 		api.SetAuthorization(req, apiKey)
+		if len(headers) > 0 {
+			for k, vals := range headers {
+				req.Header.Set(k, vals[0])
+			}
+		}
 		req = req.WithContext(ctx)
 		var resp *http.Response
 		var resperr error
-		if strings.Contains(url, "ppoint.io") {
+		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{

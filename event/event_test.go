@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
@@ -655,4 +657,20 @@ func TestDeadline(t *testing.T) {
 	}
 	err := Publish(context.Background(), event, "dev", "", WithDeadline(time.Now()))
 	assert.EqualError(err, ErrDeadlineExceeded.Error())
+}
+
+func TestSetHeaders(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal("foobar", r.Header.Get("x-api-key"))
+		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("OK"))
+	}))
+	event := PublishEvent{
+		Object: &Echo{},
+		url:    ts.URL,
+	}
+	defer ts.Close()
+	err := Publish(context.Background(), event, "dev", "", WithHeaders(map[string]string{"x-api-key": "foobar"}))
+	assert.NoError(err)
 }
