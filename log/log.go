@@ -222,7 +222,11 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 		switch k {
 		case tsKey:
 			ts = fmt.Sprintf("%-28s", ansiStripper.ReplaceAllString(fmt.Sprintf("%v", m[k]), "")+" ")
-			left += 14
+			if color.NoColor {
+				left += 14
+			} else {
+				left += 28
+			}
 			continue
 		case levelKey, pkgKey, msgKey:
 			{

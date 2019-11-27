@@ -10,29 +10,17 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	isatty "github.com/mattn/go-isatty"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 const dockerCGroup = "/proc/self/cgroup"
 const k8sServiceAcct = "/var/run/secrets/kubernetes.io/serviceaccount"
 
-// RegisterFlags will register the flags for logging
-func RegisterFlags(rootCmd *cobra.Command) {
-	rootCmd.PersistentFlags().String("log-level", "info", "set the log level")
-	rootCmd.PersistentFlags().String("log-color", "dark", "set the log color profile (dark or light). only applies to console logging")
-	rootCmd.PersistentFlags().String("log-format", "default", "set the log format (json, logfmt, default)")
-	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
-}
+var isContainer bool
 
-// NewCommandLogger returns a new Logger for a given command
-func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
-	pkg := cmd.Name()
-	if opts == nil {
-		opts = make([]WithLogOptions, 0)
-	}
-	var isContainer bool
+func init() {
 	if runtime.GOOS == "linux" {
 		if fileutil.FileExists(dockerCGroup) {
 			buf, err := ioutil.ReadFile(dockerCGroup)
@@ -42,6 +30,24 @@ func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 		} else if fileutil.FileExists(k8sServiceAcct) {
 			isContainer = true
 		}
+	}
+}
+
+// RegisterFlags will register the flags for logging
+func RegisterFlags(rootCmd *cobra.Command) {
+	timestamps := isContainer || !isatty.IsTerminal(os.Stdout.Fd())
+	rootCmd.PersistentFlags().String("log-level", "info", "set the log level")
+	rootCmd.PersistentFlags().String("log-color", "dark", "set the log color profile (dark or light). only applies to console logging")
+	rootCmd.PersistentFlags().String("log-format", "default", "set the log format (json, logfmt, default)")
+	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
+	rootCmd.PersistentFlags().Bool("log-timestamp", timestamps, "turn on timestamps in output")
+}
+
+// NewCommandLogger returns a new Logger for a given command
+func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
+	pkg := cmd.Name()
+	if opts == nil {
+		opts = make([]WithLogOptions, 0)
 	}
 
 	var writer io.Writer
@@ -166,7 +172,9 @@ func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 		minLogLevel = NoneLevel
 	}
 
-	if isContainer || isfile || !terminal.IsTerminal(int(os.Stdout.Fd())) {
+	timestamps, _ := cmd.Flags().GetBool("log-timestamp")
+
+	if timestamps || isfile {
 		// if inside docker or in a file or not connected to tty, we want timestamp
 		opts = append(opts, WithDefaultTimestampLogOption())
 	}
