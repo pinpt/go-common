@@ -278,7 +278,7 @@ func TestBackgroundLogger(t *testing.T) {
 func TestWithTimestamp(t *testing.T) {
 	assert := assert.New(t)
 	var w bytes.Buffer
-	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
+	log := NewLogger(&w, ConsoleLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
 	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
-	assert.Regexp(regexp.MustCompile("ts=(.*) pkg=test level=debug message=hi a=d\n"), w.String())
+	assert.Regexp(regexp.MustCompile("(.*)? DEBUG  test     hi                                                 a=d\n"), w.String())
 }

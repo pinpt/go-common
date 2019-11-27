@@ -221,11 +221,11 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 	for _, k := range keys {
 		switch k {
 		case tsKey:
-			ts = fmt.Sprintf("%-28s", ansiStripper.ReplaceAllString(fmt.Sprintf("%v", m[k]), "")+" ")
+			ts = fmt.Sprintf("%v ", m[k])
 			if color.NoColor {
-				left += 14
+				left += 10
 			} else {
-				left += 28
+				left += 20
 			}
 			continue
 		case levelKey, pkgKey, msgKey:
@@ -455,7 +455,7 @@ type WithLogOptions func(logger Logger) Logger
 // WithDefaultTimestampLogOption will add the timestamp in UTC to the ts key
 func WithDefaultTimestampLogOption() WithLogOptions {
 	return func(logger Logger) Logger {
-		return log.With(logger, tsKey, log.DefaultTimestampUTC)
+		return log.With(logger, tsKey, log.TimestampFormat(time.Now, time.StampMilli))
 	}
 }
 
