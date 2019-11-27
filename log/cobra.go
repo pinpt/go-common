@@ -1,36 +1,22 @@
 package log
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
 	isatty "github.com/mattn/go-isatty"
-	"github.com/pinpt/go-common/fileutil"
+	pos "github.com/pinpt/go-common/os"
 	"github.com/spf13/cobra"
 )
-
-const dockerCGroup = "/proc/self/cgroup"
-const k8sServiceAcct = "/var/run/secrets/kubernetes.io/serviceaccount"
 
 var isContainer bool
 
 func init() {
-	if runtime.GOOS == "linux" {
-		if fileutil.FileExists(dockerCGroup) {
-			buf, err := ioutil.ReadFile(dockerCGroup)
-			if err != nil && bytes.Contains(buf, []byte("docker")) {
-				isContainer = true
-			}
-		} else if fileutil.FileExists(k8sServiceAcct) {
-			isContainer = true
-		}
-	}
+	isContainer = pos.IsInsideContainer()
 }
 
 // RegisterFlags will register the flags for logging
