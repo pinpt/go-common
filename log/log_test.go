@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 
@@ -272,4 +273,12 @@ func TestBackgroundLogger(t *testing.T) {
 	assert.NotEmpty(called)
 	assert.True(fileutil.FileExists(called))
 	os.Remove(called)
+}
+
+func TestWithTimestamp(t *testing.T) {
+	assert := assert.New(t)
+	var w bytes.Buffer
+	log := NewLogger(&w, LogFmtLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
+	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
+	assert.Regexp(regexp.MustCompile("ts=(.*) pkg=test level=debug message=hi a=d\n"), w.String())
 }

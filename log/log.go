@@ -137,6 +137,7 @@ var (
 	msgColor      = color.New(color.FgWhite, color.Bold)
 	msgLightColor = color.New(color.FgBlack, color.Bold)
 	kvColor       = color.New(color.FgYellow)
+	tsColor       = color.New(color.FgCyan)
 
 	termMu       sync.RWMutex
 	termWidth    = term.GetTerminalWidth()
@@ -216,9 +217,14 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 	slen := 0
 	scnt := 0
 	sort.Strings(keys)
+	var ts string
 	for _, k := range keys {
 		switch k {
-		case levelKey, pkgKey, tsKey, msgKey:
+		case tsKey:
+			ts = fmt.Sprintf("%-28s", ansiStripper.ReplaceAllString(fmt.Sprintf("%v", m[k]), "")+" ")
+			left += 14
+			continue
+		case levelKey, pkgKey, msgKey:
 			{
 				continue
 			}
@@ -254,13 +260,13 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 		o = color.Output
 	}
 	if color.NoColor {
-		fmt.Fprintf(o, "%s %s %s %s\n", fmt.Sprintf("%-6s", strings.ToUpper(lvl)), fmt.Sprintf("%-8s", pkg), msg, kvs)
+		fmt.Fprintf(o, "%s%s %s %s %s\n", ts, fmt.Sprintf("%-6s", strings.ToUpper(lvl)), fmt.Sprintf("%-8s", pkg), msg, kvs)
 	} else {
 		mc := msgColor
 		if l.theme == LightLogColorTheme {
 			mc = msgLightColor
 		}
-		fmt.Fprintf(o, "%s %s %s %s\n", c.Sprintf("%-6s", strings.ToUpper(lvl)), pkgColor.Sprintf("%-8s", pkg), mc.Sprint(msg), kvs)
+		fmt.Fprintf(o, "%s%s %s %s %s\n", tsColor.Sprint(ts), c.Sprintf("%-6s", strings.ToUpper(lvl)), pkgColor.Sprintf("%-8s", pkg), mc.Sprint(msg), kvs)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const dockerCGroup = "/proc/self/cgroup"
@@ -165,8 +166,8 @@ func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 		minLogLevel = NoneLevel
 	}
 
-	if isContainer || isfile {
-		// if inside docker or in a file, we want timestamp
+	if isContainer || isfile || !terminal.IsTerminal(int(os.Stdout.Fd())) {
+		// if inside docker or in a file or not connected to tty, we want timestamp
 		opts = append(opts, WithDefaultTimestampLogOption())
 	}
 
