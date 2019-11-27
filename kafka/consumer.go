@@ -96,9 +96,9 @@ func (c *Consumer) Resume() error {
 	return c.consumer.Resume(assignments)
 }
 
-// Ping will cause a ping against the broker by way of fetching metadata from the _schemas topic
+// Ping will cause a ping against the broker by way of fetching metadata from the __consumer_offsets topic
 func (c *Consumer) Ping() bool {
-	topic := "_schemas"
+	topic := "__consumer_offsets"
 	md, err := c.consumer.GetMetadata(&topic, false, 2000)
 	return err == nil && len(md.Topics) == 1
 }
