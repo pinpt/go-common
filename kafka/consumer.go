@@ -54,6 +54,7 @@ type Consumer struct {
 	groupid             string
 	connecterror        bool
 	logger              log.Logger
+	pingTopic           string
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -96,10 +97,9 @@ func (c *Consumer) Resume() error {
 	return c.consumer.Resume(assignments)
 }
 
-// Ping will cause a ping against the broker by way of fetching metadata from the __consumer_offsets topic
+// Ping will cause a ping against the broker by way of fetching metadata from the ping topic
 func (c *Consumer) Ping() bool {
-	topic := "__consumer_offsets"
-	md, err := c.consumer.GetMetadata(&topic, false, 2000)
+	md, err := c.consumer.GetMetadata(&c.pingTopic, false, 2000)
 	return err == nil && len(md.Topics) == 1
 }
 
@@ -532,7 +532,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 }
 
 // NewPingConsumer returns a new Consumer instance that supports only pings
-func NewPingConsumer(config Config) (*Consumer, error) {
+func NewPingConsumer(config Config, topic string) (*Consumer, error) {
 	cfg := NewConfigMap(config)
 	cfg.SetKey("group.id", "kafka.ping.consumer")
 	cfg.SetKey("go.events.channel.enable", false)
@@ -541,9 +541,10 @@ func NewPingConsumer(config Config) (*Consumer, error) {
 		return nil, err
 	}
 	c := &Consumer{
-		config:   config,
-		consumer: consumer,
-		done:     make(chan struct{}, 1),
+		config:    config,
+		consumer:  consumer,
+		done:      make(chan struct{}, 1),
+		pingTopic: topic,
 	}
 	return c, nil
 }

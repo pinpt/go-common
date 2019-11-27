@@ -470,7 +470,7 @@ func TestConsumerPing(t *testing.T) {
 	config := Config{
 		Brokers: []string{"localhost:9092"},
 	}
-	consumer, err := NewPingConsumer(config)
+	consumer, err := NewPingConsumer(config, "__consumer_offsets")
 	assert.NoError(err)
 	defer consumer.Close()
 	assert.True(consumer.Ping())
