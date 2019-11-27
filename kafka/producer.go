@@ -84,14 +84,15 @@ func (p *Producer) Send(ctx context.Context, msg eventing.Message) error {
 	value := msg.Value
 	p.mu.Lock()
 	closed := p.closed
+	size := len(value)
 	if !closed {
-		p.size += int64(len(value))
+		p.size += int64(size)
 		p.count++
 	}
 	p.mu.Unlock()
 	if !closed {
 		var val []byte
-		if p.config.Gzip {
+		if p.config.Gzip && size > p.config.GzipMinBytes {
 			var buf bytes.Buffer
 			gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 			if err != nil {
@@ -160,6 +161,10 @@ func NewProducer(config Config) (*Producer, error) {
 	if !config.Gzip {
 		if err := c.SetKey("compression.codec", "snappy"); err != nil {
 			return nil, err
+		}
+	} else {
+		if config.GzipMinBytes <= 0 {
+			config.GzipMinBytes = DefaultMinGzipBytes
 		}
 	}
 	if err := c.SetKey("go.delivery.reports", false); err != nil {

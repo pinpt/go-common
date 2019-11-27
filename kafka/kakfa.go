@@ -16,6 +16,9 @@ type ShouldProcessKafkaMessage func(msg *ck.Message) bool
 // ShouldProcessEventMessage is a handler for deciding if we should process the event after deserialization but before we deliver to consumer handler
 type ShouldProcessEventMessage func(msg *eventing.Message) bool
 
+// DefaultMinGzipBytes is the minimum size of data before we compress (assuming config.Gzip = true)
+const DefaultMinGzipBytes = 1024
+
 // Config holds the configuration for connection to the broker
 type Config struct {
 	Brokers                   []string
@@ -32,6 +35,7 @@ type Config struct {
 	Context                   context.Context
 	Logger                    log.Logger
 	Gzip                      bool
+	GzipMinBytes              int // if not set, defaults to DefaultMinGzipBytes
 }
 
 // NewConfigMap returns a ConfigMap from a Config

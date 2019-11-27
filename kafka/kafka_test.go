@@ -563,7 +563,10 @@ func TestSendReceiveWithGzip(t *testing.T) {
 	producer, err := NewProducer(config)
 	assert.NoError(err)
 	defer producer.Close()
-	consumer, err := NewConsumer(config, "testgroup3", "testtopic")
+	admin, err := NewAdminClientUsingProducer(producer)
+	assert.NoError(err)
+	defer admin.DeleteTopic("testtopic1")
+	consumer, err := NewConsumer(config, "testgroup3", "testtopic1")
 	assert.NoError(err)
 	defer consumer.Close()
 	done := make(chan bool, 1)
@@ -571,25 +574,83 @@ func TestSendReceiveWithGzip(t *testing.T) {
 		eventing.ConsumerCallbackAdapter{
 			OnDataReceived: func(msg eventing.Message) error {
 				assert.Equal("foo", msg.Key)
-				assert.True(bytes.Equal([]byte("value"), msg.Value))
+				assert.Equal(DefaultMinGzipBytes+1, len(msg.Value))
 				assert.Equal("bar", msg.Headers["foo"])
-				assert.Equal("testtopic", msg.Topic)
+				assert.Equal("testtopic1", msg.Topic)
 				assert.False(msg.Timestamp.IsZero())
 				assert.True(IsMessageGzipCompressed(msg.Headers))
 				return nil
 			},
 		},
 		func(topic string, partition int32, offset int64) {
-			assert.Equal("testtopic", topic)
+			assert.Equal("testtopic1", topic)
 			assert.True(offset > 0)
 			done <- true
 		},
 	}
 	consumer.Consume(callback)
+	buf := make([]byte, DefaultMinGzipBytes+1)
+	for i := 0; i < len(buf); i++ {
+		buf[i] = 0xf
+	}
 	assert.NoError(producer.Send(context.Background(), eventing.Message{
 		Key:   "foo",
-		Value: []byte("value"),
-		Topic: "testtopic",
+		Value: buf,
+		Topic: "testtopic1",
+		Headers: map[string]string{
+			"foo": "bar",
+		},
+	}))
+	<-done
+}
+
+func TestSendReceiveWithGzipMin(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+	config := Config{
+		Brokers: []string{"localhost:9092"},
+		Gzip:    true,
+	}
+	producer, err := NewProducer(config)
+	assert.NoError(err)
+	defer producer.Close()
+	admin, err := NewAdminClientUsingProducer(producer)
+	assert.NoError(err)
+	defer admin.DeleteTopic("testtopic2")
+	consumer, err := NewConsumer(config, "testgroup4", "testtopic2")
+	assert.NoError(err)
+	defer consumer.Close()
+	done := make(chan bool, 1)
+	callback := &eofcallback{
+		eventing.ConsumerCallbackAdapter{
+			OnDataReceived: func(msg eventing.Message) error {
+				assert.Equal("foo", msg.Key)
+				assert.Equal(DefaultMinGzipBytes-1, len(msg.Value))
+				assert.Equal("bar", msg.Headers["foo"])
+				assert.Equal("testtopic2", msg.Topic)
+				assert.False(msg.Timestamp.IsZero())
+				assert.False(IsMessageGzipCompressed(msg.Headers))
+				return nil
+			},
+		},
+		func(topic string, partition int32, offset int64) {
+			assert.Equal("testtopic2", topic)
+			assert.True(offset > 0)
+			done <- true
+		},
+	}
+	consumer.Consume(callback)
+	buf := make([]byte, DefaultMinGzipBytes-1)
+	for i := 0; i < len(buf); i++ {
+		buf[i] = 0xf
+	}
+	assert.NoError(producer.Send(context.Background(), eventing.Message{
+		Key:   "foo",
+		Value: buf,
+		Topic: "testtopic2",
 		Headers: map[string]string{
 			"foo": "bar",
 		},
