@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	isatty "github.com/mattn/go-isatty"
@@ -27,6 +28,7 @@ func RegisterFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().String("log-format", "default", "set the log format (json, logfmt, default)")
 	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
 	rootCmd.PersistentFlags().Bool("log-timestamp", timestamps, "turn on timestamps in output")
+	rootCmd.PersistentFlags().String("log-timestamp-format", "", "timestamp formatting")
 }
 
 // NewCommandLogger returns a new Logger for a given command
@@ -162,7 +164,16 @@ func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
 
 	if timestamps || isfile {
 		// if inside docker or in a file or not connected to tty, we want timestamp
-		opts = append(opts, WithDefaultTimestampLogOption())
+		layout, _ := cmd.Flags().GetString("log-timestamp-format")
+		if layout == "" {
+			// if console, it reads better with a shorter and friendlier format
+			if logFormat == ConsoleLogFormat {
+				layout = time.StampMilli
+			} else {
+				layout = time.RFC3339Nano
+			}
+		}
+		opts = append(opts, WithDefaultTimestampLogOption(layout))
 	}
 
 	return NewLogger(writer, logFormat, logColorTheme, minLogLevel, pkg, opts...)

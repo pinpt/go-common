@@ -279,6 +279,11 @@ func TestWithTimestamp(t *testing.T) {
 	assert := assert.New(t)
 	var w bytes.Buffer
 	log := NewLogger(&w, ConsoleLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption())
+	ts := time.Now().Format(time.Stamp)
 	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
-	assert.Regexp(regexp.MustCompile("(.*)? DEBUG  test     hi                                                 a=d\n"), w.String())
+	assert.Regexp(regexp.MustCompile(ts+`.\d+ DEBUG  test     hi                                                 a=d`), w.String())
+	log = NewLogger(&w, ConsoleLogFormat, DarkLogColorTheme, DebugLevel, "test", WithDefaultTimestampLogOption(time.Kitchen))
+	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
+	ts = time.Now().Format(time.Kitchen)
+	assert.Regexp(regexp.MustCompile(ts+` DEBUG  test     hi                                                 a=d`), w.String())
 }

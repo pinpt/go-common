@@ -452,10 +452,13 @@ func (l *nocloselog) Close() error {
 // WithLogOptions is a callback for customizing the logger event further before returning
 type WithLogOptions func(logger Logger) Logger
 
-// WithDefaultTimestampLogOption will add the timestamp in UTC to the ts key
-func WithDefaultTimestampLogOption() WithLogOptions {
+// WithDefaultTimestampLogOption will add the timestamp using layout format provided. If not provided, use time.StampMilli
+func WithDefaultTimestampLogOption(layout ...string) WithLogOptions {
 	return func(logger Logger) Logger {
-		return log.With(logger, tsKey, log.TimestampFormat(time.Now, time.StampMilli))
+		if len(layout) == 0 {
+			return log.With(logger, tsKey, log.TimestampFormat(time.Now, time.StampMilli))
+		}
+		return log.With(logger, tsKey, log.TimestampFormat(time.Now, layout[0]))
 	}
 }
 
