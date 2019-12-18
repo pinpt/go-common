@@ -101,6 +101,13 @@ func isHTTPStatusRetryable(statusCode int) bool {
 	return false
 }
 
+func isErrorRetryable(err error) bool {
+	if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake")) {
+		return true
+	}
+	return false
+}
+
 // Publish will publish an event to the event api server
 func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
@@ -170,6 +177,13 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			resp, resperr = client.Do(req)
 		}
 		if resperr != nil {
+			if isErrorRetryable(resperr) {
+				if logger != nil {
+					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts)
+				}
+				time.Sleep(time.Millisecond * time.Duration(100*attempts))
+				continue
+			}
 			if logger != nil {
 				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", err)
 			}
@@ -258,6 +272,7 @@ type SubscriptionChannel struct {
 	cancel       context.CancelFunc
 	conn         *websocket.Conn
 	ready        chan bool
+	isready      bool
 	headers      map[string]string
 }
 
@@ -325,7 +340,7 @@ func (c *SubscriptionChannel) run() {
 		wch, _, err := websocket.DefaultDialer.Dial(u, headers)
 		if err != nil {
 			var isRetryableError bool
-			if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake")) {
+			if isErrorRetryable(err) {
 				isRetryableError = true
 			} else if err != nil {
 				e := fmt.Errorf("error creating subscription. %v", err)
@@ -414,7 +429,13 @@ func (c *SubscriptionChannel) run() {
 					// if the subscribe ack worked, great ... continue
 					if actionresp.Success {
 						acked = true
-						c.ready <- true
+						c.mu.Lock()
+						if !c.isready {
+							// only signal once
+							c.isready = true
+							c.ready <- true
+						}
+						c.mu.Unlock()
 						continue
 					}
 					if c.subscription.Errors != nil {
