@@ -298,4 +298,7 @@ func TestWithTruncatedStringValue(t *testing.T) {
 	kv := map[string]string{"o": longstring}
 	Debug(log, "key", "val", longstring, "obj", kv) // make sure both the string and the object values are truncated
 	assert.Equal(`DEBUG  test     key            obj=map[o:xxxx(...+17 B) val=xxxxxxxxxx(...+10 B)`, strings.TrimSpace(w.String()))
+	w.Reset()
+	Debug(log, longstring)
+	assert.Equal(`DEBUG  test     xxxxxxxxxx(...+10 B)`, strings.TrimSpace(w.String()))
 }
