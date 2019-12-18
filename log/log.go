@@ -45,6 +45,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/pinpt/go-common/fileutil"
 	pjson "github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/number"
 	pos "github.com/pinpt/go-common/os"
 	pstring "github.com/pinpt/go-common/strings"
 	"github.com/pinpt/go-common/term"
@@ -235,7 +236,7 @@ func (l *consoleLogger) Log(keyvals ...interface{}) error {
 		}
 		v := m[k]
 		k = ansiStripper.ReplaceAllString(k, "")
-		val := ansiStripper.ReplaceAllString(strings.TrimSpace(fmt.Sprintf("%v", v)), "")
+		val := possiblyTruncate(ansiStripper.ReplaceAllString(strings.TrimSpace(fmt.Sprintf("%v", v)), ""))
 		slen += 1 + len(k) + len(val)
 		scnt++
 		if hasColors {
@@ -294,12 +295,24 @@ func merge(dst map[string]interface{}, k, v interface{}) {
 	case encoding.TextMarshaler:
 	case error:
 		v = safeError(x)
+	case string:
+		v = possiblyTruncate(x)
 	case fmt.Stringer:
 		v = safeString(x)
 	}
 
 	dst[key] = v
 }
+
+func possiblyTruncate(s string) string {
+	if len(s) > MaxStringValueLength {
+		s = s[0:MaxStringValueLength] + fmt.Sprintf("(...+%v)", number.ToBytesSize(int64(len(s)-MaxStringValueLength)))
+	}
+	return s
+}
+
+// MaxStringValueLength is the maximum size of a string value we will return before truncating
+var MaxStringValueLength = 1024 * 10 // ~10kb
 
 func safeString(str fmt.Stringer) (s string) {
 	defer func() {
@@ -311,7 +324,7 @@ func safeString(str fmt.Stringer) (s string) {
 			}
 		}
 	}()
-	s = str.String()
+	s = possiblyTruncate(str.String())
 	return
 }
 

@@ -29,10 +29,15 @@ func RegisterFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
 	rootCmd.PersistentFlags().Bool("log-timestamp", timestamps, "turn on timestamps in output")
 	rootCmd.PersistentFlags().String("log-timestamp-format", "", "timestamp formatting")
+	rootCmd.PersistentFlags().Int("log-maxsize-value", MaxStringValueLength, "the max size of a value when logged")
 }
 
 // NewCommandLogger returns a new Logger for a given command
 func NewCommandLogger(cmd *cobra.Command, opts ...WithLogOptions) LoggerCloser {
+	max, _ := cmd.Flags().GetInt("log-maxsize-value")
+	if max > 0 && max != MaxStringValueLength {
+		MaxStringValueLength = max // allow it to be overriden at the global level. note that if multiple loggers are used one will overwrite the other
+	}
 	pkg := cmd.Name()
 	if opts == nil {
 		opts = make([]WithLogOptions, 0)

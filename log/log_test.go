@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -286,4 +287,15 @@ func TestWithTimestamp(t *testing.T) {
 	Debug(log, "hi", "a", "b", "a", "c", "a", "d")
 	ts = time.Now().Format(time.Kitchen)
 	assert.Regexp(regexp.MustCompile(ts+` DEBUG  test     hi                                                 a=d`), w.String())
+}
+
+func TestWithTruncatedStringValue(t *testing.T) {
+	assert := assert.New(t)
+	var w bytes.Buffer
+	log := NewLogger(&w, ConsoleLogFormat, DarkLogColorTheme, DebugLevel, "test")
+	MaxStringValueLength = 10 // make it smaller for the test case
+	longstring := strings.Repeat("x", MaxStringValueLength+10)
+	kv := map[string]string{"o": longstring}
+	Debug(log, "key", "val", longstring, "obj", kv) // make sure both the string and the object values are truncated
+	assert.Equal(`DEBUG  test     key            obj=map[o:xxxx(...+17 B) val=xxxxxxxxxx(...+10 B)`, strings.TrimSpace(w.String()))
 }
