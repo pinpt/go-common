@@ -17,8 +17,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/go-common/datamodel"
-	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/log"
 	pstrings "github.com/pinpt/go-common/strings"
@@ -377,7 +375,7 @@ func (c *SubscriptionChannel) run() {
 		log.Debug(c.subscription.Logger, "connected")
 
 		subaction := action{
-			ID:     hash.Values(datetime.EpochNow(), c.subscription.APIKey, c.subscription.GroupID, c.subscription.Topics),
+			ID:     pstrings.NewUUIDV4(),
 			Data:   pjson.Stringify(c.subscription),
 			Action: "subscribe",
 		}
