@@ -86,20 +86,18 @@ func upload(opts Options, urlpath string, part part) error {
 	var i int
 	for {
 		req, err := http.NewRequest(http.MethodPut, urlpath, bytes.NewReader(part.buf))
-		if err != nil {
-			return err
-		}
-		api.SetAuthorization(req, opts.APIKey)
-		resp, err := client.Do(req)
-		if err != nil {
-			return err
-		}
-		// we don't care about the response in any case so read it all back
-		io.Copy(ioutil.Discard, resp.Body)
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusAccepted {
-			// this is good
-			return nil
+		if err == nil {
+			api.SetAuthorization(req, opts.APIKey)
+			resp, err := client.Do(req)
+			if err == nil {
+				// we don't care about the response in any case so read it all back
+				io.Copy(ioutil.Discard, resp.Body)
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusAccepted {
+					// this is good
+					return nil
+				}
+			}
 		}
 		time.Sleep(time.Millisecond * 150 * time.Duration(i+1)) // expotential backoff and retry on any errors
 		if time.Now().After(opts.Deadline) {
