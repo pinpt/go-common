@@ -41,4 +41,10 @@ func TestInterpolateStrings(t *testing.T) {
 	val, err = InterpolateString("this is a {!test}", map[string]interface{}{"test": nil})
 	assert.EqualError(err, "required value not found for key 'test'")
 	assert.Empty(val)
+	val, err = InterpolateString("this is a ${test}", map[string]interface{}{"test": nil})
+	assert.NoError(err)
+	assert.Equal("this is a ${test}", val)
+	val, err = InterpolateString("this is a ${test:-foo}", map[string]interface{}{"test": "foo"})
+	assert.NoError(err)
+	assert.Equal("this is a foo", val)
 }

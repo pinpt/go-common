@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var re = regexp.MustCompile("{(.*?)}")
+var re = regexp.MustCompile(`(\$?{(.*?)})`)
 
 // InterpolateString will replace { } in string
 func InterpolateString(val string, env map[string]interface{}) (string, error) {
@@ -16,7 +16,7 @@ func InterpolateString(val string, env map[string]interface{}) (string, error) {
 	errors := make(chan error, 100)
 	val = re.ReplaceAllStringFunc(val, func(s string) string {
 		tok := re.FindStringSubmatch(s)
-		key := tok[1]
+		key := tok[2]
 		def := s
 		var required bool
 		if key[0:1] == "!" {
