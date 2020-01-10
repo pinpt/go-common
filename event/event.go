@@ -158,7 +158,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		req = req.WithContext(ctx)
 		var resp *http.Response
 		var resperr error
-		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") {
+		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") || strings.Contains(url, "host.docker.internal") {
 			client := &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
@@ -316,9 +316,22 @@ func (c *SubscriptionChannel) run() {
 		headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
 	}
 
+	var dialer = websocket.DefaultDialer
+
 	if strings.Contains(u, "ppoint.io") {
 		headers.Set("pinpt-customer-id", "5500a5ba8135f296")            // test case, doesn't work for real except local
 		headers.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
+	}
+
+	if strings.Contains(u, "host.docker.internal") {
+		// when running inside local docker, turn off TLS cert check
+		dialer = &websocket.Dialer{
+			Proxy:            http.ProxyFromEnvironment,
+			HandshakeTimeout: 45 * time.Second,
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
 	}
 
 	// provide ability to set HTTP headers on the subscription
@@ -335,7 +348,7 @@ func (c *SubscriptionChannel) run() {
 		if finished {
 			break
 		}
-		wch, _, err := websocket.DefaultDialer.Dial(u, headers)
+		wch, _, err := dialer.Dial(u, headers)
 		if err != nil {
 			var isRetryableError bool
 			if isErrorRetryable(err) {
