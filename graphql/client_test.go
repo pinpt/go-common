@@ -27,9 +27,8 @@ func TestClient(t *testing.T) {
 	assert.NotEmpty(id)
 
 	deleted, err := deleteCustomer(client, id)
-	assert.True(deleted)
 	assert.NoError(err)
-
+	assert.True(deleted)
 }
 
 func createNewCustomer(client Client, name string, hostname string) (_id string, _ error) {

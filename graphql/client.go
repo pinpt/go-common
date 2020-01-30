@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	purl "net/url"
-	"time"
+
+	"github.com/pinpt/go-common/api"
 
 	pauth "github.com/pinpt/go-common/auth"
-	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
 )
 
@@ -45,7 +45,9 @@ func NewClient(customerID string, userID string, apikey string, url string) (Cli
 
 func defaultHeaders(customerID string, userID string, apikey string) (map[string]string, error) {
 	headers := map[string]string{}
-	headers["x-api-key"] = apikey
+	if apikey != "" {
+		headers["x-api-key"] = apikey
+	}
 	if customerID != "" {
 		var header struct {
 			CustomerID string `json:"customer_id,omitempty"`
@@ -59,6 +61,7 @@ func defaultHeaders(customerID string, userID string, apikey string) (map[string
 		}
 		headers["x-api-customer"] = auth
 	}
+	headers["content-type"] = "application/json"
 	return headers, nil
 }
 
@@ -93,12 +96,15 @@ func (c *client) do(query string, variables Variables, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Add("x-trace-id", hash.Values(9999*rand.Float64(), time.Now().Unix()))
-	req.Header.Add("content-type", "application/json")
 	for k, v := range c.headers {
 		req.Header.Add(k, v)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	httpclient, err := api.NewHTTPAPIClientDefault()
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpclient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -108,27 +114,29 @@ func (c *client) do(query string, variables Variables, out interface{}) error {
 	if err != nil {
 		return err
 	}
-	var datares struct {
-		Data   interface{} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	err = json.Unmarshal(body, &datares)
-	if err != nil {
-		return err
-	}
-	if datares.Errors != nil {
-		b, err := json.Marshal(datares.Errors)
+	if resp.StatusCode == http.StatusOK {
+		var datares struct {
+			Data   interface{} `json:"data"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+		}
+		err = json.Unmarshal(body, &datares)
 		if err != nil {
 			return err
 		}
-		return errors.New(string(b))
+		if datares.Errors != nil {
+			b, err := json.Marshal(datares.Errors)
+			if err != nil {
+				return err
+			}
+			return errors.New(string(b))
+		}
+		b, err := json.Marshal(datares.Data)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(b, out)
 	}
-	b, err := json.Marshal(datares.Data)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(b, out)
-	return err
+	return fmt.Errorf("err: %s. status code: %s", string(body), resp.Status)
 }
