@@ -43,6 +43,15 @@ func NewClient(customerID string, userID string, apikey string, url string) (Cli
 	}, nil
 }
 
+// New for use outside of the pinpoint org
+func New(url string, apikey string, headers map[string]string) Client {
+	return &client{
+		headers: headers,
+		url:     url,
+		apikey:  apikey,
+	}
+}
+
 func defaultHeaders(customerID string, userID string, apikey string) (map[string]string, error) {
 	headers := map[string]string{}
 	if apikey != "" {
@@ -68,6 +77,7 @@ func defaultHeaders(customerID string, userID string, apikey string) (map[string
 type client struct {
 	headers map[string]string
 	url     string
+	apikey  string
 }
 
 // Mutate makes _mutate_ http request to the GraphQL server
@@ -91,14 +101,17 @@ func (c *client) do(query string, variables Variables, out interface{}) error {
 	if err != nil {
 		return err
 	}
-
 	req, err := http.NewRequest(http.MethodPost, c.url, bytes.NewBuffer(data))
 	if err != nil {
 		return err
 	}
+	if c.apikey != "" {
+		api.SetAuthorization(req, c.apikey)
+	}
 	for k, v := range c.headers {
 		req.Header.Add(k, v)
 	}
+
 	httpclient, err := api.NewHTTPAPIClientDefault()
 	if err != nil {
 		return err
