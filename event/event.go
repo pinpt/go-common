@@ -34,7 +34,7 @@ type PublishEvent struct {
 	url string
 }
 
-// EventPayload is the container for a model event
+// payload is the container for a model event
 type payload struct {
 	ID        string                  `json:"message_id"`
 	Timestamp time.Time               `json:"timestamp"`
@@ -46,12 +46,14 @@ type payload struct {
 
 // PublishConfig is used by Options
 type PublishConfig struct {
-	Debug    bool
-	Deadline time.Time
-	Logger   log.Logger
-	Header   http.Header
+	Debug     bool
+	Deadline  time.Time
+	Logger    log.Logger
+	Header    http.Header
+	Timestamp time.Time
 }
 
+// Option will allow publish to be customized
 type Option func(config *PublishConfig) error
 
 // WithDebugOption will turn on debugging
@@ -62,7 +64,7 @@ func WithDebugOption() Option {
 	}
 }
 
-// WithDebugOption will turn on debugging
+// WithDeadline will set a deadline for publishing
 func WithDeadline(deadline time.Time) Option {
 	return func(config *PublishConfig) error {
 		config.Deadline = deadline
@@ -74,6 +76,14 @@ func WithDeadline(deadline time.Time) Option {
 func WithLogger(logger log.Logger) Option {
 	return func(config *PublishConfig) error {
 		config.Logger = logger
+		return nil
+	}
+}
+
+// WithTimestamp will set the timestamp on the event payload
+func WithTimestamp(ts time.Time) Option {
+	return func(config *PublishConfig) error {
+		config.Timestamp = ts
 		return nil
 	}
 }
@@ -121,9 +131,10 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	started := time.Now()
 	headers := make(http.Header)
 	config := &PublishConfig{
-		Debug:    false,
-		Header:   headers,
-		Deadline: time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
+		Debug:     false,
+		Header:    headers,
+		Deadline:  time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
+		Timestamp: time.Now(),
 	}
 	var attempts int
 	for {
@@ -145,6 +156,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if logger == nil {
 			logger = event.Logger
 		}
+		payload.Timestamp = config.Timestamp
 		req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
 		req.Header.Set("Content-Type", jsonContentType)
 		req.Header.Set("Accept", jsonContentType)
@@ -301,6 +313,7 @@ func (c *SubscriptionChannel) Close() error {
 	return nil
 }
 
+// MaxErrorCount is the number of errors trying to connect to the event-api server before giving up
 var MaxErrorCount = 50
 
 func (c *SubscriptionChannel) run() {
@@ -315,7 +328,6 @@ func (c *SubscriptionChannel) run() {
 	if c.subscription.APIKey != "" {
 		headers.Set(api.AuthorizationHeader, c.subscription.APIKey)
 	}
-
 	var dialer = websocket.DefaultDialer
 
 	if strings.Contains(u, "ppoint.io") {
@@ -353,7 +365,7 @@ func (c *SubscriptionChannel) run() {
 			var isRetryableError bool
 			if isErrorRetryable(err) {
 				isRetryableError = true
-			} else if err != nil {
+			} else {
 				e := fmt.Errorf("error creating subscription. %v", err)
 				if c.subscription.Errors != nil {
 					c.subscription.Errors <- e
