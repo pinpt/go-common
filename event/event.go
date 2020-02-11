@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,9 @@ import (
 	"github.com/pinpt/go-common/log"
 	pstrings "github.com/pinpt/go-common/strings"
 )
+
+// EventDebug allows debug printing without requiring a logger to make it easy to turn on for debugging on the fly with an env variable
+var EventDebug = os.Getenv("PP_EVENT_DEBUG") == "1"
 
 const jsonContentType = "application/json"
 
@@ -148,7 +152,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			err = ErrDeadlineExceeded
 			return
 		}
-		if config.Debug {
+		if config.Debug || EventDebug {
 			fmt.Println(pjson.Stringify(payload))
 			fmt.Println(url)
 		}
@@ -189,13 +193,17 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if resperr != nil {
 			if isErrorRetryable(resperr) {
 				if logger != nil {
-					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts)
+					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts, "error", resperr)
+				} else if EventDebug {
+					fmt.Println("[event-api] error sending event", event, "error", resperr)
 				}
 				time.Sleep(time.Millisecond * time.Duration(100*attempts))
 				continue
 			}
 			if logger != nil {
 				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", err)
+			} else if EventDebug {
+				fmt.Println("[event-api] sent event error", "payload", payload, "event", event, "err", err)
 			}
 			return resperr
 		}
@@ -204,7 +212,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			if isHTTPStatusRetryable(resp.StatusCode) {
 				resp.Body.Close()
 				if logger != nil {
-					log.Debug(logger, "publish encountered a retryable error, will retry again")
+					log.Debug(logger, "publish encountered a retryable status code, will retry again", "code", resp.StatusCode)
+				} else if EventDebug {
+					fmt.Println("[event-api] publish encountered a retryable error, will retry again", "code", resp.StatusCode)
 				}
 				time.Sleep(time.Millisecond * time.Duration(100*attempts))
 				continue
@@ -212,6 +222,8 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		} else {
 			if logger != nil {
 				log.Debug(logger, "sent event", "payload", payload, "event", event)
+			} else if EventDebug {
+				fmt.Println("[event-api] sent event", "payload", payload, "event", event)
 			}
 		}
 		defer resp.Body.Close()
@@ -220,9 +232,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			return err
 		}
 		respStr := string(bts)
-		if config.Debug {
+		if config.Debug || EventDebug {
 			for k, v := range resp.Header {
-				fmt.Println(k, "=>", v[0])
+				fmt.Println("[event-api] response header", k, "=>", v[0])
 			}
 			fmt.Println(respStr)
 		}
@@ -447,6 +459,9 @@ func (c *SubscriptionChannel) run() {
 				break
 			}
 			log.Debug(c.subscription.Logger, "received event", "response", actionresp)
+			if EventDebug {
+				fmt.Println("[event-api] received event", "response", actionresp)
+			}
 			if subaction.ID == actionresp.ID {
 				if !acked {
 					// if the subscribe ack worked, great ... continue
