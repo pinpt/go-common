@@ -1,6 +1,8 @@
 package event
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -114,10 +116,32 @@ func isHTTPStatusRetryable(statusCode int) bool {
 }
 
 func isErrorRetryable(err error) bool {
-	if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake")) {
-		return true
+	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return true
+		}
+		msg := err.Error()
+		if strings.Contains(msg, "connect: connection refused") ||
+			strings.Contains(msg, "EOF") ||
+			strings.Contains(msg, "websocket: bad handshake") ||
+			strings.Contains(msg, "i/o timeout") ||
+			strings.Contains(msg, "connection reset by peer") {
+			return true
+		}
 	}
 	return false
+}
+
+// MinCompressionSize is the minimum size for compression on Publish
+var MinCompressionSize = 1024
+
+// cache the client so that we can reuse connections
+var insecureClient = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	},
 }
 
 // Publish will publish an event to the event api server
@@ -153,17 +177,33 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			return
 		}
 		if config.Debug || EventDebug {
-			fmt.Println(pjson.Stringify(payload))
-			fmt.Println(url)
+			fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
 		}
 		logger := config.Logger
 		if logger == nil {
 			logger = event.Logger
 		}
 		payload.Timestamp = config.Timestamp
-		req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(pjson.Stringify(payload)))
+		buf := pjson.Stringify(payload)
+		var bufreader io.Reader
+		var compressed bool
+		if len(buf) > MinCompressionSize {
+			var w bytes.Buffer
+			cw := gzip.NewWriter(&w)
+			cw.Write([]byte(buf))
+			cw.Flush()
+			cw.Close()
+			compressed = true
+			bufreader = &w
+		} else {
+			bufreader = strings.NewReader(buf)
+		}
+		req, _ := http.NewRequest(http.MethodPost, url, bufreader)
 		req.Header.Set("Content-Type", jsonContentType)
 		req.Header.Set("Accept", jsonContentType)
+		if compressed {
+			req.Header.Set("Encoding", "gzip")
+		}
 		api.SetUserAgent(req)
 		api.SetAuthorization(req, apiKey)
 		if len(headers) > 0 {
@@ -175,14 +215,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		var resp *http.Response
 		var resperr error
 		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") || strings.Contains(url, "host.docker.internal") {
-			client := &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			}
-			resp, resperr = client.Do(req)
+			resp, resperr = insecureClient.Do(req)
 		} else {
 			client, err := api.NewHTTPAPIClientDefault()
 			if err != nil {
@@ -193,7 +226,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if resperr != nil {
 			if isErrorRetryable(resperr) {
 				if logger != nil {
-					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts, "error", resperr)
+					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts)
 				} else if EventDebug {
 					fmt.Println("[event-api] error sending event", event, "error", resperr)
 				}
@@ -212,7 +245,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			if isHTTPStatusRetryable(resp.StatusCode) {
 				resp.Body.Close()
 				if logger != nil {
-					log.Debug(logger, "publish encountered a retryable status code, will retry again", "code", resp.StatusCode)
+					log.Debug(logger, "publish encountered a retryable error, will retry again")
 				} else if EventDebug {
 					fmt.Println("[event-api] publish encountered a retryable error, will retry again", "code", resp.StatusCode)
 				}
@@ -236,7 +269,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			for k, v := range resp.Header {
 				fmt.Println("[event-api] response header", k, "=>", v[0])
 			}
-			fmt.Println(respStr)
+			fmt.Println("[event-api] response body: " + respStr)
 		}
 		if respStr != "OK" {
 			var rerr struct {
@@ -310,11 +343,25 @@ func (c *SubscriptionChannel) Channel() <-chan SubscriptionEvent {
 
 // Close will close the event channel and stop receiving them
 func (c *SubscriptionChannel) Close() error {
+	ctx, cancel := context.WithCancel(c.ctx)
+	go func() {
+		defer cancel()
+		dur := c.subscription.CloseTimeout
+		if dur <= 0 {
+			dur = time.Second * 10
+		}
+		select {
+		case <-time.After(dur): // block up to 10s before forcing close
+			c.cancel()
+		case <-ctx.Done():
+			return
+		}
+	}()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.closed {
-		c.cancel()
 		c.closed = true
+		c.cancel()
 		if c.conn != nil {
 			c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, ""))
 			c.conn.Close()
@@ -327,6 +374,15 @@ func (c *SubscriptionChannel) Close() error {
 
 // MaxErrorCount is the number of errors trying to connect to the event-api server before giving up
 var MaxErrorCount = 50
+
+var defaultInsecureWSDialer = &websocket.Dialer{
+	Proxy:            http.ProxyFromEnvironment,
+	HandshakeTimeout: 45 * time.Second,
+	TLSClientConfig: &tls.Config{
+		InsecureSkipVerify: true,
+	},
+	EnableCompression: true,
+}
 
 func (c *SubscriptionChannel) run() {
 	origin := api.BackendURL(api.EventService, c.subscription.Channel)
@@ -349,18 +405,17 @@ func (c *SubscriptionChannel) run() {
 
 	if strings.Contains(u, "host.docker.internal") {
 		// when running inside local docker, turn off TLS cert check
-		dialer = &websocket.Dialer{
-			Proxy:            http.ProxyFromEnvironment,
-			HandshakeTimeout: 45 * time.Second,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		}
+		dialer = defaultInsecureWSDialer
 	}
 
 	// provide ability to set HTTP headers on the subscription
 	for k, v := range c.headers {
 		headers.Set(k, v)
+	}
+
+	dispatchTimeout := c.subscription.DispatchTimeout
+	if dispatchTimeout <= 0 {
+		dispatchTimeout = time.Minute
 	}
 
 	var errors int
@@ -484,6 +539,8 @@ func (c *SubscriptionChannel) run() {
 					wch.Close()
 					break
 				}
+			} else {
+				log.Debug(c.subscription.Logger, "event mismatch", "id", subaction.ID, "resp", actionresp.ID, "data", actionresp.Data)
 			}
 			if actionresp.Data != nil {
 				c.mu.Lock()
@@ -492,7 +549,11 @@ func (c *SubscriptionChannel) run() {
 					if c.subscription.DisableAutoCommit {
 						subdata.commitch = make(chan bool)
 					}
-					c.ch <- *subdata
+					select {
+					case c.ch <- *subdata:
+					case <-time.After(dispatchTimeout):
+						log.Warn(c.subscription.Logger, "dispatch timed out", "duration", dispatchTimeout, "data", actionresp.Data, "id", subaction.ID)
+					}
 					if c.subscription.DisableAutoCommit {
 						// wait for our commit before continuing
 						select {
@@ -561,6 +622,8 @@ type Subscription struct {
 	Errors            chan<- error      `json:"-"`
 	Logger            log.Logger        `json:"-"`
 	HTTPHeaders       map[string]string `json:"-"`
+	CloseTimeout      time.Duration     `json:"-"`
+	DispatchTimeout   time.Duration     `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
