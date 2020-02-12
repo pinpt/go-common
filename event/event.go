@@ -114,7 +114,7 @@ func isHTTPStatusRetryable(statusCode int) bool {
 }
 
 func isErrorRetryable(err error) bool {
-	if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake")) {
+	if err != nil && (strings.Contains(err.Error(), "connect: connection refused") || err == io.EOF || err == io.ErrUnexpectedEOF || strings.Contains(err.Error(), "EOF") || strings.Contains(err.Error(), "websocket: bad handshake") || strings.Contains(err.Error(), "i/o timeout")) {
 		return true
 	}
 	return false
