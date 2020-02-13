@@ -144,6 +144,9 @@ var insecureClient = &http.Client{
 	},
 }
 
+// cache the secure client so we can reuse connections
+var secureClient, _ = api.NewHTTPAPIClientDefaultWithTimeout(time.Minute * 2)
+
 // Publish will publish an event to the event api server
 func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
@@ -217,11 +220,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") || strings.Contains(url, "host.docker.internal") {
 			resp, resperr = insecureClient.Do(req)
 		} else {
-			client, err := api.NewHTTPAPIClientDefault()
-			if err != nil {
-				return err
-			}
-			resp, resperr = client.Do(req)
+			resp, resperr = secureClient.Do(req)
 		}
 		if resperr != nil {
 			if isErrorRetryable(resperr) {
