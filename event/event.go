@@ -107,7 +107,8 @@ func WithHeaders(headers map[string]string) Option {
 // ErrDeadlineExceeded is an error that's raised when a deadline occurs
 var ErrDeadlineExceeded = errors.New("error: deadline exceeded on publish")
 
-func isHTTPStatusRetryable(statusCode int) bool {
+// IsHTTPStatusRetryable returns true if the status code is retryable
+func IsHTTPStatusRetryable(statusCode int) bool {
 	switch statusCode {
 	case http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests:
 		return true
@@ -115,7 +116,8 @@ func isHTTPStatusRetryable(statusCode int) bool {
 	return false
 }
 
-func isErrorRetryable(err error) bool {
+// IsErrorRetryable returns true if the error is retryable
+func IsErrorRetryable(err error) bool {
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return true
@@ -143,6 +145,9 @@ var insecureClient = &http.Client{
 		},
 	},
 }
+
+// cache the secure client so we can reuse connections
+var secureClient, _ = api.NewHTTPAPIClientDefaultWithTimeout(time.Minute * 2)
 
 // Publish will publish an event to the event api server
 func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
@@ -217,14 +222,10 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if strings.Contains(url, "ppoint.io") || strings.Contains(url, "localhost") || strings.Contains(url, "127.0.0.1:") || strings.Contains(url, "host.docker.internal") {
 			resp, resperr = insecureClient.Do(req)
 		} else {
-			client, err := api.NewHTTPAPIClientDefault()
-			if err != nil {
-				return err
-			}
-			resp, resperr = client.Do(req)
+			resp, resperr = secureClient.Do(req)
 		}
 		if resperr != nil {
-			if isErrorRetryable(resperr) {
+			if IsErrorRetryable(resperr) {
 				if logger != nil {
 					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts)
 				} else if EventDebug {
@@ -242,7 +243,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		}
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 			// if retryable, we'll continue again
-			if isHTTPStatusRetryable(resp.StatusCode) {
+			if IsHTTPStatusRetryable(resp.StatusCode) {
 				resp.Body.Close()
 				if logger != nil {
 					log.Debug(logger, "publish encountered a retryable error, will retry again")
@@ -430,7 +431,7 @@ func (c *SubscriptionChannel) run() {
 		wch, _, err := dialer.Dial(u, headers)
 		if err != nil {
 			var isRetryableError bool
-			if isErrorRetryable(err) {
+			if IsErrorRetryable(err) {
 				isRetryableError = true
 			} else {
 				e := fmt.Errorf("error creating subscription. %v", err)

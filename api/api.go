@@ -194,6 +194,19 @@ func NewHTTPAPIClientDefault() (httpclient.Client, error) {
 	return NewHTTPAPIClient(hcConfig)
 }
 
+// NewHTTPAPIClientDefaultWithTimeout will return a new HTTP client for talking with the Pinpoint API
+// it will only allow a trusted TLS connection with a valid TLS certificate signed
+// by a trusted Certificate Authority and for a DNS name that is owned by Pinpoint
+// the client will retry requests by default with a expotential backoff. The max duration to wait
+// is supplied for how long to take at most to try and send data
+func NewHTTPAPIClientDefaultWithTimeout(duration time.Duration) (httpclient.Client, error) {
+	hcConfig := &httpclient.Config{
+		Paginator: httpclient.NoPaginator(),
+		Retryable: httpclient.NewBackoffRetry(10*time.Millisecond, 100*time.Millisecond, duration, 2.0),
+	}
+	return NewHTTPAPIClient(hcConfig)
+}
+
 // absurl is absolute if matching our API url pattern
 var absurl = regexp.MustCompile("^https?://(.*)" + baseURL + "$")
 
