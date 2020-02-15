@@ -55,6 +55,8 @@ type Consumer struct {
 	connecterror        bool
 	logger              log.Logger
 	pingTopic           string
+
+	warnDuration time.Duration
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -101,6 +103,36 @@ func (c *Consumer) Resume() error {
 func (c *Consumer) Ping() bool {
 	md, err := c.consumer.GetMetadata(&c.pingTopic, false, 2000)
 	return err == nil && len(md.Topics) == 1
+}
+
+// OffsetAssignments is an assignment of partition
+type OffsetAssignments struct {
+	Topic     *string
+	Partition int32
+	Offset    int64
+}
+
+// SetOffsets will assign partitions to this consumer
+func (c *Consumer) SetOffsets(assignments []OffsetAssignments) error {
+	c.assignmentmu.Lock()
+	c.receivedassignments = true
+	tp := make([]ck.TopicPartition, 0)
+	for _, a := range assignments {
+		tp = append(tp, ck.TopicPartition{
+			Topic:     a.Topic,
+			Partition: a.Partition,
+			Offset:    ck.Offset(a.Offset),
+		})
+	}
+	err := c.consumer.Assign(tp)
+	if err == nil {
+		if c.waitforassignments {
+			c.waitforassignments = false
+			c.assignments <- true
+		}
+	}
+	c.assignmentmu.Unlock()
+	return err
 }
 
 func toEventingPartitions(topicpartitions []ck.TopicPartition) []eventing.TopicPartition {
@@ -155,8 +187,8 @@ func IsMessageGzipCompressed(headers map[string]string) bool {
 }
 
 const (
-	checkDuration = time.Second * 15
-	warnDuration  = time.Second * 30
+	checkDuration       = time.Second * 15
+	defaultWarnDuration = time.Second * 30
 )
 
 // Consume will start consuming from the consumer using the callback
@@ -175,7 +207,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 					return
 				case <-time.After(checkDuration):
 					lastMessageMu.RLock()
-					if lastMessage != nil && time.Since(lastMessageTs) >= warnDuration {
+					if lastMessage != nil && time.Since(lastMessageTs) >= c.warnDuration {
 						c.mu.RLock()
 						closing := c.closed
 						paused := c.paused // check to see if paused before warning
@@ -218,7 +250,7 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 				// fmt.Println("EVENT", ev, "=>", reflect.TypeOf(ev), "reset", c.shouldreset, "hasreset", c.hasreset, "closed", c.closed)
 				switch e := ev.(type) {
 				case ck.AssignedPartitions:
-					if c.shouldreset && !c.hasreset {
+					if c.shouldreset && !c.hasreset && !c.config.IgnoreAssignedOffsets {
 						// if we are resetting our offset, we want to do that after we
 						// receive the new assignments ... so we can instruct the
 						// consumer to beginning from here instaed of the stored location
@@ -249,20 +281,24 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 						c.assignmentmu.Unlock()
 						continue
 					}
-					if err := c.consumer.Assign(e.Partitions); err != nil {
-						callback.ErrorReceived(fmt.Errorf("error assigning topic %v partitions: %v", e.Partitions, err))
-						return
+					if !c.config.IgnoreAssignedOffsets {
+						if err := c.consumer.Assign(e.Partitions); err != nil {
+							callback.ErrorReceived(fmt.Errorf("error assigning topic %v partitions: %v", e.Partitions, err))
+							return
+						}
 					}
 					if ci, ok := callback.(eventing.ConsumerCallbackPartitionLifecycle); ok {
 						ci.PartitionAssignment(toEventingPartitions(e.Partitions))
 					}
-					c.assignmentmu.Lock()
-					c.receivedassignments = true
-					if c.waitforassignments {
-						c.waitforassignments = false
-						c.assignments <- true
+					if !c.config.IgnoreAssignedOffsets {
+						c.assignmentmu.Lock()
+						c.receivedassignments = true
+						if c.waitforassignments {
+							c.waitforassignments = false
+							c.assignments <- true
+						}
+						c.assignmentmu.Unlock()
 					}
-					c.assignmentmu.Unlock()
 				case ck.RevokedPartitions:
 					if err := c.consumer.Unassign(); err != nil {
 						callback.ErrorReceived(fmt.Errorf("error unassigning topic %v revoked partitions: %v", c.topics, err))
@@ -514,6 +550,10 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 	if config.Context == nil {
 		config.Context = context.Background()
 	}
+	dur := defaultWarnDuration
+	if config.ProcessDuration > 0 {
+		dur = config.ProcessDuration
+	}
 	c := &Consumer{
 		config:          config,
 		consumer:        consumer,
@@ -524,6 +564,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		topics:          topics,
 		groupid:         groupid,
 		logger:          log.With(config.Logger, "pkg", groupid, "topics", topics),
+		warnDuration:    dur,
 	}
 	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err

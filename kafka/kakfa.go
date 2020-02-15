@@ -35,7 +35,9 @@ type Config struct {
 	Context                   context.Context
 	Logger                    log.Logger
 	Gzip                      bool
-	GzipMinBytes              int // if not set, defaults to DefaultMinGzipBytes
+	GzipMinBytes              int  // if not set, defaults to DefaultMinGzipBytes
+	IgnoreAssignedOffsets     bool // manage your own assignments
+	ProcessDuration           time.Duration
 }
 
 // NewConfigMap returns a ConfigMap from a Config
