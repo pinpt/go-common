@@ -404,8 +404,8 @@ func (c *SubscriptionChannel) run() {
 		headers.Set("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf") // test case, doesn't work for real except local
 	}
 
-	if strings.Contains(u, "host.docker.internal") {
-		// when running inside local docker, turn off TLS cert check
+	if strings.Contains(u, "host.docker.internal") || strings.Contains(u, ".svc.cluster.local") {
+		// when running inside local docker or kubernetes, turn off TLS cert check
 		dialer = defaultInsecureWSDialer
 	}
 
