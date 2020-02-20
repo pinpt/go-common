@@ -49,4 +49,5 @@ var logCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(logCmd)
+	log.RegisterFlags(rootCmd)
 }
