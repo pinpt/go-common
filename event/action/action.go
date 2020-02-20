@@ -28,7 +28,7 @@ type Config struct {
 	Headers map[string]string
 	// Topics to use when subscribing more than one topic
 	Topics []string
-	// Topic to use when subscribing (deprecadted, use Topics instead)
+	// Topic to use when subscribing
 	Topic string
 	// Errors is a channel for writing any errors during processing
 	Errors chan<- error
