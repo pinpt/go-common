@@ -26,6 +26,8 @@ type Config struct {
 	APIKey string
 	// Headers to use when subscribing
 	Headers map[string]string
+	// Topics to use when subscribing more than one topic
+	Topics []string
 	// Topic to use when subscribing
 	Topic string
 	// Errors is a channel for writing any errors during processing
@@ -147,7 +149,6 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 	}
 	subscription := event.Subscription{
 		GroupID:           config.GroupID,
-		Topics:            []string{config.Topic},
 		Headers:           config.Headers,
 		Channel:           config.Channel,
 		APIKey:            config.APIKey,
@@ -155,6 +156,11 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		Offset:            config.Offset,
 		Logger:            config.Logger,
 		DisableAutoCommit: true,
+	}
+	if len(config.Topics) > 0 {
+		subscription.Topics = config.Topics
+	} else {
+		subscription.Topics = []string{config.Topic}
 	}
 	ch, err := event.NewSubscription(ctx, subscription)
 	if err != nil {
