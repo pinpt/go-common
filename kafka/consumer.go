@@ -139,6 +139,7 @@ func toEventingPartitions(topicpartitions []ck.TopicPartition) []eventing.TopicP
 	tp := make([]eventing.TopicPartition, 0)
 	for _, partition := range topicpartitions {
 		tp = append(tp, eventing.TopicPartition{
+			Topic:     *partition.Topic,
 			Partition: partition.Partition,
 			Offset:    int64(partition.Offset),
 		})

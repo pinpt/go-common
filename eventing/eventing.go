@@ -194,6 +194,7 @@ type ConsumerCallback interface {
 
 // TopicPartition has information about the partition
 type TopicPartition struct {
+	Topic     string
 	Partition int32
 	Offset    int64
 }
