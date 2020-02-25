@@ -161,7 +161,6 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		Headers: event.Headers,
 		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
 	}
-	started := time.Now()
 	headers := make(http.Header)
 	config := &PublishConfig{
 		Debug:     false,
@@ -177,7 +176,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 				return err
 			}
 		}
-		if !config.Deadline.IsZero() && config.Deadline.Before(started) {
+		if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
 			err = ErrDeadlineExceeded
 			return
 		}
