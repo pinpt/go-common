@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,7 +39,7 @@ var logCmd = &cobra.Command{
 			}
 			var kv map[string]interface{}
 			if err := json.Unmarshal(buf, &kv); err != nil {
-				log.Info(logger, string(buf))
+				log.Info(logger, string(bytes.TrimRight(buf, "\n")))
 				continue
 			}
 			if _, ok := kv["ts"]; !ok {
