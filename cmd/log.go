@@ -3,8 +3,10 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/pinpt/go-common/log"
@@ -19,10 +21,15 @@ var logCmd = &cobra.Command{
 		defer logger.Close()
 		lr := bufio.NewReader(os.Stdin)
 		include, _ := cmd.Flags().GetString("include")
+		message, _ := cmd.Flags().GetString("message")
 		var matchKey, matchValue string
 		if include != "" {
 			tok := strings.Split(include, "=")
 			matchKey, matchValue = tok[0], tok[1]
+		}
+		var messageRx *regexp.Regexp
+		if message != "" {
+			messageRx = regexp.MustCompile(message)
 		}
 		for {
 			buf, err := lr.ReadSlice('\n')
@@ -66,6 +73,16 @@ var logCmd = &cobra.Command{
 					continue
 				}
 			}
+			msg, ok := kv["message"].(string)
+			if !ok {
+				log.Error(logger, fmt.Sprintf("message had no message key: %s", string(buf)))
+				continue
+			}
+			if messageRx != nil {
+				if !messageRx.MatchString(msg) {
+					continue
+				}
+			}
 			var vals []interface{}
 			for k, v := range kv {
 				vals = append(vals, k, v)
@@ -73,15 +90,15 @@ var logCmd = &cobra.Command{
 			// fmt.Println(kv)
 			switch kv["level"].(string) {
 			case "debug":
-				log.Debug(logger, kv["message"].(string), vals...)
+				log.Debug(logger, msg, vals...)
 			case "warn":
-				log.Warn(logger, kv["message"].(string), vals...)
+				log.Warn(logger, msg, vals...)
 			case "info":
-				log.Info(logger, kv["message"].(string), vals...)
+				log.Info(logger, msg, vals...)
 			case "error":
-				log.Error(logger, kv["message"].(string), vals...)
+				log.Error(logger, msg, vals...)
 			case "fatal":
-				log.Fatal(logger, kv["message"].(string), vals...)
+				log.Fatal(logger, msg, vals...)
 			}
 		}
 	},
@@ -91,4 +108,5 @@ func init() {
 	rootCmd.AddCommand(logCmd)
 	log.RegisterFlags(rootCmd)
 	logCmd.Flags().StringP("include", "i", "", "filter by key=value")
+	logCmd.Flags().StringP("message", "m", "", "filter by a specific message regular expression")
 }
