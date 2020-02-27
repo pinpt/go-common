@@ -329,6 +329,11 @@ type SubscriptionChannel struct {
 	ready        chan bool
 	isready      bool
 	headers      map[string]string
+
+	lastPingTimer *time.Ticker
+	lastPingsDone chan bool
+	lastPing      time.Time
+	lastPingMu    sync.Mutex
 }
 
 // WaitForReady will block until we have received the subscription ack
@@ -368,6 +373,7 @@ func (c *SubscriptionChannel) Close() error {
 		}
 		close(c.done)
 		close(c.ch)
+		c.checkLastPingsStop()
 	}
 	return nil
 }
@@ -384,7 +390,50 @@ var defaultInsecureWSDialer = &websocket.Dialer{
 	EnableCompression: true,
 }
 
+func (c *SubscriptionChannel) pingReceived() {
+	c.lastPingMu.Lock()
+	defer c.lastPingMu.Unlock()
+	c.lastPing = time.Now()
+}
+
+const expectedDurationBetweenPings = 30 * time.Second
+
+func (c *SubscriptionChannel) checkLastPingsInit() {
+	c.pingReceived() // make initial checks right
+	c.lastPingTimer = time.NewTicker(expectedDurationBetweenPings)
+	c.lastPingsDone = make(chan bool)
+}
+
+func (c *SubscriptionChannel) checkLastPingsLoop() {
+	for {
+		select {
+		case <-c.lastPingsDone:
+			return
+		case <-c.lastPingTimer.C:
+			c.lastPingMu.Lock()
+			lastPing := c.lastPing
+			c.lastPingMu.Unlock()
+			// crash if 5 last pings were missed
+			// would be better to retry subscription, but can't figure out how to do this cleanly here, since it would be blocked on wch.ReadJSON()
+			if time.Since(lastPing) > 5*expectedDurationBetweenPings {
+				panic(fmt.Errorf("no pings received for %v, expecting pings every %v", time.Since(lastPing), expectedDurationBetweenPings))
+				return
+			}
+		}
+	}
+}
+
+func (c SubscriptionChannel) checkLastPingsStop() {
+	c.lastPingTimer.Stop()
+	c.lastPingsDone <- true
+}
+
 func (c *SubscriptionChannel) run() {
+	c.checkLastPingsInit() // have it separately to avoid races with Close
+	go func() {
+		c.checkLastPingsLoop()
+	}()
+
 	origin := api.BackendURL(api.EventService, c.subscription.Channel)
 	if strings.HasSuffix(origin, "/") {
 		origin = origin[0 : len(origin)-1]
@@ -465,6 +514,11 @@ func (c *SubscriptionChannel) run() {
 		c.conn = wch
 		c.mu.Unlock()
 		log.Debug(c.subscription.Logger, "connected")
+
+		wch.SetPingHandler(func(data string) error {
+			c.pingReceived()
+			return nil
+		})
 
 		subaction := action{
 			ID:     pstrings.NewUUIDV4(),
