@@ -429,10 +429,6 @@ func (c SubscriptionChannel) checkLastPingsStop() {
 }
 
 func (c *SubscriptionChannel) run() {
-	c.checkLastPingsInit() // have it separately to avoid races with Close
-	go func() {
-		c.checkLastPingsLoop()
-	}()
 
 	origin := api.BackendURL(api.EventService, c.subscription.Channel)
 	if strings.HasSuffix(origin, "/") {
@@ -515,9 +511,10 @@ func (c *SubscriptionChannel) run() {
 		c.mu.Unlock()
 		log.Debug(c.subscription.Logger, "connected")
 
+		pinghandler := wch.PingHandler()
 		wch.SetPingHandler(func(data string) error {
 			c.pingReceived()
-			return nil
+			return pinghandler(data)
 		})
 
 		subaction := action{
@@ -536,6 +533,9 @@ func (c *SubscriptionChannel) run() {
 			wch.Close()
 			break
 		}
+
+		c.checkLastPingsInit() // have it separately to avoid races with Close
+		go c.checkLastPingsLoop()
 
 		errors = 0
 		var errored bool
