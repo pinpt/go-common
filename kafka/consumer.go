@@ -56,7 +56,8 @@ type Consumer struct {
 	logger              log.Logger
 	pingTopic           string
 
-	warnDuration time.Duration
+	warnDuration  time.Duration
+	panicDuration time.Duration
 }
 
 var _ eventing.Consumer = (*Consumer)(nil)
@@ -218,6 +219,9 @@ func (c *Consumer) Consume(callback eventing.ConsumerCallback) {
 							return
 						}
 						if !paused {
+							if c.panicDuration > 0 && time.Since(lastMessageTs) >= c.panicDuration {
+								panic(fmt.Errorf("consumer %v took too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage))
+							}
 							log.Warn(c.logger, fmt.Sprintf("consumer %v is taking too long (%v) to process this message: %v", c.consumer, time.Since(lastMessageTs), lastMessage))
 						}
 					}
@@ -566,6 +570,7 @@ func NewConsumer(config Config, groupid string, topics ...string) (*Consumer, er
 		groupid:         groupid,
 		logger:          log.With(config.Logger, "pkg", groupid, "topics", topics),
 		warnDuration:    dur,
+		panicDuration:   config.PanicDuration,
 	}
 	if err := consumer.SubscribeTopics(topics, nil); err != nil {
 		return nil, err
