@@ -302,3 +302,19 @@ func TestWithTruncatedStringValue(t *testing.T) {
 	Debug(log, longstring)
 	assert.Equal(`DEBUG  test     xxxxxxxxxx(...+10 B)`, strings.TrimSpace(w.String()))
 }
+
+func TestWithTerminationLog(t *testing.T) {
+	assert := assert.New(t)
+	isContainer = true
+	terminateOnFatal = false
+	fn, err := ioutil.TempFile("", "")
+	assert.NoError(err)
+	defer os.Remove(fn.Name())
+	TerminationLogPath = fn.Name()
+	var w bytes.Buffer
+	log := NewLogger(&w, ConsoleLogFormat, DarkLogColorTheme, DebugLevel, "test")
+	Fatal(log, "key", "val", "123")
+	buf, err := ioutil.ReadFile(fn.Name())
+	assert.NoError(err)
+	assert.Equal("FATAL: key val=123", string(buf))
+}
