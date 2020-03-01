@@ -17,6 +17,7 @@ type ModelFactory interface {
 	New(name datamodel.ModelNameType) datamodel.Model
 }
 
+// Config for the action
 type Config struct {
 	// GroupID is the consumer group id
 	GroupID string
@@ -26,6 +27,8 @@ type Config struct {
 	APIKey string
 	// Headers to use when subscribing
 	Headers map[string]string
+	// HTTPHeaders to use when subscribing
+	HTTPHeaders map[string]string
 	// Topics to use when subscribing more than one topic
 	Topics []string
 	// Topic to use when subscribing
@@ -155,6 +158,7 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		Errors:            config.Errors,
 		Offset:            config.Offset,
 		Logger:            config.Logger,
+		HTTPHeaders:       config.HTTPHeaders,
 		DisableAutoCommit: true,
 	}
 	if len(config.Topics) > 0 {
