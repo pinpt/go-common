@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -111,6 +112,13 @@ func Error(logger Logger, msg string, kv ...interface{}) error {
 	return level.Error(logger).Log(a...)
 }
 
+var (
+	// TerminationLogPath is the path to the termination log if running inside a container
+	TerminationLogPath = "/dev/termination-log"
+	// this is just used by test case
+	terminateOnFatal = true
+)
+
 // Fatal log helper
 func Fatal(logger Logger, msg string, kv ...interface{}) {
 	a := []interface{}{msgKey, msg}
@@ -120,7 +128,26 @@ func Fatal(logger Logger, msg string, kv ...interface{}) {
 	level.Error(logger).Log(a...)
 	os.Stderr.Sync()
 	os.Stdout.Sync()
-	pos.Exit(1)
+	if isContainer && TerminationLogPath != "" {
+		var m strings.Builder
+		m.WriteString("FATAL: ")
+		m.WriteString(msg)
+		for i, val := range kv {
+			if i == 0 {
+				m.WriteString(" ")
+			}
+			m.WriteString(fmt.Sprintf("%v", val))
+			if i%2 == 0 {
+				m.WriteString("=")
+			} else if i+1 < len(kv) {
+				m.WriteString(" ")
+			}
+		}
+		ioutil.WriteFile(TerminationLogPath, []byte(m.String()), 0600)
+	}
+	if terminateOnFatal {
+		pos.Exit(1)
+	}
 }
 
 type consoleLogger struct {
