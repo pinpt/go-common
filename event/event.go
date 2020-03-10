@@ -665,11 +665,12 @@ type Subscription struct {
 	GroupID           string            `json:"group_id"`
 	Topics            []string          `json:"topics"`
 	Headers           map[string]string `json:"headers"`
-	IdleDuration      string            `json:"idle_duration"`
+	IdleDuration      string            `json:"idle_duration"` // Deprecated
 	Limit             int               `json:"limit"`
-	Offset            string            `json:"offset"`
+	Offset            string            `json:"offset"` // Deprecated
 	After             int64             `json:"after"`
 	DisableAutoCommit bool              `json:"disable_autocommit"`
+	Temporary         bool              `json:"temporary"`
 	Channel           string            `json:"-"`
 	APIKey            string            `json:"-"`
 	BufferSize        int               `json:"-"`
