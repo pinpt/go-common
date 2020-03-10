@@ -41,6 +41,8 @@ type Config struct {
 	Offset string
 	// set the logger to use
 	Logger log.Logger
+	// Temporary if the subscription is temporary and if true, will not receive events if not connected
+	Temporary bool
 }
 
 // Action defines a specific action interface for running an action in response to an event
@@ -159,6 +161,7 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		Offset:            config.Offset,
 		Logger:            config.Logger,
 		HTTPHeaders:       config.HTTPHeaders,
+		Temporary:         config.Temporary,
 		DisableAutoCommit: true,
 	}
 	if len(config.Topics) > 0 {
