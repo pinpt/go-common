@@ -127,7 +127,9 @@ func IsErrorRetryable(err error) bool {
 			strings.Contains(msg, "EOF") ||
 			strings.Contains(msg, "websocket: bad handshake") ||
 			strings.Contains(msg, "i/o timeout") ||
-			strings.Contains(msg, "connection reset by peer") {
+			strings.Contains(msg, "connection reset by peer") ||
+			strings.Contains(msg, "broken pipe") ||
+			strings.Contains(msg, "websocket: close sent") {
 			return true
 		}
 	}
@@ -417,13 +419,12 @@ func (c *SubscriptionChannel) checkLastPingsLoop() {
 			// would be better to retry subscription, but can't figure out how to do this cleanly here, since it would be blocked on wch.ReadJSON()
 			if time.Since(lastPing) > 5*expectedDurationBetweenPings {
 				panic(fmt.Errorf("no pings received for %v, expecting pings every %v", time.Since(lastPing), expectedDurationBetweenPings))
-				return
 			}
 		}
 	}
 }
 
-func (c SubscriptionChannel) checkLastPingsStop() {
+func (c *SubscriptionChannel) checkLastPingsStop() {
 	c.lastPingTimer.Stop()
 	c.lastPingsDone <- true
 }
@@ -546,7 +547,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if err == io.EOF || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) || strings.Contains(err.Error(), "websocket: close sent") {
+				if IsErrorRetryable(err) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) {
 					closed = true
 					errored = true
 					log.Debug(c.subscription.Logger, "connection has been closed, will try to reconnect", "err", err)
