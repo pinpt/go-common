@@ -415,9 +415,9 @@ func (c *SubscriptionChannel) checkLastPingsLoop() {
 			c.lastPingMu.Lock()
 			lastPing := c.lastPing
 			c.lastPingMu.Unlock()
-			// crash if 5 last pings were missed
+			// crash if N last pings were missed
 			// would be better to retry subscription, but can't figure out how to do this cleanly here, since it would be blocked on wch.ReadJSON()
-			if time.Since(lastPing) > 5*expectedDurationBetweenPings {
+			if time.Since(lastPing) > 20*expectedDurationBetweenPings {
 				panic(fmt.Errorf("no pings received for %v, expecting pings every %v", time.Since(lastPing), expectedDurationBetweenPings))
 			}
 		}
