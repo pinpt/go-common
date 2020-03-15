@@ -66,10 +66,6 @@
   branch = "httpsproxy"
 
 [[constraint]]
-  name = "github.com/olivere/elastic"
-  version = "v6.2.22"
-
-[[constraint]]
   name = "github.com/google/uuid"
   version = "1.1.1"
 

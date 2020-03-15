@@ -985,8 +985,6 @@ func NewLogger(writer io.Writer, format OutputFormat, theme ColorTheme, minLevel
 	// make sure that all message have a level
 	logger = level.NewInjector(logger, level.DebugValue())
 
-	// create a delegate logger to forward to elastic (only will do it if env set)
-	logger = newESLogger(logger)
 	loggers = append(loggers, logger)
 
 	// create a masking logger
