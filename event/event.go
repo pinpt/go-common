@@ -425,8 +425,10 @@ func (c *SubscriptionChannel) checkLastPingsLoop() {
 }
 
 func (c *SubscriptionChannel) checkLastPingsStop() {
-	c.lastPingTimer.Stop()
-	c.lastPingsDone <- true
+	if c.lastPingTimer != nil {
+		c.lastPingTimer.Stop()
+		c.lastPingsDone <- true
+	}
 }
 
 func (c *SubscriptionChannel) run() {
