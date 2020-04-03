@@ -10,10 +10,11 @@ import (
 	purl "net/url"
 
 	"github.com/pinpt/go-common/api"
-
 	pauth "github.com/pinpt/go-common/auth"
 	pjson "github.com/pinpt/go-common/json"
 )
+
+const defaultUserAgent = "pinpt/go-common-graphql"
 
 // Client interface to client object
 type Client interface {
@@ -21,6 +22,8 @@ type Client interface {
 	Mutate(query string, variables Variables, out interface{}) error
 	// Mutate makes _query_ http request to the GraphQL server
 	Query(query string, variables Variables, out interface{}) error
+	// SetHeader will set an HTTP header
+	SetHeader(key, value string)
 }
 
 // Variables a simple alias to map[string]interface{}
@@ -53,7 +56,10 @@ func New(url string, apikey string, headers map[string]string) Client {
 }
 
 func defaultHeaders(customerID string, userID string, apikey string) (map[string]string, error) {
-	headers := map[string]string{}
+	headers := map[string]string{
+		"User-Agent":   defaultUserAgent,
+		"Content-Type": "application/json",
+	}
 	if apikey != "" {
 		headers["x-api-key"] = apikey
 	}
@@ -70,7 +76,6 @@ func defaultHeaders(customerID string, userID string, apikey string) (map[string
 		}
 		headers["x-api-customer"] = auth
 	}
-	headers["content-type"] = "application/json"
 	return headers, nil
 }
 
@@ -78,6 +83,11 @@ type client struct {
 	headers map[string]string
 	url     string
 	apikey  string
+}
+
+// SetHeader will set an HTTP header
+func (c *client) SetHeader(key, value string) {
+	c.headers[key] = value
 }
 
 // Mutate makes _mutate_ http request to the GraphQL server

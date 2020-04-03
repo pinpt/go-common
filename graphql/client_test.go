@@ -28,7 +28,7 @@ func TestClient(t *testing.T) {
 	// if hostname is missing, use the mock server
 	if hostname == "" {
 		var closer func()
-		closer, hostname = mockServer()
+		closer, hostname = mockServer(defaultUserAgent)
 		defer closer()
 	}
 	client, err := NewClient(hash.Values("customer 0"), "", apikey, hostname)
@@ -44,11 +44,45 @@ func TestClient(t *testing.T) {
 	assert.True(deleted)
 }
 
-func mockServer() (closer func(), url string) {
+func TestClientUserAgentOverride(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.SkipNow()
+		return
+	}
+	assert := assert.New(t)
+
+	apikey := os.Getenv("PP_AUTH_SHARED_SECRET")
+	hostname := os.Getenv("PP_GRAPHQL_URL")
+
+	// if hostname is missing, use the mock server
+	if hostname == "" {
+		var closer func()
+		closer, hostname = mockServer("test")
+		defer closer()
+	}
+	client, err := NewClient(hash.Values("customer 0"), "", apikey, hostname)
+	assert.NoError(err)
+	client.SetHeader("User-Agent", "test")
+
+	id, err := createNewCustomer(client, "Dummy Customer", "localhost")
+
+	assert.NoError(err)
+	assert.NotEmpty(id)
+
+	deleted, err := deleteCustomer(client, id)
+	assert.NoError(err)
+	assert.True(deleted)
+}
+
+func mockServer(userAgent string) (closer func(), url string) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get("User-Agent") != userAgent {
+			http.Error(w, fmt.Sprintf("incorrect user-agent header: %s, expected: %s", r.Header.Get("User-Agent"), userAgent), http.StatusBadRequest)
 			return
 		}
 		var payload struct {
