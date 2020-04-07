@@ -29,8 +29,8 @@ func (c debugGraphQLClient) SetHeader(k, v string) {
 	return
 }
 
-// NewdebugGraphQLClient returns a client that logs everything it does
-func NewdebugGraphQLClient(logger log.Logger, client Client) Client {
+// NewDebugGraphQLClient returns a client that logs everything it does
+func NewDebugGraphQLClient(logger log.Logger, client Client) Client {
 	return &debugGraphQLClient{
 		client: client,
 		logger: logger,
