@@ -86,11 +86,11 @@ func TestInvokeActionNoAction(t *testing.T) {
 func TestJSONPathWithNil(t *testing.T) {
 	assert := assert.New(t)
 	val, err := jsonpath.JsonPathLookup(map[string]interface{}{}, "$.foo")
-	assert.True(isJSONPathNotFound(err))
-	assert.True(isJSONPathNil(val))
+	assert.True(IsJSONPathNotFound(err))
+	assert.True(IsJSONPathNil(val))
 	val, err = jsonpath.JsonPathLookup(map[string]interface{}{}, "$.foo.bar")
-	assert.True(isJSONPathNotFound(err))
-	assert.True(isJSONPathNil(val))
+	assert.True(IsJSONPathNotFound(err))
+	assert.True(IsJSONPathNil(val))
 }
 
 func TestCoalesce(t *testing.T) {
@@ -110,4 +110,18 @@ func TestCoalesce(t *testing.T) {
 	result, err = invokeAction("coalesce($.a, $b)", map[string]interface{}{})
 	assert.NoError(err)
 	assert.Nil(result)
+}
+
+func TestDottedFind(t *testing.T) {
+	assert := assert.New(t)
+	ok, err := DottedFind("a.b.c", map[string]interface{}{
+		"a": map[string]interface{}{
+			"b": map[string]interface{}{
+				"c": true,
+			},
+		},
+	})
+	assert.NoError(err)
+	assert.NotNil(ok)
+	assert.Equal(true, ok)
 }
