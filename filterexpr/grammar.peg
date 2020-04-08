@@ -247,7 +247,7 @@ Bool ← "true" { return true, nil } / "false" { return false, nil }
 
 HexDigit ← [0-9a-f]i
 
-Regexp ← '/' [A-Za-z0-9^$-._\\(\\)\\?\\+{}]+ '/' {
+Regexp ← '/' [A-Za-z0-9^$-._\\(\\)\\?\\+{} ]+ '/' {
     return regexp.Compile(string(c.text[1: len(c.text)-1]))
 }
 

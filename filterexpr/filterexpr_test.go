@@ -146,4 +146,7 @@ func TestRegexp(t *testing.T) {
 	assert.True(filter.Test(map[string]interface{}{"a": "admin.Agent"}))
 	assert.True(filter.Test(map[string]interface{}{"a": "admin.AgentLastUpdate"}))
 	assert.False(filter.Test(map[string]interface{}{"a": "adminAgentLastUpdate"}))
+	filter, err = Compile(`a:/Hi \d+/`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "Hi 123"}))
 }
