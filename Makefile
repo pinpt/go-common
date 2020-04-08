@@ -13,10 +13,10 @@ all: test
 dependencies:
 	@dep ensure
 	@go get github.com/mna/pigeon
-	$(MAKE) gen
+	@$(MAKE) gen
 
 gen:
-	@pigeon ./filterexpr/grammar.peg > ./filterexpr/grammar.go
+	@go generate ./...
 
 test:
 	@go test -v ./... | grep -v "no test"
