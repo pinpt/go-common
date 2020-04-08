@@ -665,8 +665,8 @@ func (c *SubscriptionChannel) run() {
 
 // SubscriptionFilter are subscription related filters
 type SubscriptionFilter struct {
-	HeadersExpr string `json:"headers,omitempty"`
-	ObjectExpr  string `json:"object,omitempty"`
+	HeaderExpr string `json:"header,omitempty"`
+	ObjectExpr string `json:"object,omitempty"`
 }
 
 // Subscription is the information for creating a subscription channel to receive events from the event server
