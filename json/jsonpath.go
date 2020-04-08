@@ -24,13 +24,24 @@ func RegisterAction(name string, action Action) {
 	actions[name] = action
 }
 
-func isJSONPathNil(val interface{}) bool {
+// IsJSONPathNil is the value is nil
+func IsJSONPathNil(val interface{}) bool {
 	return val == nil
 }
 
-func isJSONPathNotFound(err error) bool {
-	return strings.Contains(err.Error(), "not found in object") ||
-		strings.Contains(err.Error(), "get attribute from null object")
+// IsJSONPathNotFound returns true if the error is a not found type error
+func IsJSONPathNotFound(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "not found in object") ||
+		strings.Contains(err.Error(), "get attribute from null object"))
+}
+
+// DottedFind will attempt to look for a dotted key such as a.b.c in {"a":{"b":{"c": true}}}
+func DottedFind(key string, o map[string]interface{}) (interface{}, error) {
+	val, err := jsonpath.JsonPathLookup(o, "$."+key)
+	if IsJSONPathNotFound(err) || IsJSONPathNil(val) {
+		return nil, nil
+	}
+	return val, nil
 }
 
 func invokeAction(val string, o interface{}) (interface{}, error) {
@@ -50,10 +61,10 @@ func invokeAction(val string, o interface{}) (interface{}, error) {
 						args = append(args, arg)
 					} else {
 						val, err := jsonpath.JsonPathLookup(o, arg)
-						if err != nil && !isJSONPathNotFound(err) {
+						if err != nil && !IsJSONPathNotFound(err) {
 							return nil, fmt.Errorf("error fetching json path: %v. %v", arg, err)
 						}
-						if isJSONPathNil(val) {
+						if IsJSONPathNil(val) {
 							val = nil
 						}
 						args = append(args, val)
@@ -67,10 +78,10 @@ func invokeAction(val string, o interface{}) (interface{}, error) {
 		return val, nil
 	}
 	newval, err := jsonpath.JsonPathLookup(o, val)
-	if err != nil && !isJSONPathNotFound(err) {
+	if err != nil && !IsJSONPathNotFound(err) {
 		return nil, err
 	}
-	if isJSONPathNil(val) {
+	if IsJSONPathNil(val) {
 		return nil, nil
 	}
 	return newval, nil
