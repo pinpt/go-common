@@ -663,25 +663,32 @@ func (c *SubscriptionChannel) run() {
 	log.Debug(c.subscription.Logger, "disconnected")
 }
 
+// SubscriptionFilter are subscription related filters
+type SubscriptionFilter struct {
+	HeadersExpr string `json:"headers,omitempty"`
+	ObjectExpr  string `json:"object,omitempty"`
+}
+
 // Subscription is the information for creating a subscription channel to receive events from the event server
 type Subscription struct {
-	GroupID           string            `json:"group_id"`
-	Topics            []string          `json:"topics"`
-	Headers           map[string]string `json:"headers"`
-	IdleDuration      string            `json:"idle_duration"` // Deprecated
-	Limit             int               `json:"limit"`
-	Offset            string            `json:"offset"` // Deprecated
-	After             int64             `json:"after"`
-	DisableAutoCommit bool              `json:"disable_autocommit"`
-	Temporary         bool              `json:"temporary"`
-	Channel           string            `json:"-"`
-	APIKey            string            `json:"-"`
-	BufferSize        int               `json:"-"`
-	Errors            chan<- error      `json:"-"`
-	Logger            log.Logger        `json:"-"`
-	HTTPHeaders       map[string]string `json:"-"`
-	CloseTimeout      time.Duration     `json:"-"`
-	DispatchTimeout   time.Duration     `json:"-"`
+	GroupID           string              `json:"group_id"`
+	Topics            []string            `json:"topics"`
+	Headers           map[string]string   `json:"headers,omitempty"`
+	IdleDuration      string              `json:"idle_duration,omitempty"` // Deprecated
+	Limit             int                 `json:"limit,omitempty"`
+	Offset            string              `json:"offset,omitempty"` // Deprecated
+	After             int64               `json:"after,omitempty"`
+	DisableAutoCommit bool                `json:"disable_autocommit,omitempty"`
+	Temporary         bool                `json:"temporary,omitempty"`
+	Filters           *SubscriptionFilter `json:"filters,omitempty"`
+	Channel           string              `json:"-"`
+	APIKey            string              `json:"-"`
+	BufferSize        int                 `json:"-"`
+	Errors            chan<- error        `json:"-"`
+	Logger            log.Logger          `json:"-"`
+	HTTPHeaders       map[string]string   `json:"-"`
+	CloseTimeout      time.Duration       `json:"-"`
+	DispatchTimeout   time.Duration       `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
