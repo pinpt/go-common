@@ -680,7 +680,7 @@ type Subscription struct {
 	After             int64               `json:"after,omitempty"`
 	DisableAutoCommit bool                `json:"disable_autocommit,omitempty"`
 	Temporary         bool                `json:"temporary,omitempty"`
-	Filters           *SubscriptionFilter `json:"filters,omitempty"`
+	Filter            *SubscriptionFilter `json:"filter,omitempty"`
 	Channel           string              `json:"-"`
 	APIKey            string              `json:"-"`
 	BufferSize        int                 `json:"-"`

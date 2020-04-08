@@ -43,8 +43,8 @@ type Config struct {
 	Logger log.Logger
 	// Temporary if the subscription is temporary and if true, will not receive events if not connected
 	Temporary bool
-	// Filters are the subscription filters for more advanced filtering of subscription results
-	Filters *event.SubscriptionFilter
+	// Filter are the subscription filters for more advanced filtering of subscription results
+	Filter *event.SubscriptionFilter
 }
 
 // Action defines a specific action interface for running an action in response to an event
@@ -166,7 +166,7 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		HTTPHeaders:       config.HTTPHeaders,
 		Temporary:         config.Temporary,
 		DisableAutoCommit: true,
-		Filters:           config.Filters,
+		Filter:            config.Filter,
 	}
 	if len(config.Topics) > 0 {
 		subscription.Topics = config.Topics
