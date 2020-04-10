@@ -210,7 +210,7 @@ Expression ← _ vals:( Node ( _ Condition _ Node )* ) {
     return &Expression{left, conjunction, right}, nil
 }
 
-Label ← ( [a-zA-Z0-9\\.]* ) {
+Label ← ( [a-zA-Z0-9\\._\\-]+ ) {
     return string(c.text), nil
 }
 

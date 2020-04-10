@@ -150,3 +150,17 @@ func TestRegexp(t *testing.T) {
 	assert.NoError(err)
 	assert.True(filter.Test(map[string]interface{}{"a": "Hi 123"}))
 }
+
+func TestUnderscoreInKey(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`user_id:"a"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"user_id": "a"}))
+}
+
+func TestDashInKey(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`user-id:"a"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"user-id": "a"}))
+}
