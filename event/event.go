@@ -57,6 +57,7 @@ type PublishConfig struct {
 	Logger    log.Logger
 	Header    http.Header
 	Timestamp time.Time
+	Async     bool // only when using SubscriptionChannel
 }
 
 // Option will allow publish to be customized
@@ -100,6 +101,16 @@ func WithHeaders(headers map[string]string) Option {
 		for k, v := range headers {
 			config.Header.Set(k, v)
 		}
+		return nil
+	}
+}
+
+// WithAsync will set the async flag on publishing when using a SubscriptionChannel and is ignored
+// when using the Publish method of the package. If true, is non-blocking and won't wait for an ACK.
+// If false, will wait for the ack before returning from publish
+func WithAsync(async bool) Option {
+	return func(config *PublishConfig) error {
+		config.Async = async
 		return nil
 	}
 }
@@ -318,6 +329,11 @@ type actionResponse struct {
 	Data    *SubscriptionEvent `json:"data"`
 }
 
+type publishAck struct {
+	ch    chan struct{}
+	async bool
+}
+
 // SubscriptionChannel is a channel for receiving events
 type SubscriptionChannel struct {
 	ctx          context.Context
@@ -336,6 +352,9 @@ type SubscriptionChannel struct {
 	lastPingsDone chan bool
 	lastPing      time.Time
 	lastPingMu    sync.Mutex
+
+	writeMu        sync.RWMutex
+	writeCallbacks map[string]*publishAck
 }
 
 // WaitForReady will block until we have received the subscription ack
@@ -364,6 +383,25 @@ func (c *SubscriptionChannel) Close() error {
 			return
 		}
 	}()
+	var stopped bool
+	// wait for all our pending write callbacks to finish receiving ACK
+	for !stopped {
+		c.writeMu.RLock()
+		count := len(c.writeCallbacks)
+		c.writeMu.RUnlock()
+		if count == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			stopped = true
+			break
+		case <-time.After(time.Millisecond * 10):
+			break
+		default:
+			break
+		}
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if !c.closed {
@@ -429,6 +467,113 @@ func (c *SubscriptionChannel) checkLastPingsStop() {
 		c.lastPingTimer.Stop()
 		c.lastPingsDone <- true
 	}
+}
+
+// Publish will send a message to the event api
+func (c *SubscriptionChannel) Publish(event PublishEvent, options ...Option) error {
+	ts := time.Now()
+	id := pstrings.NewUUIDV4()
+	config := &PublishConfig{
+		Deadline:  time.Now().Add(time.Minute),
+		Timestamp: time.Now(),
+		Logger:    c.subscription.Logger,
+	}
+	for _, opt := range options {
+		if err := opt(config); err != nil {
+			return err
+		}
+	}
+	headers := make(map[string]string)
+	for k, v := range event.Headers {
+		headers[k] = v
+	}
+	for k, v := range config.Header {
+		headers[k] = v[0]
+	}
+	// create a channel for blocking until we receive the publish ack
+	ch := make(chan struct{})
+	c.writeMu.Lock()
+	c.writeCallbacks[id] = &publishAck{ch, config.Async}
+	c.writeMu.Unlock()
+	if !config.Async {
+		// make sure we cleanup no matter the result if we're not async
+		defer func() {
+			c.writeMu.Lock()
+			delete(c.writeCallbacks, id)
+			c.writeMu.Unlock()
+		}()
+	}
+	var writeErr error
+	var sentOK bool
+	var i int
+	for time.Now().Before(config.Deadline) {
+		c.writeMu.Lock() // we can only have one writer at a time on the conn
+		c.mu.Lock()      // we need to hold for the conn
+		if err := c.conn.WriteJSON(map[string]interface{}{
+			"id":     id,
+			"action": "publish",
+			"data": pjson.Stringify(payload{
+				Type:      "json",
+				Model:     event.Object.GetModelName(),
+				Data:      pjson.Stringify(event.Object),
+				Headers:   headers,
+				Timestamp: config.Timestamp,
+			}),
+		}); err != nil {
+			if config.Logger != nil {
+				log.Debug(config.Logger, "error publishing message", "err", err, "msgid", id, "attempt", i+1)
+			}
+			writeErr = err
+			if IsErrorRetryable(err) {
+				c.mu.Unlock()
+				c.writeMu.Unlock()
+				i++
+				time.Sleep(time.Millisecond * time.Duration(10*i)) // expotential backoff
+				continue
+			}
+		}
+		c.mu.Unlock()
+		c.writeMu.Unlock()
+		sentOK = writeErr == nil // only if we don't have an error
+		break
+	}
+	if writeErr != nil {
+		return writeErr
+	}
+	if !sentOK {
+		if config.Logger != nil {
+			log.Error(config.Logger, "deadline exceeded publishing message", "duration", time.Since(ts), "msgid", id, "model", event.Object.GetModelName())
+		}
+		return ErrDeadlineExceeded
+	}
+	if config.Logger != nil {
+		log.Debug(config.Logger, "published message", "duration", time.Since(ts), "msgid", id, "async", config.Async, "model", event.Object.GetModelName())
+	}
+	// we have to now wait for the ACK in the case we're not async
+	// since we put the channel in the map above, the reader will signal that
+	// channel once the ACK is received and we'll block until we either
+	// (A) get that channel notification or (B) time out
+	if !config.Async {
+		ts = time.Now()
+		var timedout bool
+		select {
+		case <-ch:
+			break
+		case <-time.After(config.Deadline.Sub(time.Now())):
+			timedout = true
+			break
+		}
+		if timedout {
+			if config.Logger != nil {
+				log.Error(config.Logger, "deadline exceeded waiting for publish ack", "duration", time.Since(ts), "msgid", id, "model", event.Object.GetModelName())
+			}
+			return ErrDeadlineExceeded
+		}
+		if config.Logger != nil {
+			log.Debug(config.Logger, "publish message ack", "duration", time.Since(ts), "msgid", id, "model", event.Object.GetModelName())
+		}
+	}
+	return nil
 }
 
 func (c *SubscriptionChannel) run() {
@@ -520,21 +665,34 @@ func (c *SubscriptionChannel) run() {
 			return pinghandler(data)
 		})
 
-		subaction := action{
-			ID:     pstrings.NewUUIDV4(),
-			Data:   pjson.Stringify(c.subscription),
-			Action: "subscribe",
-		}
+		var subid string
 
-		// send the subscription first
-		if err := wch.WriteJSON(subaction); err != nil {
-			if c.subscription.Errors != nil {
-				c.subscription.Errors <- err
-			} else {
-				panic(err)
+		if len(c.subscription.Topics) > 0 {
+			subaction := action{
+				ID:     pstrings.NewUUIDV4(),
+				Data:   pjson.Stringify(c.subscription),
+				Action: "subscribe",
 			}
-			wch.Close()
-			break
+
+			// send the subscription first
+			if err := wch.WriteJSON(subaction); err != nil {
+				if c.subscription.Errors != nil {
+					c.subscription.Errors <- err
+				} else {
+					panic(err)
+				}
+				wch.Close()
+				break
+			}
+			subid = subaction.ID
+		} else {
+			c.mu.Lock()
+			if !c.isready {
+				// only signal once
+				c.isready = true
+				c.ready <- true
+			}
+			c.mu.Unlock()
 		}
 
 		c.checkLastPingsInit() // have it separately to avoid races with Close
@@ -574,7 +732,7 @@ func (c *SubscriptionChannel) run() {
 			if EventDebug {
 				fmt.Println("[event-api] received event", "response", actionresp)
 			}
-			if subaction.ID == actionresp.ID {
+			if subid == actionresp.ID {
 				if !acked {
 					// if the subscribe ack worked, great ... continue
 					if actionresp.Success {
@@ -597,7 +755,20 @@ func (c *SubscriptionChannel) run() {
 					break
 				}
 			} else {
-				log.Debug(c.subscription.Logger, "event mismatch", "id", subaction.ID, "resp", actionresp.ID, "data", actionresp.Data)
+				c.writeMu.RLock()
+				ackch := c.writeCallbacks[actionresp.ID]
+				c.writeMu.RUnlock()
+				if ackch != nil {
+					if ackch.async {
+						// delete if async
+						c.writeMu.Lock()
+						delete(c.writeCallbacks, actionresp.ID)
+						c.writeMu.Unlock()
+					} else {
+						// signal the blocker
+						ackch.ch <- struct{}{}
+					}
+				}
 			}
 			if actionresp.Data != nil {
 				c.mu.Lock()
@@ -609,7 +780,7 @@ func (c *SubscriptionChannel) run() {
 					select {
 					case c.ch <- *subdata:
 					case <-time.After(dispatchTimeout):
-						log.Warn(c.subscription.Logger, "dispatch timed out", "duration", dispatchTimeout, "data", actionresp.Data, "id", subaction.ID)
+						log.Warn(c.subscription.Logger, "dispatch timed out", "duration", dispatchTimeout, "data", actionresp.Data, "id", subid)
 					}
 					if c.subscription.DisableAutoCommit {
 						// wait for our commit before continuing
@@ -700,13 +871,14 @@ func NewSubscription(ctx context.Context, subscription Subscription) (*Subscript
 	}
 	newctx, cancel := context.WithCancel(ctx)
 	subch := &SubscriptionChannel{
-		ctx:          newctx,
-		cancel:       cancel,
-		ch:           make(chan SubscriptionEvent, subscription.BufferSize),
-		done:         make(chan bool, 1),
-		ready:        make(chan bool, 1),
-		subscription: subscription,
-		headers:      subscription.HTTPHeaders,
+		ctx:            newctx,
+		cancel:         cancel,
+		ch:             make(chan SubscriptionEvent, subscription.BufferSize),
+		done:           make(chan bool, 1),
+		ready:          make(chan bool, 1),
+		subscription:   subscription,
+		headers:        subscription.HTTPHeaders,
+		writeCallbacks: make(map[string]*publishAck),
 	}
 	go subch.run()
 	return subch, nil
