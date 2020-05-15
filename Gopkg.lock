@@ -18,6 +18,14 @@
   version = "v2.1.0"
 
 [[projects]]
+  digest = "1:29c5e0b5357d9855d3a22b5dd2bacdea0cd5674c1aaae9c329cfb14fed0250b8"
+  name = "github.com/confluentinc/confluent-kafka-go"
+  packages = ["kafka/librdkafka"]
+  pruneopts = "UT"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -190,12 +198,12 @@
   revision = "b09406accb4736d857a32bf9444cd7edae2ffa79"
 
 [[projects]]
-  digest = "1:9169e569b3e6517da7de4476059f8fa889d508007e53fa5fc6a2ea4ffc5ae199"
+  digest = "1:18812cf52c2e73491bf74d2a85e51bd1ce371327b9a0e49762c80c505dfe591d"
   name = "gopkg.in/confluentinc/confluent-kafka-go.v1"
   packages = ["kafka"]
   pruneopts = "UT"
-  revision = "48acc03b9ddd85b5c8c268b480d5a9a3d523b9ad"
-  version = "v1.1.0"
+  revision = "bb5bb31194f8046f3c9f09fbf0a3aae460a02000"
+  version = "v1.4.2"
 
 [[projects]]
   digest = "1:59f10c1537d2199d9115d946927fe31165959a95190849c82ff11e05803528b0"
