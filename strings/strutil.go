@@ -3,6 +3,7 @@ package strings
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 	"time"
 )
@@ -75,4 +76,12 @@ func JoinURL(elem ...string) string {
 	}
 	res := strings.Join(parts, "/")
 	return res
+}
+
+// SortCopy sort an identical copy of the array passed in
+func SortCopy(arr []string) []string {
+	arr2 := make([]string, len(arr))
+	copy(arr2, arr)
+	sort.Strings(arr2)
+	return arr2
 }
