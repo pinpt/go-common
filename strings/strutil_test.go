@@ -75,3 +75,17 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 	os.Exit(m.Run())
 }
+
+func TestSortCopy(t *testing.T) {
+
+	arr := []string{"2", "3", "1"}
+	expected := []string{"1", "2", "3"}
+
+	actual := SortCopy(arr)
+
+	for i, value := range actual {
+		if value != expected[i] {
+			t.Fatal("want", expected[i], "got", value)
+		}
+	}
+}
