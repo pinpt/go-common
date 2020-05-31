@@ -42,7 +42,7 @@ func NewModelSendEvent(object StreamedModel) ModelSendEvent {
 	return &modelSendEvent{object, nil}
 }
 
-// NewModelSendEvent will send just a model object and headers
+// NewModelSendEventWithHeaders will send just a model object and headers
 func NewModelSendEventWithHeaders(object StreamedModel, headers map[string]string) ModelSendEvent {
 	return &modelSendEvent{object, headers}
 }

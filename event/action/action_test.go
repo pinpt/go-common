@@ -455,19 +455,6 @@ func (o *Track) FromMap(kv map[string]interface{}) {
 	o.setDefaults(false)
 }
 
-// GetEventAPIConfig returns the EventAPIConfig
-func (o *Track) GetEventAPIConfig() datamodel.EventAPIConfig {
-	return datamodel.EventAPIConfig{
-		Publish: datamodel.EventAPIPublish{
-			Public: true,
-		},
-		Subscribe: datamodel.EventAPISubscribe{
-			Public: false,
-			Key:    "",
-		},
-	}
-}
-
 type testAction struct {
 	wg       sync.WaitGroup
 	received datamodel.ModelReceiveEvent

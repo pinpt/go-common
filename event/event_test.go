@@ -307,19 +307,6 @@ func (o *Echo) FromMap(kv map[string]interface{}) {
 	o.setDefaults(false)
 }
 
-// GetEventAPIConfig returns the EventAPIConfig
-func (o *Echo) GetEventAPIConfig() datamodel.EventAPIConfig {
-	return datamodel.EventAPIConfig{
-		Publish: datamodel.EventAPIPublish{
-			Public: true,
-		},
-		Subscribe: datamodel.EventAPISubscribe{
-			Public: true,
-			Key:    "id",
-		},
-	}
-}
-
 // EchoSendEvent is an event detail for sending data
 type EchoSendEvent struct {
 	Echo    *Echo
