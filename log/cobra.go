@@ -23,7 +23,7 @@ func init() {
 // RegisterFlags will register the flags for logging
 func RegisterFlags(rootCmd *cobra.Command) {
 	timestamps := isContainer || !isatty.IsTerminal(os.Stdout.Fd())
-	rootCmd.PersistentFlags().StringP("log-level", "info", pos.Getenv("PP_LOG_LEVEL", "info"), "set the log level")
+	rootCmd.PersistentFlags().String("log-level", pos.Getenv("PP_LOG_LEVEL", "info"), "set the log level")
 	rootCmd.PersistentFlags().String("log-color", "dark", "set the log color profile (dark or light). only applies to console logging")
 	rootCmd.PersistentFlags().String("log-format", "default", "set the log format (json, logfmt, default)")
 	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
