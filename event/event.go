@@ -432,8 +432,8 @@ var defaultInsecureWSDialer = &websocket.Dialer{
 
 func (c *SubscriptionChannel) pingReceived() {
 	c.lastPingMu.Lock()
-	defer c.lastPingMu.Unlock()
 	c.lastPing = time.Now()
+	c.lastPingMu.Unlock()
 }
 
 const expectedDurationBetweenPings = 30 * time.Second
@@ -695,8 +695,10 @@ func (c *SubscriptionChannel) run() {
 			c.mu.Unlock()
 		}
 
-		c.checkLastPingsInit() // have it separately to avoid races with Close
-		go c.checkLastPingsLoop()
+		if !c.subscription.DisablePing {
+			c.checkLastPingsInit() // have it separately to avoid races with Close
+			go c.checkLastPingsLoop()
+		}
 
 		errors = 0
 		var errored bool
@@ -860,6 +862,7 @@ type Subscription struct {
 	HTTPHeaders       map[string]string   `json:"-"`
 	CloseTimeout      time.Duration       `json:"-"`
 	DispatchTimeout   time.Duration       `json:"-"`
+	DisablePing       bool                `json:"-"`
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
