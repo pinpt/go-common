@@ -18,16 +18,17 @@ const (
 // ErrMessageNotAutoCommit is returned if you call commit on a message that isn't in auto commit mode
 var ErrMessageNotAutoCommit = errors.New("message isn't auto commit")
 
+// CommitOverride is called on msg.Commit
 type CommitOverride func(m Message) error
 
 // Message encapsulates data for the event system
 type Message struct {
 	Encoding  ValueEncodingType
-	Key       string
+	Key       string // Deprecated
 	Value     []byte
 	Headers   map[string]string
 	Timestamp time.Time
-	Extra     map[string]interface{}
+	Extra     map[string]interface{} // Deprecated
 	Topic     string
 	Partition int32
 	Offset    int64
@@ -157,7 +158,7 @@ func (cb *ConsumerCallbackAdapter) ShouldFilter(m *Message) bool {
 	return ok
 }
 
-// OnPartitionAssignment is called when partitions are assigned to the consumer
+// PartitionAssignment is called when partitions are assigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartition) {
 	cb.mu.RLock()
 	if cb.OnPartitionAssignment != nil {
@@ -166,7 +167,7 @@ func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartiti
 	cb.mu.RUnlock()
 }
 
-// OnPartitionRevocation is called when partitions are unassigned to the consumer
+// PartitionRevocation is called when partitions are unassigned to the consumer
 func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartition) {
 	cb.mu.RLock()
 	if cb.OnPartitionRevocation != nil {
@@ -175,7 +176,7 @@ func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartiti
 	cb.mu.RUnlock()
 }
 
-// OnOffsetsCommitted is called when offsets are committed
+// OffsetsCommitted is called when offsets are committed
 func (cb *ConsumerCallbackAdapter) OffsetsCommitted(offsets []TopicPartition) {
 	cb.mu.RLock()
 	if cb.OnOffsetsCommitted != nil {
@@ -233,9 +234,5 @@ type Consumer interface {
 	// Close will stop listening for events
 	Close() error
 	// Consume will start consuming from the consumer using the callback
-	Consume(callback ConsumerCallback)
-	// Pause will allow the consumer to be stopped temporarily from processing further messages
-	Pause() error
-	// Resume will allow the paused consumer to be resumed
-	Resume() error
+	Consume(callback ConsumerCallback) error
 }
