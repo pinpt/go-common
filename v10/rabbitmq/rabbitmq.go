@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +11,8 @@ import (
 	pstrings "github.com/pinpt/go-common/v10/strings"
 	"github.com/streadway/amqp"
 )
+
+var debug = os.Getenv("PP_RABBIT_DEBUG") == "1"
 
 // Config for the session
 type Config struct {
@@ -92,7 +95,9 @@ func (session *Session) handleReconnect(addr string) {
 	for {
 		session.mu.Lock()
 		session.isReady = false
-		log.Debug(session.logger, "attempting to connect", "addr", addr)
+		if debug {
+			log.Debug(session.logger, "attempting to connect", "addr", addr)
+		}
 
 		conn, err := session.connect(addr)
 		session.mu.Unlock()
@@ -123,7 +128,9 @@ func (session *Session) connect(addr string) (*amqp.Connection, error) {
 	}
 
 	session.changeConnection(conn)
-	log.Debug(session.logger, "connected", "addr", addr)
+	if debug {
+		log.Debug(session.logger, "connected", "addr", addr)
+	}
 	return conn, nil
 }
 
@@ -205,7 +212,9 @@ func (session *Session) init(conn *amqp.Connection) error {
 
 	session.changeChannel(ch)
 	session.isReady = true
-	log.Debug(session.logger, "setup and ready")
+	if debug {
+		log.Debug(session.logger, "setup and ready")
+	}
 	return nil
 }
 
@@ -278,7 +287,9 @@ func (session *Session) Push(routingKey string, data amqp.Publishing) error {
 	if !ready {
 		return ErrNotConnected
 	}
-	log.Debug(session.logger, "push", "routingKey", routingKey, "message_id", data.MessageId)
+	if debug {
+		log.Debug(session.logger, "push", "routingKey", routingKey, "message_id", data.MessageId)
+	}
 	if err := session.channel.Publish(
 		session.config.Exchange, // Exchange
 		routingKey,              // Routing key
@@ -293,14 +304,20 @@ func (session *Session) Push(routingKey string, data amqp.Publishing) error {
 	select {
 	case confirmed := <-session.notifyPublish:
 		if confirmed.Ack {
-			log.Debug(session.logger, "push ack", "routingKey", routingKey, "message_id", data.MessageId, "duration", time.Since(ts))
+			if debug {
+				log.Debug(session.logger, "push ack", "routingKey", routingKey, "message_id", data.MessageId, "duration", time.Since(ts))
+			}
 			return nil
 		}
 	case <-time.After(sendTimeout):
-		log.Debug(session.logger, "timed out waiting for ack", "routingKey", routingKey, "message_id", data.MessageId, "duration", time.Since(ts))
+		if debug {
+			log.Debug(session.logger, "timed out waiting for ack", "routingKey", routingKey, "message_id", data.MessageId, "duration", time.Since(ts))
+		}
 		return ErrTimedOut
 	}
-	log.Debug(session.logger, "push failed with nack", "routingKey", routingKey, "message_id", data.MessageId)
+	if debug {
+		log.Debug(session.logger, "push failed with nack", "routingKey", routingKey, "message_id", data.MessageId)
+	}
 	return ErrNack
 }
 
@@ -334,7 +351,9 @@ func (session *Session) Stream(consumer string, autoAck bool, exclusive bool) (<
 // Ack a consumer tag
 func (session *Session) Ack(tag uint64) error {
 	session.mu.Lock()
-	log.Debug(session.logger, "ack", "tag", tag, "autocommit", session.autocommit)
+	if debug {
+		log.Debug(session.logger, "ack", "tag", tag, "autocommit", session.autocommit)
+	}
 	if session.autocommit {
 		session.mu.Unlock()
 		return nil
@@ -349,7 +368,9 @@ func (session *Session) Ack(tag uint64) error {
 
 // Close will cleanly shutdown the channel and connection.
 func (session *Session) Close() error {
-	log.Debug(session.logger, "closing")
+	if debug {
+		log.Debug(session.logger, "closing")
+	}
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	if !session.isReady {
@@ -366,6 +387,8 @@ func (session *Session) Close() error {
 	if err != nil {
 		return err
 	}
-	log.Debug(session.logger, "closed")
+	if debug {
+		log.Debug(session.logger, "closed")
+	}
 	return nil
 }
