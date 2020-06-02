@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
       # CircleCI Go images available at: https://hub.docker.com/r/circleci/golang/
-      - image: circleci/golang:1.13
+      - image: circleci/golang:1.14
 
     working_directory: /go/src/github.com/pinpt/go-common
 
@@ -22,7 +22,7 @@ jobs:
       - restore_cache:
           keys:
             - v1-pkg-cache
-
+      - run: go build .
       - run: go get github.com/jstemmer/go-junit-report
       - run: make dependencies
 

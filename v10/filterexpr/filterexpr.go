@@ -1,4 +1,4 @@
-//go:generate pigeon -optimize-parser -o grammar.go grammar.peg
+//go:generate pigeon -o grammar.go grammar.peg
 
 package filterexpr
 

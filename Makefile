@@ -13,6 +13,7 @@ all: test
 dependencies:
 	@go get github.com/mna/pigeon
 	@$(MAKE) gen
+	@go mod tidy
 
 gen:
 	@go generate ./...
