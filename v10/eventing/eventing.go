@@ -65,8 +65,6 @@ type ConsumerCallbackAdapter struct {
 	OnDataReceived func(msg Message) error
 	// OnErrorReceived is called when an error is received
 	OnErrorReceived func(err error)
-	// OnEOF is called when a topic partition EOF is received
-	OnEOF func(topic string, partition int32, offset int64)
 	// OnStats is called when topic stats is generated
 	OnStats func(stats map[string]interface{})
 	// OnShouldProcess is called before unmarshalling to allow the
@@ -75,18 +73,11 @@ type ConsumerCallbackAdapter struct {
 	// OnShouldFilter is called before forwarding to the consumer
 	// to give the consumer control over filtering messages
 	OnShouldFilter func(m *Message) bool
-	// OnPartitionAssignment is called when partitions are assigned to the consumer
-	OnPartitionAssignment func(partitions []TopicPartition)
-	// OnPartitionRevocation is called when partitions are unassigned to the consumer
-	OnPartitionRevocation func(partitions []TopicPartition)
-	// OnOffsetsCommitted is called when offsets are committed
-	OnOffsetsCommitted func(offsets []TopicPartition)
 	// mutex
 	mu sync.RWMutex
 }
 
 var _ ConsumerCallback = (*ConsumerCallbackAdapter)(nil)
-var _ ConsumerCallbackPartitionLifecycle = (*ConsumerCallbackAdapter)(nil)
 var _ ConsumerCallbackMessageFilter = (*ConsumerCallbackAdapter)(nil)
 var _ ConsumerCallbackEventFilter = (*ConsumerCallbackAdapter)(nil)
 
@@ -107,14 +98,6 @@ func (cb *ConsumerCallbackAdapter) ErrorReceived(err error) {
 	cb.mu.RUnlock()
 }
 
-func (cb *ConsumerCallbackAdapter) EOF(topic string, partition int32, offset int64) {
-	cb.mu.RLock()
-	if cb.OnEOF != nil {
-		cb.OnEOF(topic, partition, offset)
-	}
-	cb.mu.RUnlock()
-}
-
 func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
 	cb.mu.RLock()
 	if cb.OnStats != nil {
@@ -126,14 +109,10 @@ func (cb *ConsumerCallbackAdapter) Stats(stats map[string]interface{}) {
 func (cb *ConsumerCallbackAdapter) Close() error {
 	cb.mu.Lock()
 	cb.OnDataReceived = nil
-	cb.OnEOF = nil
 	cb.OnErrorReceived = nil
 	cb.OnStats = nil
 	cb.OnShouldProcess = nil
 	cb.OnShouldFilter = nil
-	cb.OnPartitionAssignment = nil
-	cb.OnPartitionRevocation = nil
-	cb.OnOffsetsCommitted = nil
 	cb.mu.Unlock()
 	return nil
 }
@@ -158,56 +137,12 @@ func (cb *ConsumerCallbackAdapter) ShouldFilter(m *Message) bool {
 	return ok
 }
 
-// PartitionAssignment is called when partitions are assigned to the consumer
-func (cb *ConsumerCallbackAdapter) PartitionAssignment(partitions []TopicPartition) {
-	cb.mu.RLock()
-	if cb.OnPartitionAssignment != nil {
-		cb.OnPartitionAssignment(partitions)
-	}
-	cb.mu.RUnlock()
-}
-
-// PartitionRevocation is called when partitions are unassigned to the consumer
-func (cb *ConsumerCallbackAdapter) PartitionRevocation(partitions []TopicPartition) {
-	cb.mu.RLock()
-	if cb.OnPartitionRevocation != nil {
-		cb.OnPartitionRevocation(partitions)
-	}
-	cb.mu.RUnlock()
-}
-
-// OffsetsCommitted is called when offsets are committed
-func (cb *ConsumerCallbackAdapter) OffsetsCommitted(offsets []TopicPartition) {
-	cb.mu.RLock()
-	if cb.OnOffsetsCommitted != nil {
-		cb.OnOffsetsCommitted(offsets)
-	}
-	cb.mu.RUnlock()
-}
-
 // ConsumerCallback will receive events from producers
 type ConsumerCallback interface {
 	// OnDataReceived is called when an event is received
 	DataReceived(msg Message) error
 	// OnErrorReceived is called when an error is received
 	ErrorReceived(err error)
-}
-
-// TopicPartition has information about the partition
-type TopicPartition struct {
-	Topic     string
-	Partition int32
-	Offset    int64
-}
-
-// ConsumerCallbackPartitionLifecycle will receive events for partition lifecycle changes
-type ConsumerCallbackPartitionLifecycle interface {
-	// OnPartitionAssignment is called when partitions are assigned to the consumer
-	PartitionAssignment(partitions []TopicPartition)
-	// OnPartitionRevocation is called when partitions are unassigned to the consumer
-	PartitionRevocation(partitions []TopicPartition)
-	// OnOffsetsCommitted is called when offsets are committed
-	OffsetsCommitted(offsets []TopicPartition)
 }
 
 // ConsumerCallbackMessageFilter is a filter for handling forwarding
