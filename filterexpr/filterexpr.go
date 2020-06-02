@@ -25,7 +25,7 @@ func (f *filter) Test(kv map[string]interface{}) bool {
 
 // Compile will compile the filter expression as a string in Filter which can be saved and invoked and is thread safe
 func Compile(expr string) (Filter, error) {
-	object, err := ParseReader("", strings.NewReader(expr), MaxExpressions(5000))
+	object, err := ParseReader("", strings.NewReader(expr), MaxExpressions(150000))
 	if err != nil {
 		return nil, err
 	}
