@@ -19,32 +19,12 @@ type ModelFactory interface {
 
 // Config for the action
 type Config struct {
-	// GroupID is the consumer group id
-	GroupID string
-	// Channel to use when subscribing
-	Channel string
-	// APIKey to use when subscribing
-	APIKey string
-	// Headers to use when subscribing
-	Headers map[string]string
-	// HTTPHeaders to use when subscribing
-	HTTPHeaders map[string]string
-	// Topics to use when subscribing more than one topic
-	Topics []string
-	// Topic to use when subscribing
+	// Topic to use when subscribing TODO: Deprecate in favor of Topics
 	Topic string
-	// Errors is a channel for writing any errors during processing
-	Errors chan<- error
 	// Factory is a model factory if you need to modify to use a different once
 	Factory ModelFactory
-	// Offset controls where to start reading from. if not provided, will be from the latest
-	Offset string
-	// set the logger to use
-	Logger log.Logger
-	// Temporary if the subscription is temporary and if true, will not receive events if not connected
-	Temporary bool
-	// Filter are the subscription filters for more advanced filtering of subscription results
-	Filter *event.SubscriptionFilter
+
+	event.Subscription
 }
 
 // Action defines a specific action interface for running an action in response to an event
@@ -167,6 +147,8 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		Temporary:         config.Temporary,
 		DisableAutoCommit: true,
 		Filter:            config.Filter,
+		DisablePing:       config.DisablePing,
+
 	}
 	if len(config.Topics) > 0 {
 		subscription.Topics = config.Topics
