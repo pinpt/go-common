@@ -9,7 +9,6 @@ import (
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/event"
 	"github.com/pinpt/go-common/eventing"
-	"github.com/pinpt/go-common/log"
 )
 
 // ModelFactory creates new instances of models
