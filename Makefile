@@ -11,7 +11,6 @@ SHELL := /bin/bash
 all: test
 
 dependencies:
-	@dep ensure
 	@go get github.com/mna/pigeon
 	@$(MAKE) gen
 
