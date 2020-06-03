@@ -1,6 +1,6 @@
 package term
 
-import pos "github.com/pinpt/go-common/os"
+import pos "github.com/pinpt/go-common/v10/os"
 
 var fixedTermWidth uint
 

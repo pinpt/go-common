@@ -8,7 +8,7 @@ import (
 	"regexp"
 
 	"github.com/oliveagle/jsonpath"
-	"github.com/pinpt/go-common/fileutil"
+	"github.com/pinpt/go-common/v10/fileutil"
 )
 
 // Deserializer is a callback which will take a json RawMessage for processing

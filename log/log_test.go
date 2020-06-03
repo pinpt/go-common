@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pinpt/go-common/fileutil"
+	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/stretchr/testify/assert"
 )
 

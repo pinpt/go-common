@@ -44,12 +44,12 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/pinpt/go-common/fileutil"
-	pjson "github.com/pinpt/go-common/json"
-	"github.com/pinpt/go-common/number"
-	pos "github.com/pinpt/go-common/os"
-	pstring "github.com/pinpt/go-common/strings"
-	"github.com/pinpt/go-common/term"
+	"github.com/pinpt/go-common/v10/fileutil"
+	pjson "github.com/pinpt/go-common/v10/json"
+	"github.com/pinpt/go-common/v10/number"
+	pos "github.com/pinpt/go-common/v10/os"
+	pstring "github.com/pinpt/go-common/v10/strings"
+	"github.com/pinpt/go-common/v10/term"
 )
 
 // Logger is the fundamental interface for all log operations. Log creates a

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pinpt/go-common/fileutil"
+	"github.com/pinpt/go-common/v10/fileutil"
 )
 
 // Stringify will return a JSON formatted string. pass an optional second argument to pretty print

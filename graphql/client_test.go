@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pinpt/go-common/hash"
+	"github.com/pinpt/go-common/v10/hash"
 	"github.com/stretchr/testify/assert"
 )
 

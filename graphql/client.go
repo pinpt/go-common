@@ -9,9 +9,9 @@ import (
 	"net/http"
 	purl "net/url"
 
-	"github.com/pinpt/go-common/api"
-	pauth "github.com/pinpt/go-common/auth"
-	pjson "github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/v10/api"
+	pauth "github.com/pinpt/go-common/v10/auth"
+	pjson "github.com/pinpt/go-common/v10/json"
 )
 
 const defaultUserAgent = "pinpt/go-common-graphql"

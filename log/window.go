@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	isatty "github.com/mattn/go-isatty"
-	"github.com/pinpt/go-common/term"
+	"github.com/pinpt/go-common/v10/term"
 )
 
 // we run this here (vs windows) since windows doesn't have the syscall.SIGWINCH
