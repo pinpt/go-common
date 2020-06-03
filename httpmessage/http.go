@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	pjson "github.com/pinpt/go-common/json"
+	pjson "github.com/pinpt/go-common/v10/json"
 )
 
 type templateParams struct {

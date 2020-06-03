@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pinpt/go-common/datamodel"
-	"github.com/pinpt/go-common/event"
-	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/v10/datamodel"
+	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/eventing"
 )
 
 // ModelFactory creates new instances of models

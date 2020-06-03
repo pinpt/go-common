@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pinpt/go-common/api"
+	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/httpclient"
 )
 

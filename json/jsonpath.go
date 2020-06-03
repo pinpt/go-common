@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/oliveagle/jsonpath"
-	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/hash"
+	"github.com/pinpt/go-common/v10/datetime"
+	"github.com/pinpt/go-common/v10/hash"
 )
 
 // Action is the signature for handling registered actions

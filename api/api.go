@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pinpt/go-common/httpdefaults"
-	"github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/v10/httpdefaults"
+	"github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/httpclient"
 )
 

@@ -3,7 +3,7 @@ package datamodel
 import (
 	"time"
 
-	"github.com/pinpt/go-common/eventing"
+	"github.com/pinpt/go-common/v10/eventing"
 )
 
 type modelSendEvent struct {

@@ -18,11 +18,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/pinpt/go-common/api"
-	"github.com/pinpt/go-common/datamodel"
-	pjson "github.com/pinpt/go-common/json"
-	"github.com/pinpt/go-common/log"
-	pstrings "github.com/pinpt/go-common/strings"
+	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datamodel"
+	pjson "github.com/pinpt/go-common/v10/json"
+	"github.com/pinpt/go-common/v10/log"
+	pstrings "github.com/pinpt/go-common/v10/strings"
 )
 
 // EventDebug allows debug printing without requiring a logger to make it easy to turn on for debugging on the fly with an env variable

@@ -10,7 +10,7 @@ import (
 
 	"github.com/fatih/color"
 	isatty "github.com/mattn/go-isatty"
-	pos "github.com/pinpt/go-common/os"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
 

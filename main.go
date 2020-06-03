@@ -1,6 +1,6 @@
 package main
 
-import "github.com/pinpt/go-common/cmd"
+import "github.com/pinpt/go-common/v10/cmd"
 
 func main() {
 	cmd.Execute()

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"runtime"
 
-	"github.com/pinpt/go-common/fileutil"
+	"github.com/pinpt/go-common/v10/fileutil"
 )
 
 const k8sServiceAcct = "/var/run/secrets/kubernetes.io/serviceaccount"

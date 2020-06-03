@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	ps "github.com/pinpt/go-common/strings"
+	ps "github.com/pinpt/go-common/v10/strings"
 	"github.com/spf13/cobra"
 )
 

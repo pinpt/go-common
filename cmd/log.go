@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
 )
 
