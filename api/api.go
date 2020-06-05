@@ -85,6 +85,8 @@ const (
 	AuthService = "auth.api"
 	// EventService is the event service endpoint
 	EventService = "event.api"
+	// RegistryService is the integration registry service endpoint
+	RegistryService = "registry.api"
 )
 
 // BackendURL return the base url to the API server
@@ -99,6 +101,8 @@ func BackendURL(subdomain string, channel string) string {
 			return os.Getenv("PP_AUTH_SERVICE")
 		case EventService:
 			return os.Getenv("PP_EVENT_SERVICE")
+		case RegistryService:
+			return os.Getenv("PP_REGISTRY_SERVICE")
 		}
 	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
@@ -110,6 +114,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
 		case EventService:
 			return fmt.Sprintf("https://%s.%s:8443/", subdomain, devbaseURL)
+		case RegistryService:
+			return fmt.Sprintf("https://%s.%s:8444/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
