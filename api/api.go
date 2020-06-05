@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -85,6 +86,8 @@ const (
 	AuthService = "auth.api"
 	// EventService is the event service endpoint
 	EventService = "event.api"
+	// RegistryService is the integration registry service endpoint
+	RegistryService = "registry.api"
 )
 
 // BackendURL return the base url to the API server
@@ -99,6 +102,8 @@ func BackendURL(subdomain string, channel string) string {
 			return os.Getenv("PP_AUTH_SERVICE")
 		case EventService:
 			return os.Getenv("PP_EVENT_SERVICE")
+		case RegistryService:
+			return os.Getenv("PP_REGISTRY_SERVICE")
 		}
 	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
@@ -110,6 +115,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
 		case EventService:
 			return fmt.Sprintf("https://%s.%s:8443/", subdomain, devbaseURL)
+		case RegistryService:
+			return fmt.Sprintf("https://%s.%s:8444/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
@@ -227,7 +234,7 @@ func SetAuthorization(req *http.Request, apikey string) {
 }
 
 // Get will invoke api for channel and basepath
-func Get(ctx context.Context, channel string, service string, basepath string, apiKey string) (*http.Response, error) {
+func Get(ctx context.Context, channel string, service string, basepath string, apiKey string, opts ...WithOption) (*http.Response, error) {
 	bu := BackendURL(service, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
@@ -242,6 +249,11 @@ func Get(ctx context.Context, channel string, service string, basepath string, a
 	SetAuthorization(req, apiKey)
 	SetUserAgent(req)
 	req = req.WithContext(ctx)
+	for _, opt := range opts {
+		if err := opt(req); err != nil {
+			return nil, err
+		}
+	}
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
 		return nil, err
@@ -254,7 +266,7 @@ func Get(ctx context.Context, channel string, service string, basepath string, a
 }
 
 // Post will invoke api for channel and basepath as JSON post
-func Post(ctx context.Context, channel string, service string, basepath string, apiKey string, obj interface{}) (*http.Response, error) {
+func Post(ctx context.Context, channel string, service string, basepath string, apiKey string, obj interface{}, opts ...WithOption) (*http.Response, error) {
 	bu := BackendURL(service, channel)
 	var urlstr string
 	if isAbsURL(basepath) {
@@ -270,6 +282,11 @@ func Post(ctx context.Context, channel string, service string, basepath string, 
 	SetUserAgent(req)
 	SetAuthorization(req, apiKey)
 	req = req.WithContext(ctx)
+	for _, opt := range opts {
+		if err := opt(req); err != nil {
+			return nil, err
+		}
+	}
 	client, err := NewHTTPAPIClientDefault()
 	if err != nil {
 		return nil, err
@@ -279,4 +296,55 @@ func Post(ctx context.Context, channel string, service string, basepath string, 
 		return nil, err
 	}
 	return resp, nil
+}
+
+// Put will invoke api for channel and basepath as JSON post
+func Put(ctx context.Context, channel string, service string, basepath string, apiKey string, reader io.Reader, opts ...WithOption) (*http.Response, error) {
+	bu := BackendURL(service, channel)
+	var urlstr string
+	if isAbsURL(basepath) {
+		urlstr = basepath
+	} else {
+		u, _ := url.Parse(bu)
+		u.Path = path.Join(u.Path, basepath)
+		urlstr = u.String()
+	}
+	req, _ := http.NewRequest(http.MethodPut, urlstr, reader)
+	req.Header.Set("Accept", "application/json")
+	SetUserAgent(req)
+	SetAuthorization(req, apiKey)
+	req = req.WithContext(ctx)
+	for _, opt := range opts {
+		if err := opt(req); err != nil {
+			return nil, err
+		}
+	}
+	client, err := NewHTTPAPIClientDefault()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+// WithOption allows the request to be modified
+type WithOption func(req *http.Request) error
+
+// WithContentType sets the content-type on an outgoing request
+func WithContentType(value string) WithOption {
+	return func(req *http.Request) error {
+		req.Header.Set("Content-Type", value)
+		return nil
+	}
+}
+
+// WithHeader sets a HTTP header on the outgoing request
+func WithHeader(key, value string) WithOption {
+	return func(req *http.Request) error {
+		req.Header.Set(key, value)
+		return nil
+	}
 }
