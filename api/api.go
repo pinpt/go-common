@@ -88,6 +88,8 @@ const (
 	EventService = "event.api"
 	// RegistryService is the integration registry service endpoint
 	RegistryService = "registry.api"
+	// GraphService is the graph service endpoint
+	GraphService = "graph.api"
 )
 
 // BackendURL return the base url to the API server
@@ -104,6 +106,8 @@ func BackendURL(subdomain string, channel string) string {
 			return os.Getenv("PP_EVENT_SERVICE")
 		case RegistryService:
 			return os.Getenv("PP_REGISTRY_SERVICE")
+		case GraphService:
+			return os.Getenv("PP_GRAPHQL_SERVICE")
 		}
 	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
@@ -117,6 +121,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:8443/", subdomain, devbaseURL)
 		case RegistryService:
 			return fmt.Sprintf("https://%s.%s:8444/", subdomain, devbaseURL)
+		case GraphService:
+			return fmt.Sprintf("https://%s.%s:3010/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
