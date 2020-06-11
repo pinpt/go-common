@@ -487,12 +487,14 @@ func TestAction(t *testing.T) {
 	action.wg.Add(1)
 	errors := make(chan error, 1)
 	config := Config{
-		Channel: "dev",
-		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Subscription: event.Subscription{
+			Channel: "dev",
+			GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+			Errors:  errors,
+			Offset:  "latest",
+		},
 		Factory: action,
 		Topic:   TrackTopic.String(),
-		Errors:  errors,
-		Offset:  "latest",
 	}
 	sub, err := Register(context.Background(), action, config)
 	assert.NoError(err)
@@ -539,20 +541,24 @@ func TestActionWithResponse(t *testing.T) {
 	action2.wg.Add(1)
 	errors := make(chan error, 2)
 	config1 := Config{
-		Channel: "dev",
-		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Subscription: event.Subscription{
+			Channel: "dev",
+			GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+			Errors:  errors,
+			Offset:  "latest",
+		},
 		Factory: action1,
 		Topic:   TrackTopic.String(),
-		Errors:  errors,
-		Offset:  "latest",
 	}
 	config2 := Config{
-		Channel: "dev",
-		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Subscription: event.Subscription{
+			Channel: "dev",
+			GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+			Errors:  errors,
+			Offset:  "latest",
+		},
 		Factory: action2,
 		Topic:   TrackTopic.String(),
-		Errors:  errors,
-		Offset:  "latest",
 	}
 	sub1, err := Register(context.Background(), action1, config1)
 	assert.NoError(err)
@@ -617,12 +623,14 @@ func TestActionFunc(t *testing.T) {
 	factory := &testAction{}
 	errors := make(chan error, 1)
 	config := Config{
-		Channel: "dev",
-		GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+		Subscription: event.Subscription{
+			Channel: "dev",
+			GroupID: fmt.Sprintf("agenttest-%v", datetime.EpochNow()),
+			Errors:  errors,
+			Offset:  "latest",
+		},
 		Factory: factory,
 		Topic:   TrackTopic.String(),
-		Errors:  errors,
-		Offset:  "latest",
 	}
 	sub, err := Register(context.Background(), action, config)
 	assert.NoError(err)
