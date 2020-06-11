@@ -6,8 +6,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/pinpt/go-common/datetime"
 )
 
 const (
@@ -384,7 +382,7 @@ func ConvertToModel(ts time.Time, dateModel interface{}) {
 	}
 
 	// this always returns nil
-	date, _ := datetime.NewDateWithTime(ts)
+	date, _ := NewDateWithTime(ts)
 
 	t := reflect.ValueOf(dateModel).Elem()
 	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))

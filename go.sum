@@ -219,8 +219,6 @@ github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/9
 github.com/performancecopilot/speed v3.0.0+incompatible/go.mod h1:/CLtqpZ5gBg1M9iaPbIdPPGyKcA8hKdoy6hAWba7Yac=
 github.com/pierrec/lz4 v1.0.2-0.20190131084431-473cd7ce01a1/go.mod h1:3/3N9NVKO0jef7pBehbT1qWhCMrIgbYNnFAZCqQ5LRc=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
-github.com/pinpt/go-common v9.1.81+incompatible h1:UYz+8DIHQPxM4LX9eZCX4E5CsgamtnBKQoWCkzr06wg=
-github.com/pinpt/go-common v9.1.81+incompatible/go.mod h1:UNav2OONS53sU+qptYdsY8gAECXEfHEqH8p/3dJ11MM=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067 h1:GG0k6rjX7ywCwYnjVudy3OXXivcMAih8s08+sDrQiEE=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067/go.mod h1:SzzGa0kOT+frqT6ABgV69U9+jlMU98XkmKup+HEZRVI=
 github.com/pinpt/websocket v1.4.2-0.20191010233559-d9055c4295fd h1:t9XLtLSRjToOS2cYmlv4vW3slUz5UdogaVR9hmbZ9Fg=
