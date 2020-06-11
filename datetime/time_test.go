@@ -289,3 +289,26 @@ func TestEpochSameMinute(t *testing.T) {
 	assert.NoError(err)
 	assert.False(EpochMinuteApart(TimeToEpoch(time1), TimeToEpoch(time2)))
 }
+
+func TestConvertToModel(t *testing.T) {
+	assert := assert.New(t)
+
+	refTime, _ := time.Parse("2006-01-02T15:04:05Z", "2017-01-31T10:22:00Z")
+	var date Date
+
+	ConvertToModel(refTime, &date)
+
+	assert.Equal(int64(1485858120000), date.Epoch)
+	assert.Equal(int64(0), date.Offset)
+	assert.Equal("2017-01-31T10:22:00+00:00", date.Rfc3339)
+
+	var timeZero time.Time
+	var dateZero Date
+
+	ConvertToModel(timeZero, &dateZero)
+
+	assert.Equal(int64(0), dateZero.Epoch)
+	assert.Equal(int64(0), dateZero.Offset)
+	assert.Equal("", dateZero.Rfc3339)
+
+}
