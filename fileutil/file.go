@@ -1,9 +1,14 @@
 package fileutil
 
 import (
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -104,4 +109,137 @@ func IsZeroLengthFile(fn string) bool {
 		return true
 	}
 	return s.Size() == 0
+}
+
+// ZipDir will zip create a zip archive named filename and fill it with files that
+// match the pattern from dir
+func ZipDir(filename string, dir string, pattern *regexp.Regexp) (int, error) {
+	filenames, err := FindFiles(dir, pattern)
+	if err != nil {
+		return 0, err
+	}
+	newZipFile, err := os.Create(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer newZipFile.Close()
+
+	zipWriter := zip.NewWriter(newZipFile)
+	defer zipWriter.Close()
+
+	for _, file := range filenames {
+		stat, _ := os.Stat(file)
+		if !stat.IsDir() {
+			if err = AddFileToZip(zipWriter, dir, file); err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(filenames), nil
+}
+
+// AddFileToZip will add a file to a zip (writer), dir is the directory inside
+// the zip archive that you want the file to exist in. If dir is `""`, then
+// the file will be in the root of the archive
+func AddFileToZip(zipWriter *zip.Writer, dir string, filename string) error {
+
+	fileToZip, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer fileToZip.Close()
+
+	// Get the file information
+	info, err := fileToZip.Stat()
+	if err != nil {
+		return err
+	}
+
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return err
+	}
+
+	// Using FileInfoHeader() above only uses the basename of the file. If we want
+	// to preserve the folder structure we can overwrite this with the full path.
+	header.Name, _ = filepath.Rel(dir, filename)
+
+	// Change to deflate to gain better compression
+	// see http://golang.org/pkg/archive/zip/#pkg-constants
+	header.Method = zip.Deflate
+
+	writer, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(writer, fileToZip)
+	return err
+}
+
+// Checksum will return the sha512 checksum of a file
+func Checksum(fn string) (string, error) {
+	hasher := sha512.New()
+	of, err := os.Open(fn)
+	if err != nil {
+		return "", err
+	}
+	for {
+		buf := make([]byte, 8096)
+		n, err := of.Read(buf)
+		if err == io.EOF || n == 0 {
+			break
+		}
+		hasher.Write(buf[0:n])
+	}
+	of.Close()
+	sha := hex.EncodeToString(hasher.Sum(nil))
+	return sha, nil
+}
+
+// ShaFiles will calculate the checksum for all files in dir that match re
+// and write them out to outfile. Useful for code releases.
+func ShaFiles(dir string, outfile string, re *regexp.Regexp) error {
+	filenames, err := FindFiles(dir, re)
+	if err != nil {
+		return err
+	}
+	var shas strings.Builder
+	for _, fn := range filenames {
+		stat, _ := os.Stat(fn)
+		if !stat.IsDir() {
+			sha, err := Checksum(fn)
+			if err != nil {
+				return err
+			}
+			relfn, _ := filepath.Rel(dir, fn)
+			shas.WriteString(sha + "  " + relfn + "\n")
+		}
+	}
+	return ioutil.WriteFile(outfile, []byte(shas.String()), 0644)
+}
+
+// OpenNestedZip opens zip archive parent and searches it for child, then opens child and returns a zip.Reader.
+// Useful for zip files inside zip files
+func OpenNestedZip(parent, child string) (*zip.Reader, error) {
+	reader, err := zip.OpenReader(parent)
+	if err != nil {
+		return nil, fmt.Errorf("error openning zip file: %w", err)
+	}
+	defer reader.Close()
+	for _, file := range reader.File {
+		if child == file.Name {
+			f, err := file.Open()
+			if err != nil {
+				return nil, fmt.Errorf("error openning nested zip file (%s): %w", file.Name, err)
+			}
+			buf, err := ioutil.ReadAll(f)
+			if err != nil {
+				f.Close()
+				return nil, fmt.Errorf("error reading nested zip file: %w", err)
+			}
+			f.Close()
+			return zip.NewReader(bytes.NewReader(buf), file.FileInfo().Size())
+		}
+	}
+	return nil, fmt.Errorf("cannot find zip file (%s) inside reader", child)
 }
