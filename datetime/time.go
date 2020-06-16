@@ -2,6 +2,7 @@ package datetime
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -372,4 +373,19 @@ func EpochMinuteApart(epoch1, epoch2 int64) bool {
 		small = epoch1
 	}
 	return big-small <= 1000*60
+}
+
+// ConvertToModel will fill dateModel based on passed time
+func ConvertToModel(ts time.Time, dateModel interface{}) {
+	if ts.IsZero() {
+		return
+	}
+
+	// this always returns nil
+	date, _ := NewDateWithTime(ts)
+
+	t := reflect.ValueOf(dateModel).Elem()
+	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))
+	t.FieldByName("Epoch").Set(reflect.ValueOf(date.Epoch))
+	t.FieldByName("Offset").Set(reflect.ValueOf(date.Offset))
 }
