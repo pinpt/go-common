@@ -1,10 +1,12 @@
 package hash
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io"
+	"os"
 	"reflect"
 
 	"github.com/cespare/xxhash"
@@ -152,4 +154,19 @@ func hashValues(objects ...interface{}) string {
 	}
 
 	return fmt.Sprintf("%016x", h.Sum64())
+}
+
+// Checksum will return a sha256 checksum of a file
+func Checksum(filename string) ([]byte, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
 }
