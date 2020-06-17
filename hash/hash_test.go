@@ -1,6 +1,10 @@
 package hash
 
 import (
+	"encoding/hex"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -146,4 +150,16 @@ func TestModulo(t *testing.T) {
 	assert.Equal(3, Modulo("hello", 20))
 
 	assert.Equal(4, Modulo("edf9a6b1c8490ea3", 24))
+}
+
+func TestChecksum(t *testing.T) {
+	assert := assert.New(t)
+	fn := filepath.Join(os.TempDir(), "hashChecksum")
+	assert.NoError(ioutil.WriteFile(fn, []byte("hash me"), 0644))
+	defer os.Remove(fn)
+	buf, err := Checksum(fn)
+	assert.NoError(err)
+	sum := hex.EncodeToString(buf)
+	// shasum -a 256 hashChecksum
+	assert.Equal("eb201af5aaf0d60629d3d2a61e466cfc0fedb517add831ecac5235e1daa963d6", sum)
 }
