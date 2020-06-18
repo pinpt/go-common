@@ -158,22 +158,32 @@ func hashValues(objects ...interface{}) string {
 
 // Sha256Checksum will return a sha256 checksum of r
 func Sha256Checksum(r io.Reader) ([]byte, error) {
-	return ChecksumFrom(r, sha256.New())
+	_, sum, err := ChecksumFrom(r, sha256.New())
+	return sum, err
 }
 
 // ChecksumFrom will read all of r 8096 bytes at a time into hasher and return the sum
-func ChecksumFrom(r io.Reader, hasher hash.Hash) ([]byte, error) {
+func ChecksumFrom(r io.Reader, hasher hash.Hash) (int64, []byte, error) {
+	var written int
 	for {
 		buf := make([]byte, 8096)
 		n, err := r.Read(buf)
 		if err == io.EOF || n == 0 {
 			break
 		} else if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
-		if _, err := hasher.Write(buf[0:n]); err != nil {
-			return nil, err
+		n, err = hasher.Write(buf[0:n])
+		if err != nil {
+			return 0, nil, err
 		}
+		written += n
 	}
-	return hasher.Sum(nil), nil
+	return int64(written), hasher.Sum(nil), nil
+}
+
+// ChecksumCopy will do the same as io.Copy, but also returns a sha256 checksum for the data read
+func ChecksumCopy(dst io.Writer, src io.Reader) (int64, []byte, error) {
+	r := io.TeeReader(src, dst)
+	return ChecksumFrom(r, sha256.New())
 }
