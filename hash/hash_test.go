@@ -159,3 +159,17 @@ func TestChecksum(t *testing.T) {
 	// shasum -a 256 hashChecksum
 	assert.Equal("eb201af5aaf0d60629d3d2a61e466cfc0fedb517add831ecac5235e1daa963d6", sum)
 }
+
+func TestChecksumCopy(t *testing.T) {
+	assert := assert.New(t)
+	r := bytes.NewReader([]byte("hash me"))
+	count := r.Len()
+	var w bytes.Buffer
+	n, buf, err := ChecksumCopy(&w, r)
+	assert.NoError(err)
+	assert.EqualValues(count, n)
+	sum := hex.EncodeToString(buf)
+	// shasum -a 256 hashChecksum
+	assert.Equal("eb201af5aaf0d60629d3d2a61e466cfc0fedb517add831ecac5235e1daa963d6", sum)
+	assert.Equal("hash me", w.String())
+}
