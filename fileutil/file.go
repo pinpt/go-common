@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/pinpt/go-common/v10/hash"
 )
 
 // Resolve with resolve a relative file path
@@ -176,23 +177,18 @@ func AddFileToZip(zipWriter *zip.Writer, dir string, filename string) error {
 	return err
 }
 
-// Checksum will return the sha512 checksum of a file
+// Checksum will return the sha256 checksum of a file
 func Checksum(fn string) (string, error) {
-	hasher := sha512.New()
 	of, err := os.Open(fn)
 	if err != nil {
 		return "", err
 	}
-	for {
-		buf := make([]byte, 8096)
-		n, err := of.Read(buf)
-		if err == io.EOF || n == 0 {
-			break
-		}
-		hasher.Write(buf[0:n])
+	sum, err := hash.Sha256Checksum(of)
+	if err != nil {
+		return "", err
 	}
 	of.Close()
-	sha := hex.EncodeToString(hasher.Sum(nil))
+	sha := hex.EncodeToString(sum)
 	return sha, nil
 }
 

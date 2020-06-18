@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"io"
-	"os"
 	"reflect"
 
 	"github.com/cespare/xxhash"
@@ -156,17 +156,24 @@ func hashValues(objects ...interface{}) string {
 	return fmt.Sprintf("%016x", h.Sum64())
 }
 
-// Checksum will return a sha256 checksum of a file
-func Checksum(filename string) ([]byte, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+// Sha256Checksum will return a sha256 checksum of r
+func Sha256Checksum(r io.Reader) ([]byte, error) {
+	return ChecksumFrom(r, sha256.New())
+}
 
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return nil, err
+// ChecksumFrom will read all of r 8096 bytes at a time into hasher and return the sum
+func ChecksumFrom(r io.Reader, hasher hash.Hash) ([]byte, error) {
+	for {
+		buf := make([]byte, 8096)
+		n, err := r.Read(buf)
+		if err == io.EOF || n == 0 {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		if _, err := hasher.Write(buf[0:n]); err != nil {
+			return nil, err
+		}
 	}
-	return h.Sum(nil), nil
+	return hasher.Sum(nil), nil
 }
