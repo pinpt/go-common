@@ -24,12 +24,12 @@ func init() {
 func RegisterFlags(rootCmd *cobra.Command) {
 	timestamps := isContainer || !isatty.IsTerminal(os.Stdout.Fd())
 	rootCmd.PersistentFlags().String("log-level", pos.Getenv("PP_LOG_LEVEL", "info"), "set the log level")
-	rootCmd.PersistentFlags().String("log-color", "dark", "set the log color profile (dark or light). only applies to console logging")
-	rootCmd.PersistentFlags().String("log-format", "default", "set the log format (json, logfmt, default)")
+	rootCmd.PersistentFlags().String("log-color", pos.Getenv("PP_LOG_COLOR", "dark"), "set the log color profile (dark or light). only applies to console logging")
+	rootCmd.PersistentFlags().String("log-format", pos.Getenv("PP_LOG_FORMAT", "default"), "set the log format (json, logfmt, default)")
 	rootCmd.PersistentFlags().String("log-output", "-", "the location of the log file, use - for default or specify a location")
 	rootCmd.PersistentFlags().Bool("log-timestamp", timestamps, "turn on timestamps in output")
-	rootCmd.PersistentFlags().String("log-timestamp-format", "", "timestamp formatting")
-	rootCmd.PersistentFlags().Int("log-maxsize-value", MaxStringValueLength, "the max size of a value when logged")
+	rootCmd.PersistentFlags().String("log-timestamp-format", pos.Getenv("PP_LOG_TIMESTAMP_FORMAT", ""), "timestamp formatting")
+	rootCmd.PersistentFlags().Int("log-maxsize-value", pos.GetenvInt("PP_LOG_MAXSIZE", MaxStringValueLength), "the max size of a value when logged")
 }
 
 // NewCommandLogger returns a new Logger for a given command
