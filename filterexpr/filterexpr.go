@@ -10,6 +10,9 @@ import (
 type Filter interface {
 	// Test will return true if the filter expression matches the map
 	Test(kv map[string]interface{}) bool
+
+	// String will return a string representation
+	String() string
 }
 
 type filter struct {
@@ -21,6 +24,10 @@ var _ Filter = (*filter)(nil)
 // Test will return true if the filter expression matches the map
 func (f *filter) Test(kv map[string]interface{}) bool {
 	return f.expr.Test(kv)
+}
+
+func (f *filter) String() string {
+	return f.expr.String()
 }
 
 // Compile will compile the filter expression as a string in Filter which can be saved and invoked and is thread safe
