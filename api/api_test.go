@@ -20,6 +20,8 @@ func TestBackendURL(t *testing.T) {
 	assert := assert.New(t)
 	assert.Equal("https://auth.api.edge.pinpoint.com/", BackendURL(AuthService, "edge"))
 	assert.Equal("https://auth.api.pinpoint.com/", BackendURL(AuthService, "stable"))
+	assert.Equal("https://app.pinpoint.com/", BackendURL(AppService, "stable"))
+	assert.Equal("https://app.edge.pinpoint.com/", BackendURL(AppService, "edge"))
 }
 
 func TestSetHeaders(t *testing.T) {

@@ -3,6 +3,9 @@ package hash
 import (
 	"bytes"
 	"encoding/hex"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -172,4 +175,23 @@ func TestChecksumCopy(t *testing.T) {
 	// shasum -a 256 hashChecksum
 	assert.Equal("eb201af5aaf0d60629d3d2a61e466cfc0fedb517add831ecac5235e1daa963d6", sum)
 	assert.Equal("hash me", w.String())
+}
+
+func TestChecksumCopyToFile(t *testing.T) {
+	assert := assert.New(t)
+	r := bytes.NewReader([]byte("hash me"))
+	count := r.Len()
+	fn := filepath.Join(os.TempDir(), "hashChecksum")
+	of, err := os.Create(fn)
+	assert.NoError(err)
+	defer os.Remove(fn)
+	n, buf, err := ChecksumCopy(of, r)
+	assert.NoError(err)
+	assert.EqualValues(count, n)
+	sum := hex.EncodeToString(buf)
+	// shasum -a 256 hashChecksum
+	assert.Equal("eb201af5aaf0d60629d3d2a61e466cfc0fedb517add831ecac5235e1daa963d6", sum)
+	of.Close()
+	buf, _ = ioutil.ReadFile(fn)
+	assert.Equal("hash me", string(buf))
 }

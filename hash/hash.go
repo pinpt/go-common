@@ -168,6 +168,7 @@ func ChecksumFrom(r io.Reader, hasher hash.Hash) (int64, []byte, error) {
 	for {
 		buf := make([]byte, 8096)
 		n, err := r.Read(buf)
+		written += n
 		if err == io.EOF || n == 0 {
 			break
 		} else if err != nil {
@@ -177,13 +178,11 @@ func ChecksumFrom(r io.Reader, hasher hash.Hash) (int64, []byte, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		written += n
 	}
 	return int64(written), hasher.Sum(nil), nil
 }
 
 // ChecksumCopy will do the same as io.Copy, but also returns a sha256 checksum for the data read
 func ChecksumCopy(dst io.Writer, src io.Reader) (int64, []byte, error) {
-	r := io.TeeReader(src, dst)
-	return ChecksumFrom(r, sha256.New())
+	return ChecksumFrom(io.TeeReader(src, dst), sha256.New())
 }
