@@ -171,3 +171,10 @@ func TestABigAsExpression(t *testing.T) {
 	assert.NoError(err)
 	assert.True(filter.Test(map[string]interface{}{"model": "activityfeed.Feed", "user_id": "40bfb0d341249a58"}))
 }
+
+func TestStringify(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`user-id:"a"`)
+	assert.NoError(err)
+	assert.Equal("ExpressionGroup[[Expression[Node[user-id=a],,<nil>]]]", filter.String())
+}
