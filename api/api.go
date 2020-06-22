@@ -82,6 +82,8 @@ func isDNSNameTrusted(names ...string) bool {
 const (
 	// AgentService is the agent service endpoint
 	AgentService = "agent.api"
+	// AppService is the web app endpoint
+	AppService = "app"
 	// AuthService is the auth service endpoint
 	AuthService = "auth.api"
 	// EventService is the event service endpoint
@@ -100,6 +102,8 @@ func BackendURL(subdomain string, channel string) string {
 		switch subdomain {
 		case AgentService:
 			return os.Getenv("PP_AGENT_SERVICE")
+		case AppService:
+			return os.Getenv("PP_APP_SERVICE")
 		case AuthService:
 			return os.Getenv("PP_AUTH_SERVICE")
 		case EventService:
@@ -115,6 +119,8 @@ func BackendURL(subdomain string, channel string) string {
 		switch subdomain {
 		case AgentService:
 			return fmt.Sprintf("https://%s.%s:3004/", subdomain, devbaseURL)
+		case AppService:
+			return fmt.Sprintf("https://%s.%s:3001/", subdomain, devbaseURL)
 		case AuthService:
 			return fmt.Sprintf("https://%s.%s:3000/", subdomain, devbaseURL)
 		case EventService:
