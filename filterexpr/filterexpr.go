@@ -16,7 +16,7 @@ type Filter interface {
 }
 
 type filter struct {
-	expr *ExpressionGroup
+	expr Filter
 }
 
 var _ Filter = (*filter)(nil)
@@ -37,5 +37,5 @@ func Compile(expr string) (Filter, error) {
 		return nil, err
 	}
 	// fmt.Println(object)
-	return &filter{object.(*ExpressionGroup)}, nil
+	return &filter{object.(*ExpressionList)}, nil
 }
