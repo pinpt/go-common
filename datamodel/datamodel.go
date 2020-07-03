@@ -131,3 +131,13 @@ type ModelSendEvent interface {
 	// Timestamp returns the event timestamp. If empty, will default to time.Now()
 	Timestamp() time.Time
 }
+
+// PartialModel is a generic model interface that all our models implement
+type PartialModel interface {
+	// Stringfy converts the instance to JSON string
+	Stringify() string
+	// ToMap converts the instance to a map
+	ToMap() map[string]interface{}
+	// GetModelName returns the name of the model
+	GetModelName() ModelNameType
+}
