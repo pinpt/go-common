@@ -658,7 +658,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if IsErrorRetryable(err) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) {
+				if IsErrorRetryable(err) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure, websocket.ClosePolicyViolation) {
 					closed = true
 					errored = true
 					log.Debug(c.subscription.Logger, "connection has been closed, will try to reconnect", "err", err)
