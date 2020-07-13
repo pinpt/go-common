@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datamodel"
+	"github.com/pinpt/go-common/v10/hash"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pstrings "github.com/pinpt/go-common/v10/strings"
@@ -812,6 +814,28 @@ type Subscription struct {
 	CloseTimeout      time.Duration       `json:"-"`
 	DispatchTimeout   time.Duration       `json:"-"`
 	DisablePing       bool                `json:"-"` // Deprecated
+
+	// used internally
+	CustomerID string `json:"-"`
+	Internal   bool   `json:"-"`
+	Anonymous  bool   `json:"-"`
+}
+
+//GenerateQueueName takes in a Subscription, extracts the headers and topics and returns a consistent but unique queue name
+func GenerateQueueName(subscription Subscription) string {
+	hashkeys := []string{}
+	for k, v := range subscription.Headers {
+		hashkeys = append(hashkeys, k, v)
+	}
+	for _, topic := range subscription.Topics {
+		hashkeys = append(hashkeys, topic)
+	}
+
+	// sort so the hash is consistent
+	sort.Strings(hashkeys)
+	queueName := subscription.GroupID + "-" + hash.Values(hashkeys) // has the matching headers and topics so we create a consistent but unique queue
+
+	return queueName
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
