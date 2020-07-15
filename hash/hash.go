@@ -1,8 +1,10 @@
 package hash
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"io"
 	"reflect"
@@ -152,4 +154,35 @@ func hashValues(objects ...interface{}) string {
 	}
 
 	return fmt.Sprintf("%016x", h.Sum64())
+}
+
+// Sha256Checksum will return a sha256 checksum of r
+func Sha256Checksum(r io.Reader) ([]byte, error) {
+	_, sum, err := ChecksumFrom(r, sha256.New())
+	return sum, err
+}
+
+// ChecksumFrom will read all of r 8096 bytes at a time into hasher and return the sum
+func ChecksumFrom(r io.Reader, hasher hash.Hash) (int64, []byte, error) {
+	var written int
+	for {
+		buf := make([]byte, 8096)
+		n, err := r.Read(buf)
+		written += n
+		if err == io.EOF || n == 0 {
+			break
+		} else if err != nil {
+			return 0, nil, err
+		}
+		n, err = hasher.Write(buf[0:n])
+		if err != nil {
+			return 0, nil, err
+		}
+	}
+	return int64(written), hasher.Sum(nil), nil
+}
+
+// ChecksumCopy will do the same as io.Copy, but also returns a sha256 checksum for the data read
+func ChecksumCopy(dst io.Writer, src io.Reader) (int64, []byte, error) {
+	return ChecksumFrom(io.TeeReader(src, dst), sha256.New())
 }

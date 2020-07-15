@@ -661,3 +661,50 @@ func TestSetHeaders(t *testing.T) {
 	err := Publish(context.Background(), event, "dev", "", WithHeaders(map[string]string{"x-api-key": "foobar"}))
 	assert.NoError(err)
 }
+
+func TestGenerateQueueName(t *testing.T) {
+	assert := assert.New(t)
+	sub1 := Subscription{
+		GroupID: "TestGroup",
+		Topics:  []string{"Topic_1", "Topic_2"},
+	}
+	queueName1 := GenerateQueueName(sub1)
+
+	sub2 := Subscription{
+		GroupID: "TestGroup",
+		Topics:  []string{"Topic_2", "Topic_1"},
+	}
+	queueName2 := GenerateQueueName(sub2)
+
+	//Test that different ordering of topics results in the same name
+	assert.Equal(queueName1, queueName2)
+
+	sub3 := Subscription{
+		GroupID: "TestGroup_2",
+		Topics:  []string{"Topic_1", "Topic_2"},
+	}
+	queueName3 := GenerateQueueName(sub3)
+
+	//Test that a new GroupID gets a different name
+	assert.NotEqual(queueName1, queueName3)
+
+	sub4 := Subscription{
+		GroupID: "TestGroup",
+		Topics:  []string{"Topic_1", "Topic_2"},
+		Headers: map[string]string{"Header_1": "Value_1", "Header_2": "Value_2"},
+	}
+	queueName4 := GenerateQueueName(sub4)
+
+	//Test that adding headers gets a different name
+	assert.NotEqual(queueName1, queueName4)
+
+	sub5 := Subscription{
+		GroupID: "TestGroup",
+		Topics:  []string{"Topic_1", "Topic_2"},
+		Headers: map[string]string{"Header_2": "Value_2", "Header_1": "Value_1"},
+	}
+	queueName5 := GenerateQueueName(sub5)
+
+	//Test that changing how the headers are ordered generates the same name
+	assert.Equal(queueName4, queueName5)
+}

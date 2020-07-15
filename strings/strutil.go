@@ -66,12 +66,8 @@ func PrettyTime(t time.Duration) string {
 func JoinURL(elem ...string) string {
 	parts := []string{}
 	for _, e := range elem {
-		if strings.HasSuffix(e, "/") {
-			e = strings.TrimSuffix(e, "/")
-		}
-		if strings.HasPrefix(e, "/") {
-			e = strings.TrimPrefix(e, "/")
-		}
+		e = strings.TrimSuffix(e, "/")
+		e = strings.TrimPrefix(e, "/")
 		parts = append(parts, e)
 	}
 	res := strings.Join(parts, "/")

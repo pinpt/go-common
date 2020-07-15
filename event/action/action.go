@@ -147,7 +147,6 @@ func Register(ctx context.Context, action Action, config Config) (*ActionSubscri
 		DisableAutoCommit: true,
 		Filter:            config.Filter,
 		DisablePing:       config.DisablePing,
-
 	}
 	if len(config.Topics) > 0 {
 		subscription.Topics = config.Topics

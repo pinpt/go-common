@@ -23,6 +23,8 @@ type Node struct {
     re *regexp.Regexp
 }
 
+var _ Filter = (*Node)(nil)
+
 func (n *Node) String() string {
     if n.RegExp {
         return fmt.Sprintf("Node[%s=~%s]", n.Key, n.Value)
@@ -68,6 +70,8 @@ type Expression struct {
     Right *Expression
 }
 
+var _ Filter = (*Expression)(nil)
+
 func (e *Expression) String() string {
     return fmt.Sprintf("Expression[%s,%s,%s]", e.Left, e.Conjunction, e.Right)
 }
@@ -87,6 +91,8 @@ type ExpressionGroup struct {
     Conjunction string
     Right []*Expression
 }
+
+var _ Filter = (*ExpressionGroup)(nil)
 
 func (g *ExpressionGroup) String() string {
     if g.Conjunction == "" {
@@ -124,6 +130,35 @@ func (n *ExpressionGroup) Test(kv map[string]interface{}) bool {
     return left && right
 }
 
+type ExpressionList struct{
+    groups []*ExpressionGroup
+}
+
+var _ Filter = (*ExpressionList)(nil)
+
+func (l *ExpressionList) Test(kv map[string]interface{}) bool {
+    var isOr bool
+    for _, n := range l.groups {
+        isOr = n.Conjunction == "OR"
+        ok := n.Test(kv)
+        if !ok {
+            if isOr {
+                continue
+            }
+            return false
+        } else {
+            if isOr {
+                return true
+            }
+        }
+    }
+    return !isOr
+}
+
+func (l *ExpressionList) String() string {
+    return fmt.Sprintf("ExpressionList[%s]", l.groups)
+}
+
 }
 
 Object ← _ val:ExpressionList EOF {
@@ -139,14 +174,32 @@ AndCondition ← "AND"
 
 Condition ← OrCondition / AndCondition
 
-ExpressionList ← _ vals:( ExpressionGroup ( _ Condition ExpressionGroup )? ) {
+ExpressionList ← _ vals:( ExpressionGroup ( _ Condition ExpressionGroup )* ) {
     valsSl := toIfaceSlice(vals)
-    res := &ExpressionGroup{}
-    res.Left = valsSl[0].([]*Expression)
-    if len(valsSl) > 1 && valsSl[1] != nil {
-        group := toIfaceSlice(valsSl[1])
-        res.Conjunction = string(group[1].([]byte))
-        res.Right = group[2].([]*Expression)
+    res := &ExpressionList{
+        groups: make([]*ExpressionGroup, 0),
+    }
+    left := valsSl[0].([]*Expression)
+    initial := &ExpressionGroup{
+        Left: left,
+    }
+    res.groups = append(res.groups,initial)
+    right := valsSl[1].([]interface{})
+    for _, e := range right {
+        conjunction := string(e.([]interface{})[1].([]byte))
+        if initial.Conjunction == "" {
+            initial.Conjunction = conjunction
+        }
+        nodeRight := e.([]interface{})[2].([]*Expression)
+        if initial.Right == nil {
+            initial.Right = nodeRight
+        } else {
+            initial = &ExpressionGroup{
+                Left: nodeRight,
+                Conjunction: conjunction,
+            }
+            res.groups = append(res.groups,initial)
+        }
     }
     return res, nil
 }

@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pinpt/go-common/api"
 	"github.com/pinpt/go-common/datamodel"
+	"github.com/pinpt/go-common/hash"
 	pjson "github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/log"
 	pstrings "github.com/pinpt/go-common/strings"
@@ -413,7 +415,6 @@ func (c *SubscriptionChannel) Close() error {
 		}
 		close(c.done)
 		close(c.ch)
-		c.checkLastPingsStop()
 	}
 	return nil
 }
@@ -428,45 +429,6 @@ var defaultInsecureWSDialer = &websocket.Dialer{
 		InsecureSkipVerify: true,
 	},
 	EnableCompression: true,
-}
-
-func (c *SubscriptionChannel) pingReceived() {
-	c.lastPingMu.Lock()
-	c.lastPing = time.Now()
-	c.lastPingMu.Unlock()
-}
-
-const expectedDurationBetweenPings = 30 * time.Second
-
-func (c *SubscriptionChannel) checkLastPingsInit() {
-	c.pingReceived() // make initial checks right
-	c.lastPingTimer = time.NewTicker(expectedDurationBetweenPings)
-	c.lastPingsDone = make(chan bool)
-}
-
-func (c *SubscriptionChannel) checkLastPingsLoop() {
-	for {
-		select {
-		case <-c.lastPingsDone:
-			return
-		case <-c.lastPingTimer.C:
-			c.lastPingMu.Lock()
-			lastPing := c.lastPing
-			c.lastPingMu.Unlock()
-			// crash if 5 last pings were missed
-			// would be better to retry subscription, but can't figure out how to do this cleanly here, since it would be blocked on wch.ReadJSON()
-			if time.Since(lastPing) > 5*expectedDurationBetweenPings {
-				panic(fmt.Errorf("no pings received for %v, expecting pings every %v", time.Since(lastPing), expectedDurationBetweenPings))
-			}
-		}
-	}
-}
-
-func (c *SubscriptionChannel) checkLastPingsStop() {
-	if c.lastPingTimer != nil {
-		c.lastPingTimer.Stop()
-		c.lastPingsDone <- true
-	}
 }
 
 // Publish will send a message to the event api
@@ -659,12 +621,6 @@ func (c *SubscriptionChannel) run() {
 		c.mu.Unlock()
 		log.Debug(c.subscription.Logger, "connected")
 
-		pinghandler := wch.PingHandler()
-		wch.SetPingHandler(func(data string) error {
-			c.pingReceived()
-			return pinghandler(data)
-		})
-
 		var subid string
 
 		if len(c.subscription.Topics) > 0 {
@@ -695,11 +651,6 @@ func (c *SubscriptionChannel) run() {
 			c.mu.Unlock()
 		}
 
-		if !c.subscription.DisablePing {
-			c.checkLastPingsInit() // have it separately to avoid races with Close
-			go c.checkLastPingsLoop()
-		}
-
 		errors = 0
 		var errored bool
 		var closed bool
@@ -709,7 +660,7 @@ func (c *SubscriptionChannel) run() {
 		for !closed {
 			var actionresp actionResponse
 			if err := wch.ReadJSON(&actionresp); err != nil {
-				if IsErrorRetryable(err) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure) {
+				if IsErrorRetryable(err) || websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseTryAgainLater, websocket.CloseAbnormalClosure, websocket.ClosePolicyViolation) {
 					closed = true
 					errored = true
 					log.Debug(c.subscription.Logger, "connection has been closed, will try to reconnect", "err", err)
@@ -862,7 +813,29 @@ type Subscription struct {
 	HTTPHeaders       map[string]string   `json:"-"`
 	CloseTimeout      time.Duration       `json:"-"`
 	DispatchTimeout   time.Duration       `json:"-"`
-	DisablePing       bool                `json:"-"`
+	DisablePing       bool                `json:"-"` // Deprecated
+
+	// used internally
+	CustomerID string `json:"-"`
+	Internal   bool   `json:"-"`
+	Anonymous  bool   `json:"-"`
+}
+
+//GenerateQueueName takes in a Subscription, extracts the headers and topics and returns a consistent but unique queue name
+func GenerateQueueName(subscription Subscription) string {
+	hashkeys := []string{}
+	for k, v := range subscription.Headers {
+		hashkeys = append(hashkeys, k, v)
+	}
+	for _, topic := range subscription.Topics {
+		hashkeys = append(hashkeys, topic)
+	}
+
+	// sort so the hash is consistent
+	sort.Strings(hashkeys)
+	queueName := subscription.GroupID + "-" + hash.Values(hashkeys) // has the matching headers and topics so we create a consistent but unique queue
+
+	return queueName
 }
 
 // NewSubscription will create a subscription to the event server and will continously read events (as they arrive)
