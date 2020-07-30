@@ -381,7 +381,6 @@ func ConvertToModel(ts time.Time, dateModel interface{}) {
 		return
 	}
 
-	// this always returns nil
 	date := NewDateWithTime(ts)
 
 	t := reflect.ValueOf(dateModel).Elem()
