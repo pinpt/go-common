@@ -9,6 +9,8 @@ import (
     pjson "github.com/pinpt/go-common/v10/json"
 )
 
+const null = "null"
+
 func toIfaceSlice(v interface{}) []interface{} {
     if v == nil {
         return nil
@@ -217,7 +219,7 @@ ExpressionGroup ← _ vals:( _ LeftParen? _ Expression _ RightParen? _ )+ {
 
 Separator ← ':'
 
-NodeVal ← val:( String / Number / Bool / Regexp ) _ {
+NodeVal ← val:( String / Number / Bool / Regexp / Null ) _ {
     return val, nil
 }
 
@@ -302,6 +304,10 @@ HexDigit ← [0-9a-f]i
 
 Regexp ← '/' [A-Za-z0-9^$-._\\(\\)\\?\\+{} ]+ '/' {
     return regexp.Compile(string(c.text[1: len(c.text)-1]))
+}
+
+Null ← "null" {
+    return null, nil
 }
 
 _ "whitespace" ← [ \t\r\n]*

@@ -9,7 +9,7 @@ import (
 func TestInvalid(t *testing.T) {
 	assert := assert.New(t)
 	filter, err := Compile("a:")
-	assert.EqualError(err, `1:3 (2): no match found, expected: "-", "/", "0", "\"", "false", "true", [ \t\r\n] or [1-9]`)
+	assert.EqualError(err, `1:3 (2): no match found, expected: "-", "/", "0", "\"", "false", "null", "true", [ \t\r\n] or [1-9]`)
 	assert.Nil(filter)
 }
 
@@ -215,4 +215,12 @@ func TestGOLD117(t *testing.T) {
 	assert.True(filter.Test(map[string]interface{}{"model": "activityfeed.Bookmark", "user_id": "ecf8fbd624bb9c39"}))
 	assert.True(filter.Test(map[string]interface{}{"model": "activityfeed.Feed", "user_id": "ecf8fbd624bb9c39"}))
 	assert.True(filter.Test(map[string]interface{}{"model": "admin.Integration"}))
+}
+
+func TestNullCheck(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`c:null`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": nil}))
+	assert.False(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": "C"}))
 }
