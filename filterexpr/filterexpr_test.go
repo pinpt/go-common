@@ -208,6 +208,15 @@ func TestMultipleAndClausesWithJoinedMixedAndOr1(t *testing.T) {
 	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "e": "e"}))
 }
 
+func TestGOLD117(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`(model:"activityfeed.Bookmark" AND user_id:"ecf8fbd624bb9c39") OR (model:"activityfeed.Feed" AND user_id:"ecf8fbd624bb9c39") OR model:"admin.Integration" OR model:"admin.RepoList" OR model:"admin.ProjectList" OR model:"admin.CalendarList" OR model:"admin.Agent" OR model:"admin.Customer" OR model:"admin.CustomerInformation" OR model:"admin.CustomerSubscription" OR model:"admin.User" OR model:"admin.UserMapping" OR model:"admin.Profile" OR model:"registry.Publisher" OR model:"registry.Integration" OR model:"customer.Team" OR model:"pipeline.work.Issue" OR model:"pipeline.work.Sprint" OR model:"pipeline.work.Project" OR model:"pipeline.sourcecode.PullRequest" OR model:"pipeline.sourcecode.PullRequestReview" OR model:"pipeline.sourcecode.Repo" OR model:"admin.IntegrationUser" OR model:"pipeline.work.Retro" OR model:"pipeline.work.RetroNoteGrouping" OR model:"pipeline.work.RetroUserRating" OR model:"pipeline.work.RetroNote" OR model:"pipeline.work.RetroNoteVote" OR model:"pipeline.work.RetroNoteGroupingVote" OR model:"pipeline.work.RetroAction" OR model:"pipeline.work.RetroTalkingPoint" OR model:"datascience.SprintHealth" OR model:"datascience.IssueForecast" OR model:"admin.TeamSetting" OR model:"pipeline.work.Plan" OR model:"pipeline.work.PlanUser" OR model:"pipeline.work.PlannedIssue" OR model:"agent.Enrollment" OR model:"agent.IntegrationInstance" OR model:"registry.Release"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"model": "activityfeed.Bookmark", "user_id": "ecf8fbd624bb9c39"}))
+	assert.True(filter.Test(map[string]interface{}{"model": "activityfeed.Feed", "user_id": "ecf8fbd624bb9c39"}))
+	assert.True(filter.Test(map[string]interface{}{"model": "admin.Integration"}))
+}
+
 func TestNullCheck(t *testing.T) {
 	assert := assert.New(t)
 	filter, err := Compile(`c:null`)
