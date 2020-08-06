@@ -223,4 +223,5 @@ func TestNullCheck(t *testing.T) {
 	assert.NoError(err)
 	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": nil}))
 	assert.False(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": "C"}))
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B"}))
 }
