@@ -340,13 +340,13 @@ func NewDate(val string) (*Date, error) {
 }
 
 // NewDateWithTime returns a new Date object from a time.Time value
-func NewDateWithTime(tv time.Time) (*Date, error) {
+func NewDateWithTime(tv time.Time) *Date {
 	_, timezone := tv.Zone()
 	return &Date{
 		Epoch:   TimeToEpoch(tv),
 		Rfc3339: tv.Round(time.Millisecond).Format(RFC3339),
 		Offset:  int64(timezone) / 60,
-	}, nil
+	}
 }
 
 // NewDateFromEpoch returns a new Date object from a epoch time value
@@ -381,8 +381,7 @@ func ConvertToModel(ts time.Time, dateModel interface{}) {
 		return
 	}
 
-	// this always returns nil
-	date, _ := NewDateWithTime(ts)
+	date := NewDateWithTime(ts)
 
 	t := reflect.ValueOf(dateModel).Elem()
 	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))
