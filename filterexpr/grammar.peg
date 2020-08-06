@@ -45,12 +45,17 @@ func toString(val interface{}) string {
 }
 
 func (n *Node) Test(kv map[string]interface{}) bool {
-    if val, ok := kv[n.Key]; ok {
+    val, ok := kv[n.Key]
+    if ok{
         sval := toString(val)
         if n.RegExp {
             return n.re.MatchString(sval)
         }
         return n.Value == sval
+    } else {
+        if n.Value == null {
+            return true
+        }
     }
     if strings.Contains(n.Key, ".") {
         val, _ := pjson.DottedFind(n.Key, kv)
