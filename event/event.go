@@ -318,6 +318,11 @@ func (e SubscriptionEvent) Commit() {
 	e.commitch <- true
 }
 
+// Nack for nacking a message when auto commit is false
+func (e SubscriptionEvent) Nack() {
+	e.commitch <- false
+}
+
 type action struct {
 	ID     string      `json:"id"`
 	Action string      `json:"action"`
@@ -738,12 +743,22 @@ func (c *SubscriptionChannel) run() {
 					if c.subscription.DisableAutoCommit {
 						// wait for our commit before continuing
 						select {
-						case <-subdata.commitch:
-							if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
-								if c.subscription.Errors != nil {
-									c.subscription.Errors <- err
-								} else {
-									panic(err)
+						case commit := <-subdata.commitch:
+							if commit {
+								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
+									if c.subscription.Errors != nil {
+										c.subscription.Errors <- err
+									} else {
+										panic(err)
+									}
+								}
+							} else {
+								if err := wch.WriteJSON(action{actionresp.ID, "nack", subdata.ID}); err != nil {
+									if c.subscription.Errors != nil {
+										c.subscription.Errors <- err
+									} else {
+										panic(err)
+									}
 								}
 							}
 							break
