@@ -746,10 +746,13 @@ func (c *SubscriptionChannel) run() {
 						case commit := <-subdata.commitch:
 							if commit {
 								if err := wch.WriteJSON(action{actionresp.ID, "commit", subdata.ID}); err != nil {
-									if c.subscription.Errors != nil {
-										c.subscription.Errors <- err
-									} else {
-										panic(err)
+									// broken pipe on a commit will just means the message wasn't committed or that the socket was closed before we could send it
+									if !strings.Contains(err.Error(), "write: broken pipe") {
+										if c.subscription.Errors != nil {
+											c.subscription.Errors <- err
+										} else {
+											log.Error(c.subscription.Logger, "error sending commit", "err", err, "id", subdata.ID)
+										}
 									}
 								}
 							} else {
@@ -757,7 +760,7 @@ func (c *SubscriptionChannel) run() {
 									if c.subscription.Errors != nil {
 										c.subscription.Errors <- err
 									} else {
-										panic(err)
+										log.Error(c.subscription.Logger, "error sending nack", "err", err, "id", subdata.ID)
 									}
 								}
 							}
