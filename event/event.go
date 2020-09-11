@@ -138,6 +138,7 @@ func IsErrorRetryable(err error) bool {
 		msg := err.Error()
 		if strings.Contains(msg, "connect: connection refused") ||
 			strings.Contains(msg, "EOF") ||
+			strings.Contains(msg, "not connected to a server") ||
 			strings.Contains(msg, "message was not sent") ||
 			strings.Contains(msg, "websocket: bad handshake") ||
 			strings.Contains(msg, "i/o timeout") ||
