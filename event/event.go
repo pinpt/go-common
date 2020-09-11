@@ -286,13 +286,14 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			for k, v := range resp.Header {
 				fmt.Println("[event-api] response header", k, "=>", v[0])
 			}
-			fmt.Println("[event-api] response body: " + respStr)
+			fmt.Println("[event-api] response body: " + respStr, "code", resp.StatusCode)
 		}
 		if respStr != "OK" {
 			var rerr struct {
 				Success bool
 				Message string
 			}
+
 			if err := json.Unmarshal(bts, &rerr); err != nil {
 				return fmt.Errorf("%s", respStr)
 			}
