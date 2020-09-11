@@ -123,7 +123,7 @@ var ErrDeadlineExceeded = errors.New("error: deadline exceeded on publish")
 // IsHTTPStatusRetryable returns true if the status code is retryable
 func IsHTTPStatusRetryable(statusCode int) bool {
 	switch statusCode {
-	case http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusServiceUnavailable, http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests:
+	case http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusInternalServerError, http.StatusServiceUnavailable, http.StatusNotFound, http.StatusRequestTimeout, http.StatusTooManyRequests:
 		return true
 	}
 	return false
