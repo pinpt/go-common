@@ -1,6 +1,7 @@
 package filterexpr
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -241,4 +242,42 @@ func TestArrayEqualsMatch(t *testing.T) {
 	filter, err = Compile(`c:"bar"`)
 	assert.NoError(err)
 	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []interface{}{"foo", "bar"}}))
+}
+
+func TestJSON(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`c.foo:"bar"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"c": `{"foo":"bar"}`}))
+}
+
+func TestEmbeddedJSON(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`data.attendee_ids:"ff1f0458cfe3e85d"`)
+	assert.NoError(err)
+	dbchange := `{
+		"action": "UPSERT",
+		"change_date": {
+		  "epoch": 1600183776694,
+		  "offset": 0,
+		  "rfc3339": "2020-09-15T15:29:36.694+00:00"
+		},
+		"customer_id": "a8a78d9c16839b97",
+		"data": "{\"_id\":\"088700e68ca935c2\",\"active\":false,\"attendee_ids\":[\"ff1f0458cfe3e85d\",\"579dc0e39f8f8bf8\"],\"attendee_ref_id\":\"\",\"busy\":false,\"calendar_id\":\"\",\"created_ts\":1600183776664,\"customer_id\":\"a8a78d9c16839b97\",\"description\":\"\",\"end_date\":{\"epoch\":1600182000000,\"offset\":-300,\"rfc3339\":\"2020-09-15T10:00:00-05:00\"},\"integration_instance_id\":\"fa191e168d0cdde8\",\"location\":{\"details\":\"\",\"name\":\"\",\"url\":\"https://meet.google.com/mia-cwgr-eih\"},\"name\":\"Gold Miners Standup\",\"owner\":{\"avatar_url\":\"https://lh3.googleusercontent.com/a-/AOh14GgENnGHM7EV8a9hMKeg8Up4zzD7em_0Abi-177x\",\"id\":\"b3810254256536ef\",\"name\":\"Robin Diddams\",\"nickname\":\"Robin\",\"profile_id\":\"79f9ee0efd869eb5\",\"ref_id\":\"579dc0e39f8f8bf8\",\"ref_type\":\"gcal\",\"team_id\":\"06fc70d80fdd028f\",\"type\":\"TRACKABLE\",\"url\":null},\"owner_ref_id\":\"579dc0e39f8f8bf8\",\"participants\":[],\"ref_id\":\"3kaqtn5lkri8iir1nba94mqt17_20200915T143000Z\",\"ref_type\":\"gcal\",\"start_date\":{\"epoch\":1600180200000,\"offset\":-300,\"rfc3339\":\"2020-09-15T09:30:00-05:00\"},\"status\":\"CONFIRMED\",\"updated_ts\":1600183776664,\"url\":\"https://www.google.com/calendar/event?eid=M2thcXRuNWxrcmk4aWlyMW5iYTk0bXF0MTdfMjAyMDA5MTVUMTQzMDAwWiByZGlkZGFtc0BwaW5wb2ludC5jb20\"}",
+		"hashcode": "06556540c8ccaa4a",
+		"id": "b20a52408f2df27d",
+		"integration_instance_id": null,
+		"model": "pipeline.calendar.Event",
+		"ref_id": "088700e68ca935c2",
+		"ref_type": ""
+	 }`
+	kv := make(map[string]interface{})
+	json.Unmarshal([]byte(dbchange), &kv)
+	assert.True(filter.Test(kv))
+	filter, err = Compile(`data.attendee_ids:"ff1f0458cfe3e8ee"`)
+	assert.NoError(err)
+	assert.False(filter.Test(kv))
+	filter, err = Compile(`data.attendee_ids:"ff1f0458cfe3e8ee" OR data.attendee_ids:"579dc0e39f8f8bf8"`)
+	assert.NoError(err)
+	assert.True(filter.Test(kv))
 }
