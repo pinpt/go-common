@@ -5,6 +5,7 @@ import (
     "fmt"
     "strings"
     "regexp"
+    "encoding/json"
 
     pjson "github.com/pinpt/go-common/v10/json"
 )
@@ -44,39 +45,43 @@ func toString(val interface{}) string {
     return pjson.Stringify(val)
 }
 
+func (n *Node) matchVal(theval string, val interface{}, kv map[string]interface{}) bool {
+    if kv, ok := val.([]string); ok {
+        for i := 0; i < len(kv); i++ {
+            if n.RegExp {
+                if n.re.MatchString(kv[i]) {
+                    return true
+                }
+            } else if kv[i] == theval {
+                return true
+            }
+        }
+        return false
+    }
+    if kv, ok := val.([]interface{}); ok {
+        for i := 0; i < len(kv); i++ {
+            kval := toString(kv[i])
+            if n.RegExp {
+                if n.re.MatchString(kval) {
+                    return true
+                }
+            } else if kval == theval {
+                return true
+            }
+        }
+        return false
+    }
+    sval := toString(val)
+    if n.RegExp {
+        return n.re.MatchString(sval)
+    }
+    return theval == sval
+}
+
 func (n *Node) Test(kv map[string]interface{}) bool {
     val, ok := kv[n.Key]
     if ok{
-        if kv, ok := val.([]string); ok {
-            for i := 0; i < len(kv); i++ {
-                if n.RegExp {
-                    if n.re.MatchString(kv[i]) {
-                        return true
-                    }
-                } else if kv[i] == n.Value {
-                    return true
-                }
-            }
-            return false
-        }
-        if kv, ok := val.([]interface{}); ok {
-            for i := 0; i < len(kv); i++ {
-                kval := toString(kv[i])
-                if n.RegExp {
-                    if n.re.MatchString(kval) {
-                        return true
-                    }
-                } else if kval == n.Value {
-                    return true
-                }
-            }
-            return false
-        }
-        sval := toString(val)
-        if n.RegExp {
-            return n.re.MatchString(sval)
-        }
-        return n.Value == sval
+        return n.matchVal(n.Value, val, kv)
     } else {
         if n.Value == null {
             return true
@@ -85,13 +90,18 @@ func (n *Node) Test(kv map[string]interface{}) bool {
     if strings.Contains(n.Key, ".") {
         val, _ := pjson.DottedFind(n.Key, kv)
         if val == nil {
-            return false
+            tok := strings.Split(n.Key, ".")
+            sval := kv[tok[0]]
+            // looks like a string of JSON
+            if s, ok := sval.(string); ok && s[0:1] == "{" && s[len(s) - 1:] == "}" {
+                svalkv := make(map[string]interface{})
+                json.Unmarshal([]byte(s), &svalkv)
+                val, _ = pjson.DottedFind(strings.Join(tok[1:], "."), svalkv)
+            } else {
+                return false
+            }
         }
-        sval := toString(val)
-        if n.RegExp {
-            return n.re.MatchString(sval)
-        }
-        return n.Value == sval
+        return n.matchVal(n.Value, val, kv)
     }
     return n.Value == ""
 }
