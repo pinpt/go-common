@@ -225,3 +225,20 @@ func TestNullCheck(t *testing.T) {
 	assert.False(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": "C"}))
 	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B"}))
 }
+
+func TestArrayEqualsMatch(t *testing.T) {
+	assert := assert.New(t)
+	filter, err := Compile(`c:"foo"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []string{"foo", "bar"}}))
+	filter, err = Compile(`c:"bar"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []string{"foo", "bar"}}))
+	assert.False(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []string{"gummy", "bear"}}))
+	filter, err = Compile(`c:/^ba/`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []string{"foo", "bar"}}))
+	filter, err = Compile(`c:"bar"`)
+	assert.NoError(err)
+	assert.True(filter.Test(map[string]interface{}{"a": "A", "b": "B", "c": []interface{}{"foo", "bar"}}))
+}
