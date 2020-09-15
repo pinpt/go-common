@@ -47,6 +47,31 @@ func toString(val interface{}) string {
 func (n *Node) Test(kv map[string]interface{}) bool {
     val, ok := kv[n.Key]
     if ok{
+        if kv, ok := val.([]string); ok {
+            for i := 0; i < len(kv); i++ {
+                if n.RegExp {
+                    if n.re.MatchString(kv[i]) {
+                        return true
+                    }
+                } else if kv[i] == n.Value {
+                    return true
+                }
+            }
+            return false
+        }
+        if kv, ok := val.([]interface{}); ok {
+            for i := 0; i < len(kv); i++ {
+                kval := toString(kv[i])
+                if n.RegExp {
+                    if n.re.MatchString(kval) {
+                        return true
+                    }
+                } else if kval == n.Value {
+                    return true
+                }
+            }
+            return false
+        }
         sval := toString(val)
         if n.RegExp {
             return n.re.MatchString(sval)
