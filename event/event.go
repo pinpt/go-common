@@ -165,7 +165,7 @@ var insecureClient = &http.Client{
 var secureClient, _ = api.NewHTTPAPIClientDefaultWithTimeout(time.Minute * 2)
 
 // Publish will publish an event to the event api server
-func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) (err error) {
+func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) error {
 	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
 	if event.url != "" {
 		url = event.url // for testing only
@@ -188,12 +188,11 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		attempts++
 		for _, opt := range options {
 			if err := opt(config); err != nil {
-				return err
+				return fmt.Errorf("error applying option: %w", err)
 			}
 		}
 		if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
-			err = ErrDeadlineExceeded
-			return
+			return ErrDeadlineExceeded
 		}
 		if config.Debug || EventDebug {
 			fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
@@ -249,11 +248,11 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 				continue
 			}
 			if logger != nil {
-				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", err)
+				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", resperr)
 			} else if EventDebug {
-				fmt.Println("[event-api] sent event error", "payload", payload, "event", event, "err", err)
+				fmt.Println("[event-api] sent event error", "payload", payload, "event", event, "err", resperr)
 			}
-			return resperr
+			return fmt.Errorf("error in post: %w", resperr)
 		}
 		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 			// if retryable, we'll continue again
@@ -292,9 +291,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 				Message string
 			}
 			if err := json.Unmarshal(bts, &rerr); err != nil {
-				return fmt.Errorf("%s", respStr)
+				return fmt.Errorf("error decoding response (%s): %w", respStr, err)
 			}
-			return errors.New(rerr.Message)
+			return fmt.Errorf("error from event-api: %s", rerr.Message)
 		}
 		return nil
 	}
