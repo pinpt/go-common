@@ -361,6 +361,17 @@ func NewDateFromEpoch(epoch int64) Date {
 	}
 }
 
+// TimeFromDate returns a time.Time for a date
+func TimeFromDate(date Date) time.Time {
+	ts := DateFromEpoch(date.Epoch)
+	if ts.IsZero() {
+		return ts
+	}
+	// apply timezone
+	loc := time.FixedZone("pinpt", int(date.Offset*60))
+	return ts.In(loc)
+}
+
 // EpochMinuteApart returns true if both epochs are less than or equal
 // to one minute apart
 func EpochMinuteApart(epoch1, epoch2 int64) bool {
