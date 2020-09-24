@@ -323,4 +323,6 @@ func TestTimeFromDate(t *testing.T) {
 	_, offset := tv.Zone()
 	assert.Equal(-14400, offset)
 	assert.EqualValues(date.Offset, offset/60)
+	assert.EqualValues(date.Epoch, TimeToEpoch(tv))
+	assert.EqualValues(date.Rfc3339, tv.Format(RFC3339))
 }
