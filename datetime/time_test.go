@@ -311,3 +311,20 @@ func TestConvertToModel(t *testing.T) {
 	assert.Equal("", dateZero.Rfc3339)
 
 }
+
+func TestTimeFromDate(t *testing.T) {
+	assert := assert.New(t)
+	date := Date{
+		Offset:  -240,
+		Epoch:   1528121149000,
+		Rfc3339: "2018-06-04T10:05:49-04:00",
+	}
+	tv := TimeFromDate(date)
+	_, offset := tv.Zone()
+	assert.Equal(-14400, offset)
+	assert.EqualValues(date.Offset, offset/60)
+	assert.EqualValues(date.Epoch, TimeToEpoch(tv))
+	assert.EqualValues(date.Rfc3339, tv.Format(RFC3339))
+	rf, _ := time.Parse(time.RFC3339, "2018-06-04T10:05:49-04:00")
+	assert.EqualValues(rf.String(), tv.String())
+}
