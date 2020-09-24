@@ -368,7 +368,7 @@ func TimeFromDate(date Date) time.Time {
 		return ts
 	}
 	// apply timezone
-	loc := time.FixedZone("pinpt", int(date.Offset*60))
+	loc := time.FixedZone("", int(date.Offset*60))
 	return ts.In(loc)
 }
 

@@ -325,4 +325,6 @@ func TestTimeFromDate(t *testing.T) {
 	assert.EqualValues(date.Offset, offset/60)
 	assert.EqualValues(date.Epoch, TimeToEpoch(tv))
 	assert.EqualValues(date.Rfc3339, tv.Format(RFC3339))
+	rf, _ := time.Parse(time.RFC3339, "2018-06-04T10:05:49-04:00")
+	assert.EqualValues(rf.String(), tv.String())
 }
