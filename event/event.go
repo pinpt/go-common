@@ -142,6 +142,7 @@ func IsErrorRetryable(err error) bool {
 			strings.Contains(msg, "i/o timeout") ||
 			strings.Contains(msg, "connection reset by peer") ||
 			strings.Contains(msg, "broken pipe") ||
+			strings.Contains(msg, "TLS handshake timeout") ||
 			strings.Contains(msg, "websocket: close sent") {
 			return true
 		}
