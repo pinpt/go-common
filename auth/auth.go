@@ -17,8 +17,23 @@ const (
 	pbkdf2Iterations   int = 32767
 )
 
+// WithOption allows options to be customized
+type WithOption struct {
+	URLSafe bool
+}
+
+// WithOptionFunc is a function for receiving options
+type WithOptionFunc func(opts *WithOption)
+
+// WithURLSafeOption will return a url safe encryption key
+func WithURLSafeOption() WithOptionFunc {
+	return func(opts *WithOption) {
+		opts.URLSafe = true
+	}
+}
+
 // EncryptString will encrypt plaintext using password
-func EncryptString(plaintext, password string) (string, error) {
+func EncryptString(plaintext, password string, options ...WithOptionFunc) (string, error) {
 	// Generate a 128-bit salt using a CSPRNG.
 	salt := make([]byte, pbkdf2SaltSize)
 	_, err := rand.Read(salt)
@@ -39,14 +54,36 @@ func EncryptString(plaintext, password string) (string, error) {
 	ciphertextAndNonceAndSalt = append(ciphertextAndNonceAndSalt, salt...)
 	ciphertextAndNonceAndSalt = append(ciphertextAndNonceAndSalt, ciphertextAndNonce...)
 
+	opts := &WithOption{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	if opts.URLSafe {
+		return base64.URLEncoding.EncodeToString(ciphertextAndNonceAndSalt), nil
+	}
+
 	// Return as base64 string.
 	return base64.StdEncoding.EncodeToString(ciphertextAndNonceAndSalt), nil
 }
 
 // DecryptString will decrypt the encoded value with password
-func DecryptString(base64CiphertextAndNonceAndSalt, password string) (string, error) {
+func DecryptString(base64CiphertextAndNonceAndSalt, password string, options ...WithOptionFunc) (string, error) {
 	// Decode the base64.
-	ciphertextAndNonceAndSalt, err := base64.StdEncoding.DecodeString(base64CiphertextAndNonceAndSalt)
+
+	opts := &WithOption{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	var err error
+	var ciphertextAndNonceAndSalt []byte
+
+	if opts.URLSafe {
+		ciphertextAndNonceAndSalt, err = base64.URLEncoding.DecodeString(base64CiphertextAndNonceAndSalt)
+	} else {
+		ciphertextAndNonceAndSalt, err = base64.StdEncoding.DecodeString(base64CiphertextAndNonceAndSalt)
+	}
 	if err != nil {
 		return "", err
 	}

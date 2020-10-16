@@ -49,3 +49,13 @@ func TestCookieKeyValue(t *testing.T) {
 	assert.NoError(err)
 	assert.NotEmpty(dec)
 }
+
+func TestAuthWithURLSafeEncoding(t *testing.T) {
+	assert := assert.New(t)
+	buf, err := EncryptString("hello world", testKey, WithURLSafeOption())
+	assert.NoError(err)
+	assert.Equal(url.PathEscape(buf), buf)
+	dec, err := DecryptString(buf, testKey, WithURLSafeOption())
+	assert.NoError(err)
+	assert.Equal("hello world", dec)
+}
