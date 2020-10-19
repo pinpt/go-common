@@ -92,6 +92,8 @@ const (
 	RegistryService = "registry.api"
 	// GraphService is the graph service endpoint
 	GraphService = "graph.api"
+	// WebhookService is the webhook service endpoint
+	WebhookService = "webhook.api"
 )
 
 // BackendURL return the base url to the API server
@@ -112,6 +114,8 @@ func BackendURL(subdomain string, channel string) string {
 			return os.Getenv("PP_REGISTRY_SERVICE")
 		case GraphService:
 			return os.Getenv("PP_GRAPHQL_SERVICE")
+		case WebhookService:
+			return os.Getenv("PP_WEBHOOK_SERVICE")
 		}
 	case "stable", "":
 		return fmt.Sprintf("https://%s.%s", subdomain, baseURL)
@@ -129,6 +133,8 @@ func BackendURL(subdomain string, channel string) string {
 			return fmt.Sprintf("https://%s.%s:8444/", subdomain, devbaseURL)
 		case GraphService:
 			return fmt.Sprintf("https://%s.%s:3010/", subdomain, devbaseURL)
+		case WebhookService:
+			return fmt.Sprintf("https://%s.%s:8454/", subdomain, devbaseURL)
 		}
 	}
 	return fmt.Sprintf("https://%s.%s.%s", subdomain, channel, baseURL)
