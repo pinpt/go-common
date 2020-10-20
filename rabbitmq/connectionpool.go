@@ -105,9 +105,11 @@ func (cp *ConnectionPool) GetConnection() (*ConnectionHost, error) {
 func (cp *ConnectionPool) ReturnConnection(connHost *ConnectionHost) {
 	select {
 	case cp.connections <- connHost:
-		log.Debug(cp.logger, "closing connection")
+		log.Debug(cp.logger, "returning connection")
 	default:
 		// pool is full, close passed connection
+		log.Debug(cp.logger, "closing connection")
+
 		connHost.Connection.Close()
 	}
 }
