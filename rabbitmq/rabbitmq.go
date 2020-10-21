@@ -82,7 +82,7 @@ func New(logger log.Logger, config Config) *Session {
 
 	// set a default QoS
 	if config.Qos <= 0 {
-		config.Qos = 3
+		config.Qos = 1
 	}
 
 	session := Session{
@@ -254,7 +254,7 @@ func (session *Session) startConsumeLoop(consumergroup string, autoAck bool, exc
 
 			err := session.consumerchannelhost.Channel.Cancel(
 				consumergroup, // Consumer
-				true,          // No-Wait
+				false,          // No-Wait
 			)
 			if err != nil {
 				log.Error(session.logger, "error closing channel on exit", "err", err)
