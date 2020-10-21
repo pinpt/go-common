@@ -82,7 +82,7 @@ func New(logger log.Logger, config Config) *Session {
 
 	// set a default QoS
 	if config.Qos <= 0 {
-		config.Qos = 3
+		config.Qos = 1
 	}
 
 	session := Session{
