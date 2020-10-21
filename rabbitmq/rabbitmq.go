@@ -254,7 +254,7 @@ func (session *Session) startConsumeLoop(consumergroup string, autoAck bool, exc
 
 			err := session.consumerchannelhost.Channel.Cancel(
 				consumergroup, // Consumer
-				false,          // No-Wait
+				true,          // No-Wait
 			)
 			if err != nil {
 				log.Error(session.logger, "error closing channel on exit", "err", err)
