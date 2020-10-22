@@ -19,6 +19,7 @@ type Config struct {
 	ID                      string
 	Exchange                string
 	IngestExchange          string
+	IngestQueueName         string
 	IsShovel                bool
 	ConsumerConnectionPool  *rabbitmq.ConnectionPool
 	PublisherConnectionPool *rabbitmq.ConnectionPool
@@ -185,10 +186,14 @@ func (session *Session) ensureConsumerChannel() {
 // Push will publish data to channel
 func (session *Session) Push(routingKey string, data amqp.Publishing) error {
 	exchange := session.config.IngestExchange
+
 	// if the session IS the shovel session, then we publish to the Main EventAPI exchange
 	// otherwise just publish to the IngestExchange
 	if session.config.IsShovel {
 		exchange = session.config.Exchange
+	} else {
+		// since we're using a direct exchange now, a routeingkey = queuename will get the message to the right queue
+		routingKey = session.config.IngestQueueName
 	}
 	return session.config.PublisherConnectionPool.Push(exchange, routingKey, data)
 }
