@@ -19,9 +19,7 @@ type Config struct {
 	ID                          string
 	Exchange                    string
 	IngestExchange              string
-	IngestQueueName             string
 	SubscriptionExchange        string
-	SubscriptionQueueName       string
 	IsShovel                    bool
 	IsSubscriptionQueueListener bool
 	ConsumerConnectionPool      *rabbitmq.ConnectionPool
@@ -208,10 +206,10 @@ func (session *Session) Push(routingKey string, data amqp.Publishing) error {
 	} else if session.config.IsSubscriptionQueueListener {
 		// if this is the special shovel that keeps all the shovels' subscription caches in sync, override some things..
 		exchange = session.config.SubscriptionExchange
-		routingKey = session.config.SubscriptionQueueName
+		routingKey = session.config.SubscriptionExchange
 	} else {
 		// since we're using a direct exchange now, a routeingkey = queuename will get the message to the right queue
-		routingKey = session.config.IngestQueueName
+		routingKey = session.config.IngestExchange
 	}
 	return session.config.PublisherConnectionPool.Push(exchange, routingKey, data)
 }
