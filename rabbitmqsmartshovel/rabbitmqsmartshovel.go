@@ -15,22 +15,25 @@ import (
 
 // Config for the session
 type Config struct {
-	Name                    string
-	ID                      string
-	Exchange                string
-	IngestExchange          string
-	IngestQueueName         string
-	IsShovel                bool
-	ConsumerConnectionPool  *rabbitmq.ConnectionPool
-	PublisherConnectionPool *rabbitmq.ConnectionPool
-	AutoAck                 bool
-	DurableQueue            bool
-	DeleteUnused            bool
-	Exclusive               bool
-	Args                    amqp.Table
-	Qos                     int
-	PublishOnly             bool
-	Context                 context.Context
+	Name                        string
+	ID                          string
+	Exchange                    string
+	IngestExchange              string
+	IngestQueueName             string
+	SubscriptionExchange        string
+	SubscriptionQueueName       string
+	IsShovel                    bool
+	IsSubscriptionQueueListener bool
+	ConsumerConnectionPool      *rabbitmq.ConnectionPool
+	PublisherConnectionPool     *rabbitmq.ConnectionPool
+	AutoAck                     bool
+	DurableQueue                bool
+	DeleteUnused                bool
+	Exclusive                   bool
+	Args                        amqp.Table
+	Qos                         int
+	PublishOnly                 bool
+	Context                     context.Context
 }
 
 // Session is the rabbitmq session
@@ -124,6 +127,17 @@ func (session *Session) ensureQueueAndBindings() error {
 		channel.Close()
 		return err
 	}
+	if err := session.consumerchannelhost.Channel.QueueBind(
+		session.config.Name,     // queue name
+		session.config.Name,     // routing key
+		session.config.Exchange, // exchange
+		false,
+		nil,
+	); err != nil {
+		log.Error(session.logger, "error binding routing key", "err", err, "routingKey", session.config.Name)
+		channel.Close()
+		return err
+	}
 
 	log.Info(session.logger, "setup and ready")
 	channel.Close()
@@ -191,6 +205,10 @@ func (session *Session) Push(routingKey string, data amqp.Publishing) error {
 	// otherwise just publish to the IngestExchange
 	if session.config.IsShovel {
 		exchange = session.config.Exchange
+	} else if session.config.IsSubscriptionQueueListener {
+		// if this is the special shovel that keeps all the shovels' subscription caches in sync, override some things..
+		exchange = session.config.SubscriptionExchange
+		routingKey = session.config.SubscriptionQueueName
 	} else {
 		// since we're using a direct exchange now, a routeingkey = queuename will get the message to the right queue
 		routingKey = session.config.IngestQueueName
