@@ -125,10 +125,21 @@ func (session *Session) ensureQueueAndBindings() error {
 		channel.Close()
 		return err
 	}
+
+	exchange := session.config.Exchange
+
+	// if the session IS the shovel session, then we bind ourselves to the ingest exchange
+	if session.config.IsShovel {
+		exchange = session.config.IngestExchange
+	} else if session.config.IsSubscriptionQueueListener {
+		// if this is the special shovel that keeps all the shovels' subscription caches in sync, override some things..
+		exchange = session.config.SubscriptionExchange
+	}
+
 	if err := session.consumerchannelhost.Channel.QueueBind(
-		session.config.Name,     // queue name
-		session.config.Name,     // routing key
-		session.config.Exchange, // exchange
+		session.config.Name, // queue name
+		session.config.Name, // routing key
+		exchange,            // exchange
 		false,
 		nil,
 	); err != nil {
