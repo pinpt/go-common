@@ -143,7 +143,7 @@ func (session *Session) ensureQueueAndBindings() error {
 		false,
 		nil,
 	); err != nil {
-		log.Error(session.logger, "error binding routing key", "err", err, "routingKey", session.config.Name)
+		log.Error(session.logger, "error binding routing key", "err", err, "routingKey", session.config.Name, "exchange", session.config.Exchange)
 		channel.Close()
 		return err
 	}
