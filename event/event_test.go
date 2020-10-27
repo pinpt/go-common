@@ -707,4 +707,13 @@ func TestGenerateQueueName(t *testing.T) {
 
 	//Test that changing how the headers are ordered generates the same name
 	assert.Equal(queueName4, queueName5)
+
+	sub6 := Subscription{
+		GroupID: IngestQueueName,
+		Topics:  []string{"atopic",},
+	}
+	queueName6 := GenerateQueueName(sub6)
+
+	//Test that using the ingestqueuename results in the same name
+	assert.Equal(IngestQueueName, queueName6)
 }

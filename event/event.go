@@ -32,6 +32,9 @@ var EventDebug = os.Getenv("PP_EVENT_DEBUG") == "1"
 
 const jsonContentType = "application/json"
 
+// IngestQueueName is the name of the eventapi ingest queue
+const IngestQueueName = "event-api-ingest"
+
 // PublishEvent is the container for a model event
 type PublishEvent struct {
 	Object  datamodel.Model
@@ -841,6 +844,10 @@ type Subscription struct {
 
 //GenerateQueueName takes in a Subscription, extracts the headers and topics and returns a consistent but unique queue name
 func GenerateQueueName(subscription Subscription) string {
+	// if the queue name is IngestQueueName, short circuit and just return the groupid = queue name, since we need this to be static
+	if subscription.GroupID == IngestQueueName {
+		return IngestQueueName
+	}
 	hashkeys := []string{}
 	for k, v := range subscription.Headers {
 		hashkeys = append(hashkeys, k, v)
@@ -852,6 +859,8 @@ func GenerateQueueName(subscription Subscription) string {
 	// sort so the hash is consistent
 	sort.Strings(hashkeys)
 	queueName := subscription.GroupID + "-" + hash.Values(hashkeys) // has the matching headers and topics so we create a consistent but unique queue
+
+
 
 	return queueName
 }
