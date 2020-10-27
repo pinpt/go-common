@@ -357,8 +357,11 @@ func (session *Session) Close() error {
 	var err error
 	log.Debug(session.logger, "start shutdown of rabbit session")
 	session.mu.Lock()
-	// block until we've nacked anyting in flight
-	<-session.done
+
+	if !session.config.PublishOnly {
+		// block until we've nacked anyting in flight..but not if we're only a Publisher!
+		<-session.done
+	}
 
 	session.config.ConsumerConnectionPool.ReturnChannel(session.consumerchannelhost, false)
 	close(session.messages)
