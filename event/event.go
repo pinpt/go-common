@@ -327,7 +327,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 
 // BulkPublish will publish an event to the event api server
 func BulkPublish(ctx context.Context, events []PublishEvent, channel string, apiKey string, options ...Option) error {
-	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
+	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "bulkingest")
 	if events[0].url != "" {
 		url = events[0].url // for testing only
 	}
