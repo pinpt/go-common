@@ -46,6 +46,17 @@ type PublishEvent struct {
 	url string
 }
 
+// BulkPublishEvent is the container for sending bulk model events
+type BulkPublishEvent struct {
+	Objects []datamodel.Model
+	Model   datamodel.ModelNameType `json:"model"`
+	Headers map[string]string
+	Logger  log.Logger `json:"-"`
+
+	// for testing only
+	url string
+}
+
 // payload is the container for a model event
 type payload struct {
 	ID        string                  `json:"message_id"`
@@ -229,7 +240,7 @@ func doPublish(ctx context.Context, logger log.Logger, url, apiKey, buf string, 
 					fmt.Println("[event-api] error sending event", buf, "error", resperr)
 				}
 				// always add some jitter to an exponential backoff
-				time.Sleep(time.Millisecond * time.Duration(100*attempts) + jitter.GetJitter(int64(1), int64(100)))
+				time.Sleep(time.Millisecond*time.Duration(100*attempts) + jitter.GetJitter(int64(1), int64(100)))
 				continue
 			}
 			if logger != nil {
@@ -300,7 +311,7 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 	config := &PublishConfig{
 		Debug:     false,
 		Header:    headers,
-		Deadline:  time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
+		Deadline:  time.Now().Add(time.Minute * 5), // default is 30m to send event before we fail
 		Timestamp: time.Now(),
 	}
 
@@ -326,30 +337,25 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 }
 
 // BulkPublish will publish an event to the event api server
-func BulkPublish(ctx context.Context, events []PublishEvent, channel string, apiKey string, options ...Option) error {
-	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "bulkingest")
-	if events[0].url != "" {
-		url = events[0].url // for testing only
+func BulkPublish(ctx context.Context, event BulkPublishEvent, channel string, apiKey string, options ...Option) error {
+	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
+	if event.url != "" {
+		url = event.url // for testing only
 	}
-	payloads := []payload{}
+
+	payload := payload{
+		Type:    "bulkjson",
+		Model:   event.Model,
+		Headers: event.Headers,
+		Data:    base64.StdEncoding.EncodeToString([]byte(pjson.Stringify(event.Objects))),
+	}
 	headers := make(http.Header)
 	config := &PublishConfig{
 		Debug:     false,
 		Header:    headers,
-		Deadline:  time.Now().Add(time.Minute * 5), // default is 5m to send event before we fail
+		Deadline:  time.Now().Add(time.Minute * 5), // default is 30m to send event before we fail
 		Timestamp: time.Now(),
 	}
-
-	for _, event := range events {
-		payloads = append(payloads, payload{
-			Type:      "json",
-			Model:     event.Object.GetModelName(),
-			Headers:   event.Headers,
-			Data:      base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
-			Timestamp: config.Timestamp,
-		})
-	}
-	buf := pjson.Stringify(payloads)
 
 	for _, opt := range options {
 		if err := opt(config); err != nil {
@@ -360,12 +366,14 @@ func BulkPublish(ctx context.Context, events []PublishEvent, channel string, api
 		return ErrDeadlineExceeded
 	}
 	if config.Debug || EventDebug {
-		fmt.Println("[event-api] sending payload", buf, "to", url)
+		fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
 	}
 	logger := config.Logger
 	if logger == nil {
-		logger = events[0].Logger
+		logger = event.Logger
 	}
+	payload.Timestamp = config.Timestamp
+	buf := pjson.Stringify(payload)
 
 	return doPublish(ctx, logger, url, apiKey, buf, config, options...)
 
