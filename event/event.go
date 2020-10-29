@@ -22,6 +22,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/hash"
+	"github.com/pinpt/go-common/v10/jitter"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pstrings "github.com/pinpt/go-common/v10/strings"
@@ -168,25 +169,8 @@ var insecureClient = &http.Client{
 // cache the secure client so we can reuse connections
 var secureClient, _ = api.NewHTTPAPIClientDefaultWithTimeout(time.Minute * 2)
 
-// Publish will publish an event to the event api server
-func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) error {
-	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
-	if event.url != "" {
-		url = event.url // for testing only
-	}
-	payload := payload{
-		Type:    "json",
-		Model:   event.Object.GetModelName(),
-		Headers: event.Headers,
-		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
-	}
-	headers := make(http.Header)
-	config := &PublishConfig{
-		Debug:     false,
-		Header:    headers,
-		Deadline:  time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
-		Timestamp: time.Now(),
-	}
+func doPublish(ctx context.Context, logger log.Logger, url, apiKey, buf string, config *PublishConfig, options ...Option) error {
+
 	var attempts int
 	for {
 		attempts++
@@ -199,14 +183,10 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			return ErrDeadlineExceeded
 		}
 		if config.Debug || EventDebug {
-			fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
+			fmt.Println("[event-api] sending payload", buf, "to", url)
 		}
 		logger := config.Logger
-		if logger == nil {
-			logger = event.Logger
-		}
-		payload.Timestamp = config.Timestamp
-		buf := pjson.Stringify(payload)
+
 		var bufreader io.Reader
 		var compressed bool
 		if len(buf) > MinCompressionSize {
@@ -228,8 +208,8 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		}
 		api.SetUserAgent(req)
 		api.SetAuthorization(req, apiKey)
-		if len(headers) > 0 {
-			for k, vals := range headers {
+		if len(config.Header) > 0 {
+			for k, vals := range config.Header {
 				req.Header.Set(k, vals[0])
 			}
 		}
@@ -244,17 +224,18 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		if resperr != nil {
 			if IsErrorRetryable(resperr) {
 				if logger != nil {
-					log.Debug(logger, "error sending event, will retry", "event", event, "attempts", attempts)
+					log.Debug(logger, "error sending event, will retry", "event", buf, "attempts", attempts)
 				} else if EventDebug {
-					fmt.Println("[event-api] error sending event", event, "error", resperr)
+					fmt.Println("[event-api] error sending event", buf, "error", resperr)
 				}
-				time.Sleep(time.Millisecond * time.Duration(100*attempts))
+				// always add some jitter to an exponential backoff
+				time.Sleep(time.Millisecond * time.Duration(100*attempts) + jitter.GetJitter(int64(1), int64(100)))
 				continue
 			}
 			if logger != nil {
-				log.Error(logger, "sent event error", "payload", payload, "event", event, "err", resperr)
+				log.Error(logger, "sent event error", "event", buf, "err", resperr)
 			} else if EventDebug {
-				fmt.Println("[event-api] sent event error", "payload", payload, "event", event, "err", resperr)
+				fmt.Println("[event-api] sent event error", "event", buf, "err", resperr)
 			}
 			return fmt.Errorf("error in post: %w", resperr)
 		}
@@ -272,9 +253,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 			}
 		} else {
 			if logger != nil {
-				log.Debug(logger, "sent event", "payload", payload, "event", event)
+				log.Debug(logger, "sent event", "event", buf)
 			} else if EventDebug {
-				fmt.Println("[event-api] sent event", "payload", payload, "event", event)
+				fmt.Println("[event-api] sent event", "event", buf)
 			}
 		}
 		defer resp.Body.Close()
@@ -301,6 +282,93 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 		}
 		return nil
 	}
+}
+
+// Publish will publish an event to the event api server
+func Publish(ctx context.Context, event PublishEvent, channel string, apiKey string, options ...Option) error {
+	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
+	if event.url != "" {
+		url = event.url // for testing only
+	}
+	payload := payload{
+		Type:    "json",
+		Model:   event.Object.GetModelName(),
+		Headers: event.Headers,
+		Data:    base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
+	}
+	headers := make(http.Header)
+	config := &PublishConfig{
+		Debug:     false,
+		Header:    headers,
+		Deadline:  time.Now().Add(time.Minute * 30), // default is 30m to send event before we fail
+		Timestamp: time.Now(),
+	}
+
+	for _, opt := range options {
+		if err := opt(config); err != nil {
+			return fmt.Errorf("error applying option: %w", err)
+		}
+	}
+	if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
+		return ErrDeadlineExceeded
+	}
+	if config.Debug || EventDebug {
+		fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
+	}
+	logger := config.Logger
+	if logger == nil {
+		logger = event.Logger
+	}
+	payload.Timestamp = config.Timestamp
+	buf := pjson.Stringify(payload)
+
+	return doPublish(ctx, logger, url, apiKey, buf, config, options...)
+}
+
+// BulkPublish will publish an event to the event api server
+func BulkPublish(ctx context.Context, events []PublishEvent, channel string, apiKey string, options ...Option) error {
+	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
+	if events[0].url != "" {
+		url = events[0].url // for testing only
+	}
+	payloads := []payload{}
+	headers := make(http.Header)
+	config := &PublishConfig{
+		Debug:     false,
+		Header:    headers,
+		Deadline:  time.Now().Add(time.Minute * 5), // default is 5m to send event before we fail
+		Timestamp: time.Now(),
+	}
+
+	for _, event := range events {
+		payloads = append(payloads, payload{
+			Type:      "json",
+			Model:     event.Object.GetModelName(),
+			Headers:   event.Headers,
+			Data:      base64.StdEncoding.EncodeToString([]byte(event.Object.Stringify())),
+			Timestamp: config.Timestamp,
+		})
+	}
+	buf := pjson.Stringify(payloads)
+
+	for _, opt := range options {
+		if err := opt(config); err != nil {
+			return fmt.Errorf("error applying option: %w", err)
+		}
+	}
+	if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
+		return ErrDeadlineExceeded
+	}
+	if config.Debug || EventDebug {
+		fmt.Println("[event-api] sending payload", buf, "to", url)
+	}
+	logger := config.Logger
+	if logger == nil {
+		logger = events[0].Logger
+	}
+
+	return doPublish(ctx, logger, url, apiKey, buf, config, options...)
+
 }
 
 // SubscriptionEvent is received from the event server
@@ -859,8 +927,6 @@ func GenerateQueueName(subscription Subscription) string {
 	// sort so the hash is consistent
 	sort.Strings(hashkeys)
 	queueName := subscription.GroupID + "-" + hash.Values(hashkeys) // has the matching headers and topics so we create a consistent but unique queue
-
-
 
 	return queueName
 }
