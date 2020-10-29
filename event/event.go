@@ -46,17 +46,6 @@ type PublishEvent struct {
 	url string
 }
 
-// BulkPublishEvent is the container for sending bulk model events
-type BulkPublishEvent struct {
-	Objects []datamodel.Model
-	Model   datamodel.ModelNameType `json:"model"`
-	Headers map[string]string
-	Logger  log.Logger `json:"-"`
-
-	// for testing only
-	url string
-}
-
 // payload is the container for a model event
 type payload struct {
 	ID        string                  `json:"message_id"`
@@ -337,18 +326,9 @@ func Publish(ctx context.Context, event PublishEvent, channel string, apiKey str
 }
 
 // BulkPublish will publish an event to the event api server
-func BulkPublish(ctx context.Context, event BulkPublishEvent, channel string, apiKey string, options ...Option) error {
-	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "ingest")
-	if event.url != "" {
-		url = event.url // for testing only
-	}
+func BulkPublish(ctx context.Context, events []PublishEvent, channel string, apiKey string, options ...Option) error {
+	url := pstrings.JoinURL(api.BackendURL(api.EventService, channel), "bulkingest")
 
-	payload := payload{
-		Type:    "bulkjson",
-		Model:   event.Model,
-		Headers: event.Headers,
-		Data:    base64.StdEncoding.EncodeToString([]byte(pjson.Stringify(event.Objects))),
-	}
 	headers := make(http.Header)
 	config := &PublishConfig{
 		Debug:     false,
@@ -365,15 +345,25 @@ func BulkPublish(ctx context.Context, event BulkPublishEvent, channel string, ap
 	if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
 		return ErrDeadlineExceeded
 	}
+
+	payloads := []payload{}
+	for _, e := range events {
+		payloads = append(payloads, payload{
+			Type:      "json",
+			Model:     e.Object.GetModelName(),
+			Headers:   e.Headers,
+			Data:      base64.StdEncoding.EncodeToString([]byte(e.Object.Stringify())),
+			Timestamp: config.Timestamp,
+		})
+	}
+
 	if config.Debug || EventDebug {
-		fmt.Println("[event-api] sending payload", pjson.Stringify(payload), "to", url)
+		fmt.Println("[event-api] sending payload", pjson.Stringify(payloads), "to", url)
 	}
+
 	logger := config.Logger
-	if logger == nil {
-		logger = event.Logger
-	}
-	payload.Timestamp = config.Timestamp
-	buf := pjson.Stringify(payload)
+
+	buf := pjson.Stringify(payloads)
 
 	return doPublish(ctx, logger, url, apiKey, buf, config, options...)
 
