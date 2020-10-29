@@ -174,18 +174,6 @@ func doPublish(ctx context.Context, logger log.Logger, url, apiKey, buf string, 
 	var attempts int
 	for {
 		attempts++
-		for _, opt := range options {
-			if err := opt(config); err != nil {
-				return fmt.Errorf("error applying option: %w", err)
-			}
-		}
-		if !config.Deadline.IsZero() && config.Deadline.Before(time.Now()) {
-			return ErrDeadlineExceeded
-		}
-		if config.Debug || EventDebug {
-			fmt.Println("[event-api] sending payload", buf, "to", url)
-		}
-		logger := config.Logger
 
 		var bufreader io.Reader
 		var compressed bool
@@ -248,7 +236,7 @@ func doPublish(ctx context.Context, logger log.Logger, url, apiKey, buf string, 
 				} else if EventDebug {
 					fmt.Println("[event-api] publish encountered a retryable error, will retry again", "code", resp.StatusCode)
 				}
-				time.Sleep(time.Millisecond * time.Duration(100*attempts))
+				time.Sleep(time.Millisecond*time.Duration(100*attempts) + jitter.GetJitter(int64(1), int64(100)))
 				continue
 			}
 		} else {
