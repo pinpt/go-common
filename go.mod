@@ -10,6 +10,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-isatty v0.0.12
+	github.com/nlopes/slack v0.6.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067
 	github.com/spf13/cobra v1.0.0
