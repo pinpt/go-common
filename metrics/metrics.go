@@ -18,6 +18,12 @@ var (
 		Help: "total number of requests by service - operation",
 	}, []string{"service", "operation", "response_code"})
 
+	// WebsocketConnections is the metric
+	WebsocketConnections = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pinpoint_websocket_connections",
+		Help: "number of websocket connections for a request by service",
+	}, []string{"service"})
+
 	// RequestBytesSum is the metric
 	RequestBytesSum = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pinpoint_request_bytes_sum",
@@ -29,7 +35,6 @@ var (
 		Name: "pinpoint_response_bytes_sum",
 		Help: "sum of bytes for a response by service - operation",
 	}, []string{"service", "operation"})
-
 )
 
 func init() {
