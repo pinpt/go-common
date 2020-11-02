@@ -13,6 +13,7 @@ require (
 	github.com/nlopes/slack v0.6.0
 	github.com/oliveagle/jsonpath v0.0.0-20180606110733-2e52cf6e6852
 	github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067
+	github.com/prometheus/client_golang v1.3.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
