@@ -19,8 +19,8 @@ var (
 	}, []string{"service", "operation", "response_code"})
 
 	// WebsocketConnections is the metric
-	WebsocketConnections = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pinpoint_websocket_connections",
+	WebsocketConnections = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "pinpoint_websocket_connections_total",
 		Help: "number of websocket connections for a request by service",
 	}, []string{"service"})
 
