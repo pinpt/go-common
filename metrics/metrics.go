@@ -42,5 +42,6 @@ func init() {
 	prometheus.MustRegister(RequestsTotal)
 	prometheus.MustRegister(RequestBytesSum)
 	prometheus.MustRegister(ResponseBytesSum)
+	prometheus.MustRegister(WebsocketConnections)
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
