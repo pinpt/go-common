@@ -9,7 +9,7 @@ var (
 	RequestDurationMilliseconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "pinpoint_request_duration_milliseconds",
 		Help:    "latency of a given service - operation",
-		Buckets: []float64{5, 10, 25, 50, 100, 500, 1000, 5000},
+		Buckets: []float64{5, 10, 25, 50, 75, 100, 200, 500, 800, 1000, 3000, 5000},
 	}, []string{"service", "operation"})
 
 	// RequestsTotal is the metric
