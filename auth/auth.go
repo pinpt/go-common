@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"net/http"
+	"os"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -156,4 +158,29 @@ func decrypt(ciphertextAndNonce, key []byte) ([]byte, error) {
 	}
 
 	return plaintext, nil
+}
+
+// Info contains authentication information about the current request.
+type Info struct {
+	Authenticated bool
+	Internal      bool // Internal is not implemented yet
+	CustomerID    string
+	UserID        string
+}
+
+// GetAuthInfo will extract pinpoint auth info from a request
+func GetAuthInfo(r *http.Request) Info {
+	customerID := r.Header.Get("pinpt-customer-id")
+	if customerID == "" {
+		customerID = os.Getenv("PP_CUSTOMER_ID")
+	}
+	userID := r.Header.Get("pinpt-user-id")
+	if userID == "" {
+		userID = os.Getenv("PP_USER_ID")
+	}
+	return Info{
+		Authenticated: customerID != "" && userID != "",
+		CustomerID:    customerID,
+		UserID:        userID,
+	}
 }
