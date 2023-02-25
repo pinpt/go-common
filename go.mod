@@ -19,7 +19,7 @@ require (
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
 	github.com/stretchr/testify v1.6.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
-	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
 
 replace github.com/gorilla/websocket v1.4.2 => github.com/pinpt/websocket v1.4.2-0.20191010233559-d9055c4295fd
