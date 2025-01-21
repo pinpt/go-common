@@ -18,7 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/streadway/amqp v0.0.0-20200108173154-1c71cc93ed71
 	github.com/stretchr/testify v1.6.0
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.31.0
 )
 
 replace github.com/gorilla/websocket v1.4.2 => github.com/pinpt/websocket v1.4.2-0.20191010233559-d9055c4295fd
